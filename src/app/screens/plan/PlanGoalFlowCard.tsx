@@ -470,6 +470,10 @@ function defaultTrainingDose(selectedDayCount: number): NonNullable<BuildGoalDra
   return selectedDayCount >= 5 ? "serious" : selectedDayCount >= 3 ? "standard" : "minimal";
 }
 
+function supportDayKey(days: readonly GeneratedSupportDay[]): string {
+  return [...days].sort().join("|");
+}
+
 function subFocusOptionsFor(primaryFocus: BuildGoalDraft["primaryFocus"]): readonly BuildSubFocus[] {
   switch (primaryFocus) {
     case "power":
@@ -616,6 +620,10 @@ export function PlanGoalFlowCard({
   const [primaryFocus, setPrimaryFocus] = React.useState<BuildGoalDraft["primaryFocus"]>("balanced");
   const [subFocus, setSubFocus] = React.useState<BuildSubFocus>(() => defaultSubFocusForBuildFocus("balanced"));
   const [trainingDose, setTrainingDose] = React.useState<NonNullable<BuildGoalDraft["trainingDose"]>>(() => defaultTrainingDose(initialAvailableDays.length));
+  const availabilityEditedRef = React.useRef(false);
+  const trainingDoseEditedRef = React.useRef(false);
+  const initialAvailableDaysKey = supportDayKey(initialAvailableDays);
+  const lastInitialAvailableDaysKeyRef = React.useRef(initialAvailableDaysKey);
 
   const [status, setStatus] = React.useState<FightSetupDraft["status"]>(defaultFight.status);
   const [amateurOrPro, setAmateurOrPro] = React.useState<FightSetupDraft["amateurOrPro"]>(defaultFight.amateurOrPro);
@@ -670,9 +678,28 @@ export function PlanGoalFlowCard({
             body: "Rebuilding this week from your new goal, support days, and fixed boxing schedule."
           };
 
+  React.useEffect(() => {
+    if (lastInitialAvailableDaysKeyRef.current === initialAvailableDaysKey) {
+      return;
+    }
+    lastInitialAvailableDaysKeyRef.current = initialAvailableDaysKey;
+    if (!availabilityEditedRef.current) {
+      setSelectedAvailableDays([...initialAvailableDays]);
+    }
+    if (!trainingDoseEditedRef.current) {
+      setTrainingDose(defaultTrainingDose(initialAvailableDays.length));
+    }
+  }, [initialAvailableDays, initialAvailableDaysKey]);
+
   const toggleAvailableDay = (day: GeneratedSupportDay) => {
     setStepError(null);
+    availabilityEditedRef.current = true;
     setSelectedAvailableDays((current) => (current.includes(day) ? current.filter((item) => item !== day) : [...current, day]));
+  };
+
+  const selectTrainingDose = (dose: NonNullable<BuildGoalDraft["trainingDose"]>) => {
+    trainingDoseEditedRef.current = true;
+    setTrainingDose(dose);
   };
 
   const chooseMode = (nextMode: GoalMode) => {
@@ -1094,7 +1121,7 @@ export function PlanGoalFlowCard({
               <Text style={screenStyles.subtle}>How much app-generated support should CornerIQ try to place around boxing. Safety and readiness can still reduce it.</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                 {trainingDoseOptions.map((option) => (
-                  <DescribedOptionButton active={trainingDose === option.value} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => setTrainingDose(option.value)} />
+                  <DescribedOptionButton active={trainingDose === option.value} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => selectTrainingDose(option.value)} />
                 ))}
               </View>
             </View>

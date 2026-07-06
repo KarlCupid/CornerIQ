@@ -1995,6 +1995,62 @@ describe("training block and microcycle engine", () => {
     expect(audit.unmetPrescriptionTargets).toEqual([]);
   });
 
+  it("serious build dose with full availability and full equipment does not collapse to one workout", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          boxingLevel: "amateur_open",
+          amateurOrPro: "amateur",
+          trainingAgeYears: 4,
+          scheduleAvailability: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
+          equipmentAccess: ["bodyweight_only", "jump_rope", "dumbbells", "barbell", "pull_up_bar", "heavy_bag", "full_gym"]
+        },
+        protectedWorkouts: [],
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "balanced",
+            id: "plan_full_availability_serious_current_week",
+            planStartDate: fixtureAsOfDate,
+            selectedSupportDays: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
+            trainingDose: "serious"
+          })
+        ],
+        readinessHistory: [
+          {
+            date: fixtureAsOfDate,
+            sleepHours: 8,
+            sleepQuality1To5: 4,
+            energy1To5: 4,
+            soreness1To5: 2,
+            stress1To5: 2,
+            mood1To5: 4,
+            painNotes: [],
+            illnessSymptoms: [],
+            dizziness: false,
+            fainting: false,
+            urineColor: "normal"
+          }
+        ],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate,
+      generatedAt: `${fixtureAsOfDate}T12:00:00.000Z`
+    });
+    const audit = state.training.supportGenerationAudit;
+
+    expect(audit.selectedTrainingDose).toBe("serious");
+    expect(audit.selectedSupportDayCount).toBe(7);
+    expect(audit.candidateAllowedDays).toBe(7);
+    expect(audit.targetGeneratedSupportCount).toBeGreaterThanOrEqual(5);
+    expect(audit.actualGeneratedSupportCount).toBeGreaterThanOrEqual(5);
+    expect(state.training.generatedSessions.length).toBeGreaterThanOrEqual(5);
+    expect(audit.unmetPrescriptionTargets).toEqual([]);
+  });
+
   it("serious no-anchor build week generates boxing skill exposures without losing strength and conditioning", () => {
     const state = seriousSixDayState({ id: "plan_six_day_boxing_engine" });
     const audit = state.training.supportGenerationAudit;

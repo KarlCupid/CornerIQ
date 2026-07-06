@@ -168,6 +168,29 @@ describe("Supabase migration static checks", () => {
     }
   });
 
+  it("keeps workout-completion retry upsert keys backed by plain unique indexes", () => {
+    const migration = readMigration("20260706185835_workout_completion_upsert_conflict_constraints.sql");
+    const repositorySource = [
+      readSource("src/services/supabase/exerciseResultRepository.ts"),
+      readSource("src/services/supabase/journeyRepository.ts")
+    ].join("\n");
+
+    expect(repositorySource).toContain('onConflict: "user_id,result_key"');
+    expect(repositorySource).toContain('onConflict: "user_id,event_key"');
+
+    for (const requiredFragment of [
+      "drop index if exists public.exercise_results_user_result_key_uidx",
+      "on public.exercise_results(user_id, result_key);",
+      "drop index if exists public.athlete_journey_events_user_event_key_uidx",
+      "on public.athlete_journey_events(user_id, event_key);"
+    ]) {
+      expect(migration).toContain(requiredFragment);
+    }
+
+    expect(migration).not.toContain("where result_key is not null");
+    expect(migration).not.toContain("where event_key is not null");
+  });
+
   it("preserves outside-engine workout support persistence contracts", () => {
     const source = readMigration("20260626120000_outside_engine_workout_support.sql");
 

@@ -5471,6 +5471,67 @@ describe("minimal app screens", () => {
     expect(savedBuildDraft?.planAction).toBe("amend_current_plan");
   });
 
+  it("Plan generation wizard refreshes support days when the plan model updates while open", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const onSaveBuildGoal = vi.fn<(draft: BuildGoalDraft) => Promise<void>>(async () => undefined);
+    const oneDayPlan: PlanViewModel = {
+      ...planViewModel,
+      generatedSupportAvailability: {
+        selectedDays: ["monday"],
+        summary: "Mon"
+      },
+      scheduleAvailability: ["monday"],
+      scheduleAvailabilitySummary: "Monday"
+    };
+    const allDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+    const fullAvailabilityPlan: PlanViewModel = {
+      ...planViewModel,
+      generatedSupportAvailability: {
+        selectedDays: allDays,
+        summary: "Mon, Tue, Wed, Thu, Fri, Sat, Sun"
+      },
+      scheduleAvailability: allDays,
+      scheduleAvailabilitySummary: "Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday"
+    };
+    const renderPlan = (viewModel: PlanViewModel) =>
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveBuildGoal,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel
+      });
+    const renderer = render(renderPlan(oneDayPlan));
+
+    await switchSection(renderer, "Adjust plan");
+    await act(async () => {
+      (renderer as unknown as { update: (element: React.ReactElement) => void }).update(renderPlan(fullAvailabilityPlan));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
+    });
+
+    expect(onSaveBuildGoal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generatedSupportAvailableDays: [...allDays],
+        scheduleAvailability: [...allDays],
+        trainingDose: "serious"
+      })
+    );
+  });
+
   it("Plan generation wizard shows an in-flight new-plan state and disables controls", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     let resolveSave: (() => void) | undefined;

@@ -102,4 +102,27 @@ describe("local E2E state", () => {
     expect(generatedStimulusCounts(conditioning).conditioning).toBeGreaterThanOrEqual(1);
     expect(generatedConditioningMinutes(conditioning)).toBeGreaterThanOrEqual(25);
   });
+
+  it("does not collapse serious full-availability local regeneration to one workout", () => {
+    const allDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+    const state = buildLocalE2EPerformanceState({
+      protectedWorkouts: [],
+      buildGoalDraft: {
+        primaryFocus: "balanced",
+        trainingDose: "serious",
+        scheduleAvailability: [...allDays],
+        planStartDate: LOCAL_E2E_AS_OF_DATE,
+        planAction: "start_new_plan",
+        protectedScheduleMode: "clear_for_plan",
+        equipment: ["bodyweight_only", "jump_rope", "dumbbells", "barbell", "pull_up_bar", "heavy_bag", "full_gym"]
+      }
+    });
+
+    expect(state.training.supportGenerationAudit.selectedTrainingDose).toBe("serious");
+    expect(state.training.supportGenerationAudit.selectedSupportDayCount).toBe(7);
+    expect(state.training.supportGenerationAudit.targetGeneratedSupportCount).toBeGreaterThanOrEqual(5);
+    expect(state.training.supportGenerationAudit.actualGeneratedSupportCount).toBeGreaterThanOrEqual(5);
+    expect(state.training.generatedSessions).toHaveLength(state.training.supportGenerationAudit.actualGeneratedSupportCount);
+    expect(state.viewModels.plan.generatedSupportSessionCount).toBeGreaterThanOrEqual(5);
+  });
 });
