@@ -38,7 +38,7 @@ import type { PersistedTrainingPlanAdjustment } from "./planAdjustmentTypes";
 import { resolveTrainingBlock } from "./trainingBlockEngine";
 import { selectAuthoritativeTrainingProgressionDecision } from "./trainingHistoryAuthority";
 import { generatedSupportAllowedOnDate, generatedSupportWeekdayForDate, normalizeGeneratedSupportWeekdays, type GeneratedSupportWeekday } from "./supportAvailability";
-import { classifyTrainingGenerationConstraints, fuelingRiskCapsGeneratedCount, severeFuelingRisk, supportCountFuelCapFlags } from "./trainingGenerationConstraints";
+import { classifyTrainingGenerationConstraints } from "./trainingGenerationConstraints";
 import {
   applyTrainingExecutionGuidance,
   readinessHasHardStop,
@@ -1168,29 +1168,6 @@ function uniqueStrings(items: readonly string[]): readonly string[] {
   return [...new Set(items.filter((item) => item.trim().length > 0))];
 }
 
-function markFuelingSafetyCappedSession(
-  session: GeneratedTrainingSession,
-  reason: string,
-  intensity: GeneratedTrainingSession["intensity"] = "easy"
-): GeneratedTrainingSession {
-  const cappedDuration = Math.min(session.durationMinutes, 30);
-  return applyStructuredSafetyAdjustment({
-    session: {
-      ...session,
-      durationMinutes: cappedDuration,
-      intensity,
-      fuelDemand: "low",
-      durationPolicyCategory: "safety_capped",
-      durationReductionReasons: uniqueStrings([...(session.durationReductionReasons ?? []), reason]),
-      finalDurationMinutes: Math.min(session.finalDurationMinutes ?? session.durationMinutes, cappedDuration),
-      modifications: uniqueStrings([...session.modifications, reason])
-    },
-    targetDurationMinutes: cappedDuration,
-    hardness: intensity,
-    reason
-  });
-}
-
 function generatedFuelDemand(sessions: readonly GeneratedTrainingSession[]): TrainingDayPlan["fuelDemand"] | null {
   if (sessions.length === 0) {
     return null;
@@ -1231,52 +1208,6 @@ function finalFuelDemandForDayPlan(input: {
   const generatedDemand = generatedFuelDemand(input.generatedSessions);
   const anchorDemand = protectedAnchorFuelDemand(input.dayPlan.protectedAnchors);
   return maxFuelDemand([anchorDemand, generatedDemand]);
-}
-
-function recoveryOnlyFuelingSession(session: GeneratedTrainingSession): boolean {
-  return session.intensity === "recovery" || session.family === "recovery_reset" || trainingStimulusForFamily(session.family) === "recovery";
-}
-
-function supportSessionAllowedDuringFuelCap(session: GeneratedTrainingSession): boolean {
-  return recoveryOnlyFuelingSession(session) || (!isHighStimulusGeneratedSession(session) && session.intensity !== "hard" && session.fuelDemand !== "high");
-}
-
-function applyFuelingEvidenceGenerationGate(input: {
-  sessions: readonly GeneratedTrainingSession[];
-  safetyFlags: readonly RiskFlag[];
-}): { sessions: readonly GeneratedTrainingSession[]; reasons: readonly string[]; mode: "none" | "capped" | "recovery_only" } {
-  const severe = severeFuelingRisk(input.safetyFlags);
-  const capFlags = supportCountFuelCapFlags(input.safetyFlags);
-  if (!severe && !fuelingRiskCapsGeneratedCount(input.safetyFlags)) {
-    return { sessions: input.sessions, reasons: [], mode: "none" };
-  }
-  const reasons = uniqueStrings(
-    (severe
-      ? input.safetyFlags.filter(
-          (flag) =>
-            flag.status === "active" &&
-            flag.domain === "nutrition" &&
-            (flag.hardStop || flag.severity === "critical" || flag.code === "missed_period_underfueling_risk" || flag.code === "high_underfueling_blocks_deficit")
-        )
-      : capFlags)
-      .map((flag) => flag.message)
-  );
-  const reason = severe
-    ? "Positive under-fueling safety evidence makes generated support recovery-only until qualified review."
-    : "Positive under-fueling evidence caps generated support until recovery fuel and review are addressed.";
-  if (severe) {
-    return {
-      sessions: input.sessions.filter(recoveryOnlyFuelingSession).map((session) => markFuelingSafetyCappedSession(session, reason, "recovery")),
-      reasons,
-      mode: "recovery_only"
-    };
-  }
-  const allowed = input.sessions.filter(supportSessionAllowedDuringFuelCap);
-  return {
-    sessions: allowed.slice(0, 1).map((session) => markFuelingSafetyCappedSession(session, reason)),
-    reasons,
-    mode: "capped"
-  };
 }
 
 interface ResolveCompiledTrainingStateInput {
@@ -1458,11 +1389,7 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
       input.executionReadiness
     )
   );
-  const fuelingGenerationGate = applyFuelingEvidenceGenerationGate({
-    sessions: guidedGeneratedSessions,
-    safetyFlags: input.safetyFlags ?? []
-  });
-  const mergedGeneratedSessions = fuelingGenerationGate.sessions;
+  const mergedGeneratedSessions = guidedGeneratedSessions;
   const requestedPlanIntentId = input.planGenerationIntent?.id ?? input.planRevision;
   const resolvedPlanIntentId = compilerResult.currentWeek.planIntent.activeRevisionId;
   const activeCompiledWeekId = `week:${resolvedPlanIntentId}:${compilerResult.currentWeek.weekStartDate}`;
@@ -1554,9 +1481,7 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
   const readinessDownshiftReasons = mergedGeneratedSessions.flatMap((session) => session.structuredPrescriptionV2?.compiledSession.readinessOverlay?.rationale ?? []);
   const evidenceBasedOverridesApplied = [
     ...persistentSafetyConstraints.map((constraint) => `Active ${constraint.affectedBodyRegion} safety constraint scoped to ${constraint.affectedTrainingDomains.join(", ")}.`),
-    ...(input.redReadinessHardStop ? ["Same-day readiness hard-stop changed only today's matching compiled session."] : []),
-    ...(fuelingGenerationGate.mode === "recovery_only" ? ["Positive under-fueling safety evidence made generated support recovery-only until qualified review."] : []),
-    ...(fuelingGenerationGate.mode === "capped" ? ["Positive under-fueling evidence capped generated support until recovery fuel and review are addressed."] : [])
+    ...(input.redReadinessHardStop ? ["Same-day readiness hard-stop changed only today's matching compiled session."] : [])
   ];
   const executionAdjustmentsApplied = [
     ...input.executionReadiness.sessionExecutionGuidance,
@@ -1576,7 +1501,6 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
   const reducedBy: TrainingGenerationReductionSource[] = [
     ...(input.hardStopOrRedReadiness ? (["readiness"] as const) : []),
     ...(persistentSafetyConstraints.length > 0 ? (["safety"] as const) : []),
-    ...(fuelingGenerationGate.mode !== "none" ? (["nutrition"] as const) : []),
     ...(input.highCycleSymptoms ? (["cycle"] as const) : []),
     ...(input.candidateAllowedDays < targetGeneratedSupportCount ? (["availability"] as const) : []),
     ...(input.blockedByAnchors ? (["anchors"] as const) : [])
@@ -1774,7 +1698,7 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
       const compiled = session.structuredPrescriptionV2?.compiledSession;
       return `${session.date}: V2 placed ${session.title} for ${compiled?.primaryAdaptation ?? session.trainingStimulus ?? "support"} with ${compiled?.displayedDurationMinutes ?? session.durationMinutes} structured minutes.`;
     }),
-    blockedGenerationReasons: [...validationFailures, ...unresolvedTargetReasons, ...fuelingGenerationGate.reasons],
+    blockedGenerationReasons: [...validationFailures, ...unresolvedTargetReasons],
     persistenceWarning: "",
     reducedBy
   };

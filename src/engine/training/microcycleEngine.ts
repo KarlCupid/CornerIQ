@@ -16,7 +16,7 @@ import { anchorsForDate } from "./protectedAnchors";
 import { BOXING_SKILL_GENERATED_FAMILIES, isHighStimulusTrainingDay } from "./trainingStimulus";
 import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
 
-const MICROCYCLE_TRAINING_SAFETY_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament", "nutrition"]);
+const MICROCYCLE_TRAINING_SAFETY_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
 
 export interface WeeklyMicrocycleInput {
   asOfDate: string;
@@ -116,7 +116,7 @@ function daySafetyFlags(input: {
     .filter((flag) => flag.status === "active" && MICROCYCLE_TRAINING_SAFETY_DOMAINS.has(flag.domain) && (flag.blocksPlan || flag.hardStop || flag.domain === "training" || flag.domain === "cycle"))
     .map((flag) => flag.message);
   if (input.underFuelingRisk) {
-    messages.push("Under-fueling evidence changes generated support only when positive risk evidence exists; missing logs stay advisory.");
+    messages.push("Under-fueling evidence changes fuel guidance, not generated workout structure.");
   }
   if (input.date === input.asOfDate && readinessHasHardStop(input.readiness, input.safetyFlags)) {
     messages.push("Readiness hard-stop symptoms override block goals today.");
@@ -237,7 +237,7 @@ export function buildWeeklyMicrocycle(input: WeeklyMicrocycleInput): {
   const notes = [
     `${plannedHardDays}/${hardDayCap} hard days planned.`,
     `${protectedAnchorCount} protected anchors remain primary.`,
-    ...(input.underFuelingRisk ? ["Under-fueling evidence can cap generated support; missing fuel logs alone do not."] : []),
+    ...(input.underFuelingRisk ? ["Under-fueling evidence keeps fuel guidance visible without changing generated workouts."] : []),
     ...(input.cycle.symptomBurden === "high" ? ["High cycle symptoms trim optional volume."] : [])
   ];
   const weeklyStructure: WeeklyTrainingStructure = {

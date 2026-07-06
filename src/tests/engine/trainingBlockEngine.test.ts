@@ -16,6 +16,7 @@ import type {
   WaterLog
 } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
 import { buildWorkoutPlayerTimeline } from "../../engine/presentation/workoutPlayerTimeline";
 import { buildDetailedTrainingSession } from "../../engine/training/detailedSessionEngine";
 import { materializeRecurringProtectedAnchors } from "../../engine/training/protectedAnchors";
@@ -455,7 +456,7 @@ describe("training block and microcycle engine", () => {
     expect(pain.training.blockRecommendation.reason).toContain("qualified review");
   });
 
-  it("protected sparring owns the day while positive under-fueling evidence caps generated support", () => {
+  it("protected sparring owns the day while positive under-fueling evidence preserves generated support", () => {
     const sparring = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const underFueling = resolvePerformanceState({ journey: underfueling_risk_camp, asOfDate: fixtureAsOfDate });
     const repeatedLowIntakeOnly = resolvePerformanceState({
@@ -484,27 +485,28 @@ describe("training block and microcycle engine", () => {
     expect(sparring.training.todaySessions.every((session) => session.intensity !== "hard")).toBe(true);
     expect(generatedSessionSafetyText(sparring.training.generatedSessions)).not.toMatch(/sparring|contact|sauna|sweat\s*suit|sweatsuit|weight\s*cut|cut\s*weight/);
     expect(underFueling.training.blockRecommendation.warnings.join(" ")).toContain("Under-fueling");
-    expect(underFueling.training.generatedSessions.length).toBeLessThan(underFueling.training.supportGenerationAudit.targetGeneratedSupportCount);
-    expect(underFueling.training.generatedSessions).toHaveLength(1);
-    expect(underFueling.training.generatedSessions.every((session) => session.durationPolicyCategory === "safety_capped" && session.fuelDemand === "low")).toBe(true);
-    expectExecutablePrescriptionMatchesSession(underFueling, underFueling.training.generatedSessions[0]!);
-    expect(underFueling.training.dayPlans.find((day) => day.generatedSessions.some((session) => session.id === underFueling.training.generatedSessions[0]!.id))?.fuelDemand).toBe("low");
-    const removedByCapDay = underFueling.training.dayPlans.find((day) => day.date === "2026-05-20")!;
-    expect(removedByCapDay.generatedSessions).toHaveLength(0);
-    expect(removedByCapDay.protectedAnchors).toHaveLength(0);
-    expect(removedByCapDay.fuelDemand).toBe("low");
-    expect(underFueling.training.supportGenerationAudit.reducedBy).toContain("nutrition");
-    expect(underFueling.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).toContain("Rapid body-mass loss");
+    expect(underFueling.training.generatedSessions.length).toBe(underFueling.training.supportGenerationAudit.targetGeneratedSupportCount);
+    expect(underFueling.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(underFueling.training.generatedSessions.every((session) => session.durationPolicyCategory !== "safety_capped")).toBe(true);
+    for (const session of underFueling.training.generatedSessions) {
+      expectExecutablePrescriptionMatchesSession(underFueling, session);
+    }
+    expect(underFueling.training.supportGenerationAudit.reducedBy).not.toContain("nutrition");
+    expect(underFueling.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).not.toContain("Rapid body-mass loss");
     expect(underFueling.training.executionReadiness.fuelingStatus).toBe("underfueling_evidence");
-    expect(underFueling.training.supportGenerationAudit.nutritionGenerationImpact).toBe("load_downshift");
-    expect(underFueling.training.supportGenerationAudit.evidenceBasedOverridesApplied.join(" ")).toContain("Positive under-fueling evidence capped generated support");
+    expect(underFueling.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
+    expect(underFueling.training.supportGenerationAudit.evidenceBasedOverridesApplied.join(" ")).not.toContain("under-fueling");
     expect(repeatedLowIntakeOnly.safety.riskFlags.map((flag) => flag.code)).toContain("repeated_low_intake");
     expect(repeatedLowIntakeOnly.safety.riskFlags.map((flag) => flag.code)).not.toContain("rapid_weight_loss");
-    expect(repeatedLowIntakeOnly.training.generatedSessions).toHaveLength(1);
-    expect(repeatedLowIntakeOnly.training.generatedSessions.every((session) => session.durationPolicyCategory === "safety_capped" && session.fuelDemand === "low")).toBe(true);
-    expectExecutablePrescriptionMatchesSession(repeatedLowIntakeOnly, repeatedLowIntakeOnly.training.generatedSessions[0]!);
-    expect(repeatedLowIntakeOnly.training.supportGenerationAudit.reducedBy).toContain("nutrition");
-    expect(repeatedLowIntakeOnly.training.supportGenerationAudit.nutritionGenerationImpact).toBe("load_downshift");
+    expect(repeatedLowIntakeOnly.training.generatedSessions.length).toBe(repeatedLowIntakeOnly.training.supportGenerationAudit.targetGeneratedSupportCount);
+    expect(repeatedLowIntakeOnly.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(repeatedLowIntakeOnly.training.generatedSessions.every((session) => session.durationPolicyCategory !== "safety_capped")).toBe(true);
+    for (const session of repeatedLowIntakeOnly.training.generatedSessions) {
+      expectExecutablePrescriptionMatchesSession(repeatedLowIntakeOnly, session);
+    }
+    expect(repeatedLowIntakeOnly.training.supportGenerationAudit.reducedBy).not.toContain("nutrition");
+    expect(repeatedLowIntakeOnly.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
+    expect(repeatedLowIntakeOnly.training.supportGenerationAudit.evidenceBasedOverridesApplied.join(" ")).not.toContain("under-fueling");
   });
 
   it("places generated support only on athlete schedule availability days", () => {
@@ -2049,6 +2051,139 @@ describe("training block and microcycle engine", () => {
     expect(audit.actualGeneratedSupportCount).toBeGreaterThanOrEqual(5);
     expect(state.training.generatedSessions.length).toBeGreaterThanOrEqual(5);
     expect(audit.unmetPrescriptionTargets).toEqual([]);
+  });
+
+  it("serious Monday-start build dose with full availability does not collapse to one light boxing day", () => {
+    const mondayAsOfDate = "2026-07-06";
+    const allDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          boxingLevel: "amateur_open",
+          amateurOrPro: "amateur",
+          trainingAgeYears: 4,
+          scheduleAvailability: allDays,
+          equipmentAccess: ["bodyweight_only", "jump_rope", "dumbbells", "barbell", "pull_up_bar", "heavy_bag", "full_gym"]
+        },
+        protectedWorkouts: [],
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "balanced",
+            id: "plan_monday_full_availability_serious",
+            occurredAt: `${mondayAsOfDate}T09:00:00.000Z`,
+            planStartDate: mondayAsOfDate,
+            selectedSupportDays: allDays,
+            trainingDose: "serious"
+          })
+        ],
+        readinessHistory: [
+          {
+            date: mondayAsOfDate,
+            sleepHours: 8,
+            sleepQuality1To5: 5,
+            energy1To5: 5,
+            soreness1To5: 1,
+            stress1To5: 1,
+            mood1To5: 5,
+            painNotes: [],
+            illnessSymptoms: [],
+            dizziness: false,
+            fainting: false,
+            urineColor: "normal"
+          }
+        ],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: mondayAsOfDate,
+      generatedAt: `${mondayAsOfDate}T12:00:00.000Z`
+    });
+    const audit = state.training.supportGenerationAudit;
+
+    expect(state.readiness.color).toBe("green");
+    expect(audit.selectedTrainingDose).toBe("serious");
+    expect(audit.selectedSupportDayCount).toBe(7);
+    expect(audit.candidateAllowedDays).toBe(7);
+    expect(audit.targetGeneratedSupportCount).toBeGreaterThanOrEqual(5);
+    expect(audit.actualGeneratedSupportCount).toBeGreaterThanOrEqual(5);
+    expect(audit.actualStimulusMix.strength + audit.actualStimulusMix.conditioning + audit.actualStimulusMix.power).toBeGreaterThanOrEqual(3);
+    expect(audit.reducedBy).not.toContain("readiness");
+    expect(audit.reducedBy).not.toContain("nutrition");
+  });
+
+  it("build-phase fueling evidence does not reduce serious full-availability workout generation", () => {
+    const mondayAsOfDate = "2026-07-06";
+    const allDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          boxingLevel: "amateur_open",
+          amateurOrPro: "amateur",
+          trainingAgeYears: 4,
+          scheduleAvailability: allDays,
+          equipmentAccess: ["bodyweight_only", "jump_rope", "dumbbells", "barbell", "pull_up_bar", "heavy_bag", "full_gym"]
+        },
+        protectedWorkouts: [],
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "balanced",
+            id: "plan_build_fueling_evidence_no_generation_cap",
+            occurredAt: `${mondayAsOfDate}T09:00:00.000Z`,
+            planStartDate: mondayAsOfDate,
+            selectedSupportDays: allDays,
+            trainingDose: "serious"
+          })
+        ],
+        readinessHistory: [
+          {
+            date: mondayAsOfDate,
+            sleepHours: 8,
+            sleepQuality1To5: 5,
+            energy1To5: 5,
+            soreness1To5: 1,
+            stress1To5: 1,
+            mood1To5: 5,
+            painNotes: [],
+            illnessSymptoms: [],
+            dizziness: false,
+            fainting: false,
+            urineColor: "normal"
+          }
+        ],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: [
+          createRiskFlag(
+            "nutrition",
+            "rapid_weight_loss",
+            "high",
+            "Rapid body-mass loss raises under-fueling risk.",
+            { asOfDate: mondayAsOfDate, evidenceIds: ["rapid_loss_underfueling_risk_1_percent_per_week"] },
+            true
+          )
+        ]
+      },
+      asOfDate: mondayAsOfDate,
+      generatedAt: `${mondayAsOfDate}T12:00:00.000Z`
+    });
+    const audit = state.training.supportGenerationAudit;
+
+    expect(state.readiness.color).toBe("green");
+    expect(state.training.executionReadiness.fuelingStatus).toBe("underfueling_evidence");
+    expect(audit.selectedTrainingDose).toBe("serious");
+    expect(audit.selectedSupportDayCount).toBe(7);
+    expect(audit.targetGeneratedSupportCount).toBeGreaterThanOrEqual(5);
+    expect(audit.actualGeneratedSupportCount).toBe(audit.targetGeneratedSupportCount);
+    expect(state.training.generatedSessions.length).toBeGreaterThanOrEqual(5);
+    expect(state.training.generatedSessions.every((session) => session.durationPolicyCategory !== "safety_capped")).toBe(true);
+    expect(audit.reducedBy).not.toContain("nutrition");
+    expect(audit.nutritionGenerationImpact).toBe("advisory");
+    expect(audit.evidenceBasedOverridesApplied.join(" ")).not.toContain("under-fueling");
   });
 
   it("serious no-anchor build week generates boxing skill exposures without losing strength and conditioning", () => {

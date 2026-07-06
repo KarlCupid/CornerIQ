@@ -694,7 +694,13 @@ export function PlanGoalFlowCard({
   const toggleAvailableDay = (day: GeneratedSupportDay) => {
     setStepError(null);
     availabilityEditedRef.current = true;
-    setSelectedAvailableDays((current) => (current.includes(day) ? current.filter((item) => item !== day) : [...current, day]));
+    setSelectedAvailableDays((current) => {
+      const next = current.includes(day) ? current.filter((item) => item !== day) : [...current, day];
+      if (!trainingDoseEditedRef.current) {
+        setTrainingDose(defaultTrainingDose(next.length));
+      }
+      return next;
+    });
   };
 
   const selectTrainingDose = (dose: NonNullable<BuildGoalDraft["trainingDose"]>) => {

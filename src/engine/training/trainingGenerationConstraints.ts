@@ -149,11 +149,6 @@ export function classifyTrainingGenerationConstraints(input: {
   const redReadinessHardStop = readinessHasHardStop(input.readiness, input.safetyFlags ?? []);
   const hardSafetyConstraints: TrainingGenerationConstraintAuditItem[] = [
     ...activeHardStopFlags(input.safetyFlags).filter(generationHardStopFlag).map((flag) => item("hardSafetyConstraint", flag.code, "safety", flag.message)),
-    ...(severeFuelingRisk(input.safetyFlags)
-      ? activeUnderfuelingEvidenceFlags(input.safetyFlags)
-          .filter((flag) => flag.domain === "nutrition" && (flag.hardStop || flag.severity === "critical" || SEVERE_FUELING_RISK_CODES.has(flag.code)))
-          .map((flag) => item("hardSafetyConstraint", flag.code, "nutrition", `${flag.message} Automatic generated support stays recovery-only until review.`))
-      : []),
     ...(redReadinessHardStop
       ? [item("hardSafetyConstraint", "red_readiness_hard_stop", "readiness", "Readiness hard-stop symptoms block generated hard work.")]
       : []),
@@ -166,7 +161,6 @@ export function classifyTrainingGenerationConstraints(input: {
     ...(highCycleSymptoms(input.cycle)
       ? [item("evidenceBasedLoadConstraint", "high_cycle_symptoms", "cycle", "High cycle symptoms trim optional generated volume.")]
       : []),
-    ...supportCountFuelCapFlags(input.safetyFlags).map((flag) => item("evidenceBasedLoadConstraint", flag.code, "nutrition", `${flag.message} Generated support is capped until review.`)),
     ...constraintsForAnchors(input.protectedAnchors, input.date).filter((constraint) => constraint.category === "evidenceBasedLoadConstraint")
   ];
   const advisoryUncertainty: TrainingGenerationConstraintAuditItem[] = [
@@ -180,7 +174,12 @@ export function classifyTrainingGenerationConstraints(input: {
       : []),
     ...(!foodLogMissing && lowNutritionConfidence(input.nutrition)
       ? [item("advisoryUncertainty", "low_nutrition_confidence", "nutrition", "Nutrition confidence is low, so fueling guidance stays advisory.")]
-      : [])
+      : []),
+    ...activeUnderfuelingEvidenceFlags(input.safetyFlags)
+      .filter((flag) => flag.domain === "nutrition")
+      .map((flag) =>
+        item("advisoryUncertainty", flag.code, "nutrition", `${flag.message} Workouts stay generated; fueling evidence changes execution guidance only.`)
+      )
   ];
   const classification =
     hardSafetyConstraints.length > 0

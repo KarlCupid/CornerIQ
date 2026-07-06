@@ -15,6 +15,7 @@ import { colors, radii, spacing } from "../../../design/theme";
 import type { QuickLogActions } from "../../../hooks/useQuickLogs";
 import type { CycleSymptom, RecentLogsViewModel, SessionIntensity } from "../../../engine/core/types";
 import { screenStyles } from "../screenStyles";
+import { convertMassCopy } from "../displayUnits";
 
 interface LogCardProps {
   busy: boolean;
@@ -80,12 +81,14 @@ function EngineUseRow({ label, value }: { label: string; value: string }) {
 function DailyLogFrame({
   busy,
   children,
+  displayCopy = (value: string) => value,
   forceOpen = false,
   framed = true,
   status,
   title
 }: React.PropsWithChildren<{
   busy: boolean;
+  displayCopy?: ((value: string) => string) | undefined;
   forceOpen?: boolean | undefined;
   framed?: boolean | undefined;
   status?: DailyLogStatus | undefined;
@@ -109,8 +112,8 @@ function DailyLogFrame({
         {status ? (
           <View style={{ gap: spacing.xs }}>
             <Text style={status.loggedToday ? screenStyles.successText : screenStyles.callout}>{status.statusLabel}</Text>
-            <Text style={screenStyles.body}>{status.summary}</Text>
-            <Text style={screenStyles.subtle}>Why: {status.why}</Text>
+            <Text style={screenStyles.body}>{displayCopy(status.summary)}</Text>
+            <Text style={screenStyles.subtle}>Why: {displayCopy(status.why)}</Text>
           </View>
         ) : (
           <QuickLogHelp />
@@ -292,7 +295,7 @@ export function BodyMassLogCard({
   const unitLabel = usesImperial ? "lb" : "kg";
   const bodyMassExample = usesImperial ? "146" : "66.4";
   return (
-    <DailyLogFrame busy={busy} forceOpen={forceOpen} framed={framed} status={status} title={title}>
+    <DailyLogFrame busy={busy} displayCopy={(value) => convertMassCopy(value, preferredUnits)} forceOpen={forceOpen} framed={framed} status={status} title={title}>
         {compact ? null : <QuickLogHelp />}
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}

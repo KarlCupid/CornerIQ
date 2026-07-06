@@ -2315,6 +2315,10 @@ describe("minimal app screens", () => {
       })
     );
 
+    const dailyWeightText = textUnderTestId(renderer, "today-daily-weight-log");
+    expect(dailyWeightText).toContain("Today's body weight logged: 149.0 lb.");
+    expect(dailyWeightText).not.toContain("67.59 kg");
+
     await switchSection(renderer, "More today");
     await act(async () => {
       await press(pressableWithText(renderer, "Weight trend"));
@@ -5527,6 +5531,60 @@ describe("minimal app screens", () => {
       expect.objectContaining({
         generatedSupportAvailableDays: [...allDays],
         scheduleAvailability: [...allDays],
+        trainingDose: "serious"
+      })
+    );
+  });
+
+  it("Plan generation wizard raises the default dose when support days are edited to full availability", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const onSaveBuildGoal = vi.fn<(draft: BuildGoalDraft) => Promise<void>>(async () => undefined);
+    const oneDayPlan: PlanViewModel = {
+      ...planViewModel,
+      generatedSupportAvailability: {
+        selectedDays: ["monday"],
+        summary: "Mon"
+      },
+      scheduleAvailability: ["monday"],
+      scheduleAvailabilitySummary: "Monday"
+    };
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveBuildGoal,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: oneDayPlan
+      })
+    );
+
+    await switchSection(renderer, "Adjust plan");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    for (const day of ["Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]) {
+      await act(async () => {
+        await press(pressableWithExactText(renderer, day));
+      });
+    }
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
+    });
+
+    const allDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+    expect(onSaveBuildGoal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generatedSupportAvailableDays: allDays,
+        scheduleAvailability: allDays,
         trainingDose: "serious"
       })
     );

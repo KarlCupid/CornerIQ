@@ -470,16 +470,17 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(fightWeek.nutrition.fuelTargetRange.caloriesKcal?.min).toBeGreaterThan(1800);
   });
 
-  it("under-fueling risk blocks deficit and caps generated support from positive evidence", () => {
+  it("under-fueling risk blocks deficit without changing generated support", () => {
     const state = resolvePerformanceState({ journey: underfueling_risk_camp, asOfDate: fixtureAsOfDate });
 
     expect(state.nutrition.underFuelingRiskNote).toContain("blocked");
     expect(state.safety.riskFlags.map((flag) => flag.code)).toContain("rapid_weight_loss");
     expect(state.viewModels.plan.generationAudit?.fuelRiskClassification).toBe("severe_fueling_risk");
-    expect(state.viewModels.plan.generationAudit?.reducedBy).toContain("nutrition");
-    expect(state.training.generatedSessions.length).toBeLessThan(state.training.supportGenerationAudit.targetGeneratedSupportCount);
-    expect(state.training.generatedSessions.every((session) => session.durationPolicyCategory === "safety_capped" && session.fuelDemand === "low")).toBe(true);
-    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("load_downshift");
+    expect(state.viewModels.plan.generationAudit?.reducedBy).not.toContain("nutrition");
+    expect(state.training.generatedSessions.length).toBe(state.training.supportGenerationAudit.targetGeneratedSupportCount);
+    expect(state.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(state.training.generatedSessions.every((session) => session.durationPolicyCategory !== "safety_capped")).toBe(true);
+    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
   });
 
   it("recent repeated low intake raises under-fueling risk even with older normal logs", () => {
@@ -500,9 +501,11 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.safety.riskFlags.map((flag) => flag.code)).toContain("repeated_low_intake");
     expect(state.nutrition.underFuelingRiskNote).toContain("blocked");
     expect(state.training.executionReadiness.fuelingStatus).toBe("repeated_low_complete_evidence");
-    expect(state.training.supportGenerationAudit.reducedBy).toContain("nutrition");
-    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("load_downshift");
-    expect(state.training.generatedSessions).toHaveLength(1);
+    expect(state.training.supportGenerationAudit.reducedBy).not.toContain("nutrition");
+    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
+    expect(state.training.generatedSessions.length).toBe(state.training.supportGenerationAudit.targetGeneratedSupportCount);
+    expect(state.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(state.training.generatedSessions.every((session) => session.durationPolicyCategory !== "safety_capped")).toBe(true);
   });
 
   it("does not treat a fixed calorie line as repeated low intake for a smaller low-demand boxer", () => {
@@ -606,10 +609,10 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.training.plannedLoadLedger.hardDayCount).toBeGreaterThanOrEqual(3);
     expect(state.safety.riskFlags.map((flag) => flag.code)).toContain("missed_period_underfueling_risk");
     expect(state.training.executionReadiness.fuelingStatus).toBe("severe_underfueling_hard_stop");
-    expect(state.training.supportGenerationAudit.reducedBy).toContain("nutrition");
-    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("hard_block");
-    expect(state.training.generatedSessions.every((session) => session.durationPolicyCategory === "safety_capped" && session.fuelDemand === "low" && session.intensity === "recovery")).toBe(true);
-    expect(state.training.generatedSessions.every((session) => session.structuredPrescriptionV2?.compiledSession.hardness === "recovery")).toBe(true);
+    expect(state.training.supportGenerationAudit.reducedBy).not.toContain("nutrition");
+    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
+    expect(state.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(state.training.generatedSessions.every((session) => session.durationPolicyCategory !== "safety_capped")).toBe(true);
     expect(state.training.generatedSessions.every((session) => session.structuredPrescriptionV2?.canonicalWorkoutSession?.durationMinutes === session.durationMinutes)).toBe(true);
   });
 

@@ -110,7 +110,7 @@ describe("workout template distribution", () => {
     expect(week.compiledSessions.every((session) => session.primaryAdaptation === "mobility" || session.primaryAdaptation === "recovery" || session.primaryAdaptation === "durability")).toBe(true);
   });
 
-  it("fight camp caps generated support and reserves recovery around hard fixed boxing", () => {
+  it("fight camp reserves recovery around hard fixed boxing", () => {
     const week = compileTemplateCase({
       goalMode: "fight_camp",
       focus: "conditioning",
