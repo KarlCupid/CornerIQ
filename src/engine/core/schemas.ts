@@ -128,8 +128,14 @@ function isBoxingRoundPrescription(value: unknown): boolean {
         numberValue(round.roundNumber) &&
         numberValue(round.durationSeconds) &&
         numberValue(round.restSeconds) &&
+        (round.title === undefined || nonEmptyString(round.title)) &&
+        (round.job === undefined || nonEmptyString(round.job)) &&
+        (round.doThis === undefined || nonEmptyString(round.doThis)) &&
         nonEmptyString(round.intent) &&
-        nonEmptyString(round.cue)
+        nonEmptyString(round.cue) &&
+        (round.doNotAdd === undefined || nonEmptyString(round.doNotAdd)) &&
+        (round.qualityCheck === undefined || nonEmptyString(round.qualityCheck)) &&
+        (round.downshift === undefined || nonEmptyString(round.downshift))
     ) &&
     numberValue(value.rpe) &&
     nonEmptyString(value.technicalQualityCheckpoint) &&

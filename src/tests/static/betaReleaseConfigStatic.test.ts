@@ -70,6 +70,7 @@ describe("release config static checks", () => {
     const secretPrivacyUrl = "https://privacy-do-not-print.corneriq.example/policy";
     const secretRevenueCatKey = "appl_revenuecat_value_that_must_not_print";
     const secretSupportUrl = "https://support-do-not-print.corneriq.example/help";
+    const secretTermsUrl = "https://terms-do-not-print.corneriq.example/terms";
     const output = execFileSync(process.execPath, ["scripts/production-preflight.mjs"], {
       cwd: process.cwd(),
       encoding: "utf8",
@@ -80,6 +81,7 @@ describe("release config static checks", () => {
         EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED: "1",
         EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY: secretRevenueCatKey,
         EXPO_PUBLIC_CORNERIQ_SUPPORT_URL: secretSupportUrl,
+        EXPO_PUBLIC_CORNERIQ_TERMS_OF_USE_URL: secretTermsUrl,
         EXPO_PUBLIC_SUPABASE_URL: secretUrl
       }
     });
@@ -89,6 +91,7 @@ describe("release config static checks", () => {
     expect(output).toContain("EXPO_PUBLIC_SUPABASE_ANON_KEY");
     expect(output).toContain("EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL");
     expect(output).toContain("EXPO_PUBLIC_CORNERIQ_SUPPORT_URL");
+    expect(output).toContain("EXPO_PUBLIC_CORNERIQ_TERMS_OF_USE_URL");
     expect(output).toContain("EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED");
     expect(output).toContain("EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY");
     expect(output).not.toContain(secretUrl);
@@ -96,6 +99,7 @@ describe("release config static checks", () => {
     expect(output).not.toContain(secretPrivacyUrl);
     expect(output).not.toContain(secretRevenueCatKey);
     expect(output).not.toContain(secretSupportUrl);
+    expect(output).not.toContain(secretTermsUrl);
   });
 
   it("documents public env names, no client role key, and release artifacts", () => {

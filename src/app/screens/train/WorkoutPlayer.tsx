@@ -7,6 +7,7 @@ import type { WorkoutPlayerMode } from "../../../engine/presentation/workoutPlay
 import { resolveExercisePlayerMode, resolveWorkoutPlayerMode } from "../../../engine/presentation/workoutPlayerMode";
 import { buildWorkoutPlayerTimeline, parseWorkoutTimerSeconds } from "../../../engine/presentation/workoutPlayerTimeline";
 import { buildWorkoutPlayerExerciseResults } from "../../../engine/presentation/workoutPlayerResults";
+import { selectWorkoutTimerAudioCue, type WorkoutTimerAudioCueSnapshot } from "../../../engine/presentation/workoutPlayerAudioCues";
 import { movementTeachingForExercise } from "../../../engine/presentation/workoutMovementTeaching";
 import {
   plainSectionIntent,
@@ -24,6 +25,7 @@ import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompleti
 import { clearWorkoutPlayerState, loadWorkoutPlayerState, saveWorkoutPlayerState, type PersistedWorkoutPlayerState, type PersistedWorkoutPlayerStatus, type PersistedWorkoutSetLogDraft } from "../../../services/workout/workoutPlayerPersistence";
 import { screenStyles } from "../screenStyles";
 import { trainColorForTone, trainPalette, trainTextStyles, trainTint } from "./trainPalette";
+import { useWorkoutTimerAudio } from "./useWorkoutTimerAudio";
 import { WorkoutExerciseDetails } from "./WorkoutExerciseDetails";
 
 export type WorkoutPlayerStatus = "not_started" | "active" | "paused" | "finishing" | "completed" | "skipped";
@@ -1418,11 +1420,14 @@ export function WorkoutPlayer({
   const [localError, setLocalError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [detailMode, setDetailMode] = React.useState<"how" | "help" | "swap" | null>(null);
+  const [timerAudioEnabled, setTimerAudioEnabled] = React.useState(true);
   const [discardConfirm, setDiscardConfirm] = React.useState(false);
   const [skipConfirm, setSkipConfirm] = React.useState(false);
   const [resumeState, setResumeState] = React.useState<PersistedWorkoutPlayerState | null>(null);
   const restoredStepTimerIndexRef = React.useRef<number | null>(null);
   const activeStepIndexRef = React.useRef(activeStepIndex);
+  const previousTimerAudioSnapshotRef = React.useRef<WorkoutTimerAudioCueSnapshot | null>(null);
+  const playTimerAudioCue = useWorkoutTimerAudio(timerAudioEnabled);
   activeStepIndexRef.current = activeStepIndex;
 
   React.useEffect(() => {
@@ -1558,6 +1563,32 @@ export function WorkoutPlayer({
     setSkipConfirm(false);
   }, [currentTimelineStep?.id]);
 
+  React.useEffect(() => {
+    const snapshot: WorkoutTimerAudioCueSnapshot = {
+      autoAdvance: Boolean(currentTimelineStep?.autoAdvance),
+      status,
+      stepAudioCueKey: currentTimelineStep?.audioCueKey,
+      stepDurationSeconds: currentTimelineStep?.durationSeconds ?? 0,
+      stepId: currentTimelineStep?.id,
+      stepKind: currentTimelineStep?.kind,
+      stepRemainingSeconds
+    };
+    const cueKey = selectWorkoutTimerAudioCue(snapshot, previousTimerAudioSnapshotRef.current);
+    previousTimerAudioSnapshotRef.current = snapshot;
+    if (cueKey) {
+      playTimerAudioCue(cueKey);
+    }
+  }, [
+    currentTimelineStep?.audioCueKey,
+    currentTimelineStep?.autoAdvance,
+    currentTimelineStep?.durationSeconds,
+    currentTimelineStep?.id,
+    currentTimelineStep?.kind,
+    playTimerAudioCue,
+    status,
+    stepRemainingSeconds
+  ]);
+
   if (!currentTimelineStep || !currentSection || !currentExercise || steps.length === 0) {
     return (
       <WorkoutScreenFrame accent="purple" mode="WORKOUT PREVIEW" onClose={onClose}>
@@ -1661,6 +1692,10 @@ export function WorkoutPlayer({
         ? previewMovementLines
         : recipeFlowLines(session);
   const previewWhy = recipeWhy(session);
+  const timerAudioIcon: keyof typeof Ionicons.glyphMap = timerAudioEnabled ? "volume-high" : "volume-mute";
+  const timerAudioLiveLabel = timerAudioEnabled ? "Sound on" : "Sound off";
+  const timerAudioPreviewLabel = timerAudioEnabled ? "Timer sounds on" : "Timer sounds off";
+  const toggleTimerAudio = () => setTimerAudioEnabled((value) => !value);
 
   const restoreWorkoutState = (persisted: PersistedWorkoutPlayerState) => {
     const nextIndex = clampIndex(persisted.activeStepIndex, steps.length - 1);
@@ -1753,6 +1788,12 @@ export function WorkoutPlayer({
             label="Start workout"
             onPress={startWorkoutFresh}
             tone="primary"
+            visualTheme="train"
+          />
+          <PlayerButton
+            icon={timerAudioIcon}
+            label={timerAudioPreviewLabel}
+            onPress={toggleTimerAudio}
             visualTheme="train"
           />
           <PlayerButton label="Back to Train" onPress={onClose} visualTheme="train" />
@@ -2207,6 +2248,8 @@ export function WorkoutPlayer({
       <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", width: 1 }} />
       <LiveDockButton icon={status === "paused" ? "play" : "pause"} label={status === "paused" ? "Resume" : "Pause"} onPress={() => setStatus(status === "paused" ? "active" : "paused")} />
       <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", width: 1 }} />
+      <LiveDockButton icon={timerAudioIcon} label={timerAudioLiveLabel} onPress={toggleTimerAudio} />
+      <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", width: 1 }} />
       <LiveDockButton disabled={busy} icon={dockNextIcon} label={skipNextLabel} onPress={skipNextPress} />
       <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", width: 1 }} />
       <LiveDockButton disabled={busy} icon={painFlagMap[activeExerciseId] ? "heart" : "heart-outline"} label="Pain" onPress={togglePainFlag} tone={painFlagMap[activeExerciseId] ? "danger" : "neutral"} />
@@ -2274,6 +2317,8 @@ export function WorkoutPlayer({
         <LiveDockButton disabled={currentStepIndex <= 0} icon="play-back" label="Back" onPress={moveBack} />
         <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", width: 1 }} />
         <LiveDockButton icon={status === "paused" ? "play" : "pause"} label={status === "paused" ? "Resume" : "Pause"} onPress={() => setStatus(status === "paused" ? "active" : "paused")} />
+        <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", width: 1 }} />
+        <LiveDockButton icon={timerAudioIcon} label={timerAudioLiveLabel} onPress={toggleTimerAudio} />
         <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", width: 1 }} />
         <LiveDockButton icon="flag-outline" label="Finish workout" onPress={() => setStatus("finishing")} tone="danger" />
       </View>
@@ -2539,6 +2584,7 @@ export function WorkoutPlayer({
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               <PlayerButton accent={blockAccent} disabled={currentStepIndex <= 0} icon="arrow-back" label="Back" layout="half" onPress={moveBack} />
               <PlayerButton accent={blockAccent} icon={status === "paused" ? "play" : "pause"} label={status === "paused" ? "Resume" : "Pause"} layout="half" onPress={() => setStatus(status === "paused" ? "active" : "paused")} />
+              <PlayerButton accent={blockAccent} icon={timerAudioIcon} label={timerAudioLiveLabel} layout="half" onPress={toggleTimerAudio} />
               <PlayerButton accent={blockAccent} disabled={busy} icon="play-skip-forward" label="Skip movement" layout="half" onPress={skipMovementStep} tone="warning" />
               <PlayerButton accent={blockAccent} icon="flag-outline" label="Finish workout" layout="half" onPress={() => setStatus("finishing")} />
             </View>

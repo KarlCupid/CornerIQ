@@ -36,6 +36,15 @@ vi.mock("expo-status-bar", () => ({
   StatusBar: () => React.createElement("StatusBar")
 }));
 
+vi.mock("expo-audio", () => ({
+  setAudioModeAsync: vi.fn(async () => undefined),
+  useAudioPlayer: vi.fn(() => ({
+    play: vi.fn(),
+    seekTo: vi.fn(async () => undefined),
+    volume: 1
+  }))
+}));
+
 vi.mock("@expo/vector-icons/Ionicons", () => ({
   default: ({ color, name, size }: { color?: string; name?: string; size?: number }) =>
     React.createElement("Ionicons", { color, name, size })
@@ -1590,7 +1599,7 @@ function boxingPlayerExercise(input: {
 }
 
 function stanceGuardResetPlayerExercise(): ExercisePrescription {
-  const titles = ["Stance base", "Guard home", "Step and reset", "Jab shape to guard"];
+  const titles = ["Stance base", "Guard home", "Step and reset", "Jab to guard"];
   return boxingPlayerExercise({
     exerciseId: "stance_guard_reset",
     name: "Stance and guard reset",

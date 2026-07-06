@@ -6,6 +6,7 @@ import {
   CORNERIQ_MONTHLY_PRODUCT_ID,
   CORNERIQ_REVENUECAT_ENTITLEMENT_ID,
   CORNERIQ_SUPPORT_URL,
+  CORNERIQ_TERMS_OF_USE_URL,
   getSubscriptionRuntimeConfig,
   getPublicRuntimeConfig,
   getReleaseLinkConfig,
@@ -16,7 +17,8 @@ import {
   PUBLIC_PRIVACY_POLICY_URL_ENV,
   PUBLIC_REVENUECAT_ENTITLEMENT_ID_ENV,
   PUBLIC_REVENUECAT_IOS_API_KEY_ENV,
-  PUBLIC_SUPPORT_URL_ENV
+  PUBLIC_SUPPORT_URL_ENV,
+  PUBLIC_TERMS_OF_USE_URL_ENV
 } from "../../services/config/runtimeConfig";
 
 function unsignedJwtWithRole(role: string): string {
@@ -79,17 +81,20 @@ describe("runtimeConfig", () => {
     const placeholder = getReleaseLinkConfig({ [PUBLIC_PRIVACY_POLICY_URL_ENV]: PLACEHOLDER_PRIVACY_POLICY_URL });
     const configured = getReleaseLinkConfig({
       [PUBLIC_PRIVACY_POLICY_URL_ENV]: "https://corneriq.example/privacy",
-      [PUBLIC_SUPPORT_URL_ENV]: "https://corneriq.example/support"
+      [PUBLIC_SUPPORT_URL_ENV]: "https://corneriq.example/support",
+      [PUBLIC_TERMS_OF_USE_URL_ENV]: "https://corneriq.example/terms"
     });
 
     expect(defaults.privacyPolicyUrl).toBe(CORNERIQ_PRIVACY_POLICY_URL);
     expect(defaults.supportUrl).toBe(CORNERIQ_SUPPORT_URL);
+    expect(defaults.termsOfUseUrl).toBe(CORNERIQ_TERMS_OF_USE_URL);
     expect(defaults.privacyPolicyUrlIsPlaceholder).toBe(false);
     expect(defaults.appleSubmissionBlockedReason).toBeNull();
     expect(placeholder.privacyPolicyUrlIsPlaceholder).toBe(true);
     expect(placeholder.appleSubmissionBlockedReason).toContain("APPLE_SUBMISSION_BLOCKED");
     expect(configured.privacyPolicyUrl).toBe("https://corneriq.example/privacy");
     expect(configured.supportUrl).toBe("https://corneriq.example/support");
+    expect(configured.termsOfUseUrl).toBe("https://corneriq.example/terms");
     expect(configured.privacyPolicyUrlIsPlaceholder).toBe(false);
     expect(configured.appleSubmissionBlockedReason).toBeNull();
   });

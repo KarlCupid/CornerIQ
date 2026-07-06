@@ -291,10 +291,16 @@ export interface BoxingRoundPrescription {
   purpose: "skill_acquisition" | "technical_consolidation" | "boxing_conditioning" | "speed_timing" | "footwork_ringcraft" | "taper_sharpness" | "recovery_technical_touch";
   rounds: readonly {
     roundNumber: number;
+    title: string;
     durationSeconds: number;
     restSeconds: number;
+    job: string;
+    doThis: string;
     intent: string;
     cue: string;
+    doNotAdd: string;
+    qualityCheck: string;
+    downshift: string;
   }[];
   rpe: number;
   technicalQualityCheckpoint: string;

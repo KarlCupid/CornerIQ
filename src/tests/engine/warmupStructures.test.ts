@@ -29,14 +29,14 @@ describe("warmup structures", () => {
     expect(strength.id).toBe("strength_warmup");
     expect(conditioning.id).toBe("conditioning_warmup");
     expect(speed.id).toBe("speed_warmup");
-    expect(bag.steps.map((step) => step.title)).toContain("Light bag touch");
+    expect(bag.steps.map((step) => step.title)).toContain("Find bag range");
     expect(strength.steps.map((step) => step.title)).toContain("Bodyweight squat");
     expect(conditioning.steps.map((step) => step.title)).toContain("Easy pace build");
     expect(speed.steps.map((step) => step.title)).toContain("First-step walkthrough");
     for (const structure of [bag, strength, conditioning, speed]) {
       const totalSeconds = structure.steps.reduce((sum, step) => sum + step.durationSeconds, 0);
       expect(totalSeconds).toBeGreaterThanOrEqual(190);
-      expect(totalSeconds).toBeLessThanOrEqual(300);
+      expect(totalSeconds).toBeLessThanOrEqual(structure.id === "bag_warmup" ? 340 : 300);
       expect(structure.steps.every((step) => step.durationSeconds >= 20 && step.durationSeconds <= 45)).toBe(true);
     }
     expect(JSON.stringify([bag, strength, conditioning, speed]).toLowerCase()).not.toMatch(/\b(readiness check|contact drill|sparring|fight simulation|partner drill)\b/);

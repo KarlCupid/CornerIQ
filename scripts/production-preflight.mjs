@@ -10,6 +10,7 @@ const APPLE_SUBMISSION_MODE_ENV = "CORNERIQ_APPLE_SUBMISSION";
 const APPLE_SUBMISSION_READY_VALUE = "1";
 const DEFAULT_PUBLIC_PRIVACY_POLICY_URL = "https://sites.google.com/view/corneriq/privacy-policy";
 const DEFAULT_PUBLIC_SUPPORT_URL = "https://sites.google.com/view/corneriq/support";
+const DEFAULT_PUBLIC_TERMS_OF_USE_URL = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
 const PAYWALL_ENABLED_ENV = "EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED";
 const REVENUECAT_IOS_API_KEY_ENV = "EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY";
 const REVENUECAT_ANDROID_API_KEY_ENV = "EXPO_PUBLIC_CORNERIQ_REVENUECAT_ANDROID_API_KEY";
@@ -22,6 +23,7 @@ const PUBLIC_ENV_NAMES = [
   "EXPO_PUBLIC_SUPABASE_ANON_KEY",
   "EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL",
   "EXPO_PUBLIC_CORNERIQ_SUPPORT_URL",
+  "EXPO_PUBLIC_CORNERIQ_TERMS_OF_USE_URL",
   PAYWALL_ENABLED_ENV,
   REVENUECAT_IOS_API_KEY_ENV,
   REVENUECAT_ANDROID_API_KEY_ENV,
@@ -189,6 +191,7 @@ function checkAppleSubmissionReadiness() {
   const splashImagePath = typeof splash.image === "string" ? splash.image : "";
   const privacyPolicyUrl = process.env.EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL ?? DEFAULT_PUBLIC_PRIVACY_POLICY_URL;
   const supportUrl = process.env.EXPO_PUBLIC_CORNERIQ_SUPPORT_URL ?? DEFAULT_PUBLIC_SUPPORT_URL;
+  const termsOfUseUrl = process.env.EXPO_PUBLIC_CORNERIQ_TERMS_OF_USE_URL ?? DEFAULT_PUBLIC_TERMS_OF_USE_URL;
   const paywallEnabled = process.env[PAYWALL_ENABLED_ENV];
   const revenueCatIosApiKey = process.env[REVENUECAT_IOS_API_KEY_ENV]?.trim();
 
@@ -203,6 +206,9 @@ function checkAppleSubmissionReadiness() {
   }
   if (isPlaceholderPrivacyUrl(supportUrl)) {
     addAppleSubmissionBlocker("set EXPO_PUBLIC_CORNERIQ_SUPPORT_URL to a real public support URL.");
+  }
+  if (isPlaceholderPrivacyUrl(termsOfUseUrl)) {
+    addAppleSubmissionBlocker("set EXPO_PUBLIC_CORNERIQ_TERMS_OF_USE_URL to a real public terms URL, or leave it unset to use the Apple standard terms.");
   }
   if (expo.ios?.supportsTablet === true && process.env.CORNERIQ_IPAD_VALIDATED !== "1") {
     addAppleSubmissionBlocker("iPad support is enabled without CORNERIQ_IPAD_VALIDATED=1.");

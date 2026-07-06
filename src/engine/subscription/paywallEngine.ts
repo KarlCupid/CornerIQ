@@ -13,12 +13,19 @@ export interface SubscriptionPlanViewModel {
   valueLabel: string;
 }
 
+export interface PaywallDisclosureViewModel {
+  id: "billing" | "renewal" | "trial";
+  label: string;
+  value: string;
+}
+
 export interface PaywallViewModel {
   accountAccessCopy: string;
   footerCopy: string;
   headline: string;
   legalCopy: string;
   plans: readonly SubscriptionPlanViewModel[];
+  purchaseDisclosures: readonly PaywallDisclosureViewModel[];
   restoreLabel: string;
   setupBlockedReason: string | null;
   statusLabel: string;
@@ -37,8 +44,8 @@ function planWithDefaults(period: SubscriptionPlanPeriod, override: Partial<Subs
   const monthly = period === "monthly";
   return {
     badge: monthly ? null : "Best value",
-    ctaLabel: monthly ? "Continue monthly" : "Continue yearly",
-    description: monthly ? "Flexible access after onboarding." : "Twelve months of access at a lower total price.",
+    ctaLabel: monthly ? "Subscribe monthly" : "Subscribe yearly",
+    description: monthly ? "Month-to-month access after onboarding." : "Twelve months of CornerIQ access at a lower total price.",
     id: monthly ? "monthly" : "annual",
     period,
     priceLabel: monthly ? "CA$15/month" : "CA$100/year",
@@ -61,10 +68,15 @@ export function resolvePaywallViewModel(input: ResolvePaywallViewModelInput): Pa
 
   return {
     accountAccessCopy: "Account, privacy, support, export, sign-out, and delete-account controls stay available without a subscription.",
-    footerCopy: "No free trial. Manage or cancel renewal in your Apple account after purchase.",
+    footerCopy: "Auto-renews until canceled. No free trial. Manage or cancel renewal in your Apple account after purchase.",
     headline: "Unlock CornerIQ",
-    legalCopy: "Purchase uses App Store in-app purchase. Your Apple ID is charged after confirmation.",
+    legalCopy: "App Store confirms the price and charges your Apple ID after purchase confirmation.",
     plans: [planWithDefaults("monthly", input.monthlyPlan), planWithDefaults("annual", input.annualPlan)],
+    purchaseDisclosures: [
+      { id: "billing", label: "Billing", value: "App Store in-app purchase" },
+      { id: "renewal", label: "Renewal", value: "Auto-renews until canceled" },
+      { id: "trial", label: "Trial", value: "No free trial" }
+    ],
     restoreLabel: "Restore purchase",
     setupBlockedReason,
     statusLabel,

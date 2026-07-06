@@ -98,7 +98,7 @@ export function resolveConditioningDose(input: { athlete: AthleteTrainingProfile
         cooldownSeconds: 420,
         rpe: 7,
         progressionTrigger: "Add one round only when technical quality holds through the final round.",
-        stopCondition: "Stop if punch shape, guard return, or breathing control drops.",
+        stopCondition: "Stop if punch mechanics, guard return, or breathing control drops.",
         substitution: "Use shadowboxing rounds only when bag work is unavailable or impact needs to be lower."
       };
     case "threshold_support":

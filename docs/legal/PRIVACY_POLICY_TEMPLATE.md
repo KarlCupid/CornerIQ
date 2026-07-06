@@ -4,7 +4,9 @@ Published Privacy Policy URL: `https://sites.google.com/view/corneriq/privacy-po
 
 Published Support URL: `https://sites.google.com/view/corneriq/support`.
 
-The app defaults point to these public URLs. `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL` and `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL` can override them if the release owner moves the pages.
+Published Terms of Use URL: `https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`.
+
+The app defaults point to these public URLs. `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL`, `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL`, and `EXPO_PUBLIC_CORNERIQ_TERMS_OF_USE_URL` can override them if the release owner moves the pages or publishes custom terms.
 
 This policy source is for release-owner/legal review before publication or republication.
 
@@ -54,5 +56,7 @@ Backups, security logs, processor logs, purchase records, and legal/accounting r
 ## Contact
 
 Support URL: `https://sites.google.com/view/corneriq/support`.
+
+Terms of Use URL: `https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`.
 
 Do not include private emails, credentials, or secret values in this policy.

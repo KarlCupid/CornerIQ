@@ -161,7 +161,7 @@ function cooldownExercise(): ExercisePrescription {
 }
 
 function stanceGuardResetExercise(): ExercisePrescription {
-  const titles = ["Stance base", "Guard home", "Step and reset", "Jab shape to guard"];
+  const titles = ["Stance base", "Guard home", "Step and reset", "Jab to guard"];
   return testExercise({
     exerciseId: "stance_guard_reset",
     name: "Stance and guard reset",
@@ -455,7 +455,7 @@ describe("workout player timeline", () => {
       "Segment 1: Stance base",
       "Segment 2: Guard home",
       "Segment 3: Step and reset",
-      "Segment 4: Jab shape to guard"
+      "Segment 4: Jab to guard"
     ]);
     expect(workSteps[1]?.cue).toContain("Hands return");
     expect(timeline.steps.reduce((sum, step) => sum + step.durationSeconds, 0)).toBeGreaterThan(0);

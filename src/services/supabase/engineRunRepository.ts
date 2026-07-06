@@ -363,21 +363,61 @@ function assertV2GeneratedSessionAuthority(record: TableInsert<"generated_traini
   }
 }
 
-function assertGeneratedContentNotMutated(record: TableInsert<"generated_training_sessions">, existing: GeneratedSessionSlotRow): void {
+function generatedContentFingerprintChanged(record: TableInsert<"generated_training_sessions">, existing: GeneratedSessionSlotRow): boolean {
   const nextPayload = payloadObject(record.session_payload ?? toJson({}), "generated_training_sessions.immutability.next");
   const existingPayload = payloadObject(existing.session_payload, "generated_training_sessions.immutability.existing");
   if (nextPayload.generatedSessionSchemaVersion !== GENERATED_SESSION_SCHEMA_VERSION_V2 || existingPayload.generatedSessionSchemaVersion !== GENERATED_SESSION_SCHEMA_VERSION_V2) {
-    return;
+    return false;
   }
   const nextContentFingerprint = trimmedStringValue(nextPayload.contentFingerprint);
   const existingContentFingerprint = trimmedStringValue(existingPayload.contentFingerprint);
-  if (nextContentFingerprint && existingContentFingerprint && nextContentFingerprint !== existingContentFingerprint) {
-    throw new RepositoryError(
-      "malformed_payload",
-      "generated_training_sessions.upsertGeneratedSessions.immutableContent",
-      "generated workout content is immutable for an existing generated-session slot; create a new plan revision or supersede the old session"
-    );
-  }
+  return Boolean(nextContentFingerprint && existingContentFingerprint && nextContentFingerprint !== existingContentFingerprint);
+}
+
+function supersededGeneratedSessionSlotMutation(record: TableInsert<"generated_training_sessions">, existing: GeneratedSessionSlotRow): TableUpdate<"generated_training_sessions"> {
+  const existingPayload = payloadObject(existing.session_payload, "generated_training_sessions.supersedeStaleContent.existing");
+  const nextPayload = payloadObject(record.session_payload ?? toJson({}), "generated_training_sessions.supersedeStaleContent.next");
+  return {
+    generated_session_lifecycle: "superseded",
+    session_payload: toJson({
+      ...existingPayload,
+      generatedSessionLifecycle: "superseded",
+      supersededReason: "canonical_content_replaced_for_active_slot",
+      supersededByGeneratedSessionKey: record.generated_session_key ?? null,
+      supersededByContentFingerprint: trimmedStringValue(nextPayload.contentFingerprint),
+      supersededByInputHash: trimmedStringValue(nextPayload.inputHash),
+      supersededByOutputHash: trimmedStringValue(nextPayload.outputHash)
+    })
+  };
+}
+
+function generatedSessionReplacementRecord(
+  record: TableInsert<"generated_training_sessions">,
+  existing: GeneratedSessionSlotRow
+): TableInsert<"generated_training_sessions"> {
+  const nextPayload = payloadObject(record.session_payload ?? toJson({}), "generated_training_sessions.replaceStaleContent.next");
+  const existingPayload = payloadObject(existing.session_payload, "generated_training_sessions.replaceStaleContent.existing");
+  const preserveMovedDate = existing.generated_session_lifecycle === "moved" && record.generated_session_lifecycle === "active";
+  const lifecycle = preserveMovedDate ? "moved" : record.generated_session_lifecycle ?? "active";
+  const currentScheduledDate =
+    (preserveMovedDate
+      ? existing.current_scheduled_date ?? (typeof existingPayload.currentScheduledDate === "string" ? existingPayload.currentScheduledDate : null)
+      : null) ??
+    record.current_scheduled_date ??
+    record.planned_date;
+  return {
+    ...record,
+    current_scheduled_date: currentScheduledDate,
+    generated_session_lifecycle: lifecycle,
+    session_payload: toJson({
+      ...nextPayload,
+      date: currentScheduledDate,
+      currentScheduledDate,
+      generatedSessionLifecycle: lifecycle,
+      replacesSupersededGeneratedSessionRowId: existing.id,
+      ...(preserveMovedDate ? { movedDatePreservedBySlotReconciliation: true } : {})
+    })
+  };
 }
 
 function generatedSessionScheduleAuditUpdate(
@@ -622,7 +662,19 @@ export function createEngineRunRepository(client: CornerSupabaseClient) {
           continue;
         }
         if (existing) {
-          assertGeneratedContentNotMutated(record, existing);
+          if (generatedContentFingerprintChanged(record, existing)) {
+            const supersedeResponse = await client
+              .from("generated_training_sessions")
+              .update(supersededGeneratedSessionSlotMutation(record, existing))
+              .eq("id", existing.id)
+              .eq("user_id", record.user_id)
+              .select("id")
+              .single();
+            readDataOrThrow(supersedeResponse, "generated_training_sessions.upsertGeneratedSessions.supersedeStaleSlotContent");
+            const replacementResponse = await client.from("generated_training_sessions").insert(generatedSessionReplacementRecord(record, existing)).select("id").single();
+            readDataOrThrow(replacementResponse, "generated_training_sessions.upsertGeneratedSessions.insertReplacementSlot");
+            continue;
+          }
           const update = generatedSessionScheduleAuditUpdate(record, existing);
           const updateResponse = await client
             .from("generated_training_sessions")

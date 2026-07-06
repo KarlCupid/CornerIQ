@@ -135,12 +135,12 @@ function boxerWarmup(exerciseId: string | undefined, blockId = "warmup"): Workou
       step({ type: "movement", title: "Punch and twist", durationSeconds: 15, doThis: "Stand tall. Punch one arm across your body while gently rotating your upper back. Switch sides each punch.", coachCue: "Rotate smooth. Do not force it.", exerciseId }),
       step({ type: "movement", title: "Scoops left", durationSeconds: 15, doThis: "Put your left heel forward. Sweep both hands down toward the left leg, then stand tall again.", coachCue: "Stretch without yanking.", exerciseId }),
       step({ type: "movement", title: "Scoops right", durationSeconds: 15, doThis: "Put your right heel forward. Sweep both hands down toward the right leg, then stand tall again.", coachCue: "Easy range.", exerciseId }),
-      step({ type: "movement", title: "Hip hinges", durationSeconds: 15, doThis: "Feet under hips. Push your hips back, keep your back long, then stand tall.", coachCue: "Hips back. Chest proud.", exerciseId }),
+      step({ type: "movement", title: "Hip hinges", durationSeconds: 15, doThis: "Feet under hips. Soften your knees. Push your hips back, let your chest tip forward, then stand tall.", coachCue: "Hips back. Back long.", exerciseId }),
       step({ type: "movement", title: "Ankle bounce", durationSeconds: 20, doThis: "Bounce lightly on the balls of your feet. Keep the bounce tiny and quiet.", coachCue: "Light feet.", exerciseId }),
       step({ type: "movement", title: "Stance bounce", durationSeconds: 30, doThis: "Step into boxing stance. Bounce lightly. Keep both hands near your cheeks.", coachCue: "Warm, loose, not tired.", exerciseId }),
       step({ type: "movement", title: "Step and guard reset", durationSeconds: 30, doThis: "Take one small step, recover your stance width, and bring both hands home. Repeat slowly.", coachCue: "Feet first. Hands home.", exerciseId }),
-      step({ type: "movement", title: "Jab shape to guard", durationSeconds: 45, doThis: "Touch a light jab, bring the hand back to your cheek, then reset your feet before the next jab.", coachCue: "Jab, guard, feet, breathe.", exerciseId }),
-      step({ type: "movement", title: "Easy shadow flow", durationSeconds: 45, doThis: "Move slowly in stance. Add light jab shapes only if your hands and feet keep coming home.", coachCue: "Get into your body.", exerciseId })
+      step({ type: "movement", title: "Jab to guard", durationSeconds: 45, doThis: "Touch a light jab, bring the hand back to your cheek, then reset your feet before the next jab.", coachCue: "Jab home first.", exerciseId }),
+      step({ type: "movement", title: "Easy shadow flow", durationSeconds: 45, doThis: "Move slowly in stance. Add light single jabs only if your hands and feet keep coming home.", coachCue: "Hands home.", exerciseId })
     ]
   });
 }
@@ -156,9 +156,9 @@ function bagWarmup(exerciseId: string | undefined): WorkoutRecipeBlock {
       step({ type: "movement", title: "Shoulder circles forward", durationSeconds: 15, doThis: "Make slow circles forward with both shoulders.", coachCue: "Relax your neck.", exerciseId }),
       step({ type: "movement", title: "Shoulder circles backward", durationSeconds: 15, doThis: "Reverse the circles and keep your breathing calm.", coachCue: "Smooth circles.", exerciseId }),
       step({ type: "movement", title: "Punch and twist", durationSeconds: 20, doThis: "Punch one arm across your body while gently rotating your upper back. Switch sides each punch.", coachCue: "Rotate smooth.", exerciseId }),
-      step({ type: "movement", title: "Hip hinges", durationSeconds: 20, doThis: "Push your hips back, keep your back long, then stand tall.", coachCue: "Hips back.", exerciseId }),
-      step({ type: "movement", title: "Stance bounce", durationSeconds: 30, doThis: "Bounce lightly in stance with your hands near your cheeks.", coachCue: "Warm, not tired.", exerciseId }),
-      step({ type: "movement", title: "Step and guard reset", durationSeconds: 30, doThis: "Take one small step, recover stance width, and bring both hands home.", coachCue: "Feet first. Hands home.", exerciseId }),
+      step({ type: "movement", title: "Hip hinges", durationSeconds: 20, doThis: "Feet under hips. Soften your knees. Push your hips back, let your chest tip forward, then stand tall.", coachCue: "Hips back. Back long.", exerciseId }),
+      step({ type: "movement", title: "Stance bounce", durationSeconds: 30, doThis: "Set your boxing stance. Bounce lightly without letting your feet come together. Keep your hands by your cheeks.", coachCue: "Guard up, stance wide.", exerciseId }),
+      step({ type: "movement", title: "Step and reset", durationSeconds: 30, doThis: "Step forward, back, left, and right. Move the nearest foot first, then bring the other foot back under you.", coachCue: "Step, recover, reset.", exerciseId }),
       step({ type: "movement", title: "Air jab to guard", durationSeconds: 30, doThis: "Touch a light jab in the air, bring it home, and reset your feet.", coachCue: "Hands come back.", exerciseId }),
       step({ type: "movement", title: "Light bag touch", durationSeconds: 40, doThis: "Touch the bag lightly with the jab. Bring the hand home after every touch.", coachCue: "Touch, home, reset.", exerciseId }),
       step({ type: "movement", title: "Step in-out bag touch", durationSeconds: 40, doThis: "Step in, touch the bag, step out, and reset your stance.", coachCue: "In clean. Out clean.", exerciseId }),
@@ -328,7 +328,7 @@ function jabFocusedRecipe(input: WorkoutRecipeResolutionInput): WorkoutRecipe {
     ...boxingTiming(input),
     previewFlow: [
       "Warm-up - shoulder circles, punch and twist, scoops, hip hinges, stance bounce",
-      "Boxing rounds - low and slow shadow, jab shape, sharp jab, double jab, entry and exit, best clean jab",
+      "Boxing rounds - slow shadow, jab home, sharp jab, double jab, entry and exit, clean jab",
       "Cooldown - breathing, shakeout, easy range"
     ],
     quickLog: quickLog("Warm up, run jab-focused shadowboxing rounds, then cool down.", "Jab comes home. Feet reset. Stay sharp, not tired."),
@@ -336,13 +336,13 @@ function jabFocusedRecipe(input: WorkoutRecipeResolutionInput): WorkoutRecipe {
     rounds: [
       {
         title: "Round 1: Low and slow shadow",
-        doThis: "Slow, low-intensity shadowboxing to get into your body and feel the movement. Do not try to look sharp yet.",
-        coachCue: "Feel the movement first.",
+        doThis: "Slow, low-intensity shadowboxing. Check your feet, guard, and breathing before you try to look sharp.",
+        coachCue: "Settle your feet first.",
         microCues: ["Feel your feet under you.", "Keep your hands coming back.", "Stay loose.", "Breathe while you move.", "Let the round be slow."],
         safetyStop: DEFAULT_STOP
       },
       {
-        title: "Round 2: Jab shape and guard home",
+        title: "Round 2: Jab to guard",
         doThis: "Keep the round simple. Touch the jab, bring the hand back to your cheek, and reset your feet before the next jab.",
         coachCue: "The jab is not done until the hand is home.",
         microCues: ["Hand comes back.", "Feet reset.", "Do not reach with your chin.", "Stay loose."],
@@ -409,10 +409,10 @@ function entryExitRecipe(input: WorkoutRecipeResolutionInput): WorkoutRecipe {
     mainExerciseId: mainId,
     cooldown: boxingCooldown(cooldownId),
     ...boxingTiming(input),
-    previewFlow: ["Warm-up - stance bounce and jab shape", "Boxing rounds - jab in, double jab entry, clean exits, best entry round", "Cooldown - breathing and shakeout"],
+    previewFlow: ["Warm-up - stance bounce and jab return", "Boxing rounds - jab in, double jab entry, clean exits, clean entry round", "Cooldown - breathing and shakeout"],
     quickLog: quickLog("Warm up, practice entry-and-exit shadowboxing rounds, then cool down.", "Enter once. Exit once. Hands home before adding more."),
     rounds: [
-      { title: "Round 1: Low and slow shadow", doThis: "Shadowbox slowly and feel your feet. Keep every action easy.", coachCue: "Get into your body first.", microCues: ["Feel your feet.", "Hands come back.", "Stay loose."] },
+      { title: "Round 1: Low and slow shadow", doThis: "Shadowbox slowly and check your feet. Keep every action easy.", coachCue: "Settle your feet first.", microCues: ["Feel your feet.", "Hands come back.", "Stay loose."] },
       { title: "Round 2: Jab in, step out", doThis: "Step in behind a jab, then step out before throwing anything else.", coachCue: "Enter once. Exit once.", microCues: ["Step small.", "Guard home.", "Out before more punches."] },
       { title: "Round 3: Double jab entry", doThis: "Touch two light jabs, then step out and reset. Do not chase the second jab if balance breaks.", coachCue: "Two touches, then out.", microCues: ["Rear hand stays home.", "Feet under you.", "Do not lean."] },
       { title: "Round 4: Exit before adding more", doThis: "Punch once or twice, exit, and freeze in stance before the next entry.", coachCue: "Leave before you chase.", microCues: ["Exit first.", "Hands home.", "Freeze balanced.", "No extra punches."] },
@@ -535,7 +535,7 @@ function bagRecipe(input: WorkoutRecipeResolutionInput, variant: "jab" | "combo"
       quickLog: quickLog("Warm up, run jab-control bag rounds, then cool down.", "Touch, home, reset. Power stays capped. Feet under you."),
       rounds: [
         { title: "Round 1: Light jab touch", doThis: "Touch the bag with a relaxed jab. Bring the hand back every time.", coachCue: "Touch, home, reset.", microCues: BAG_MICRO_CUES.slice(0, 3) },
-        { title: "Round 2: Jab shape and distance", doThis: "Set your feet at jab range. Touch the bag, bring the jab home, and reset distance before the next touch.", coachCue: "Find range without reaching.", microCues: ["Hand home.", "Chin quiet.", "Feet under you.", "No leaning."] },
+        { title: "Round 2: Jab range and distance", doThis: "Set your feet at jab range. Touch the bag, bring the jab home, and reset distance before the next touch.", coachCue: "Find range without reaching.", microCues: ["Hand home.", "Chin quiet.", "Feet under you.", "No leaning."] },
         { title: "Round 3: Sharp jab touch", doThis: "Add a little snap to the jab, but keep the hand coming back clean.", coachCue: "Snap without reaching.", microCues: ["Hand back.", "Chin quiet.", "Stay on balance."] },
         { title: "Round 4: Double jab touch", doThis: "Touch two relaxed jabs, then step out. Keep the second jab light enough that your guard returns.", coachCue: "Two touches, then out.", microCues: ["Rear hand home.", "Second jab relaxed.", "Do not push the bag.", "Exit clean."] },
         { title: "Round 5: Jab and exit", doThis: "Jab the bag, step out, and reset before touching again.", coachCue: "Exit after the touch.", microCues: ["Step small.", "Guard home.", "Do not admire the shot."] },
@@ -557,12 +557,12 @@ function bagRecipe(input: WorkoutRecipeResolutionInput, variant: "jab" | "combo"
     cooldown: boxingCooldown(cooldownId),
     ...boxingTiming(input, { isBag: true }),
     blockTitle: "Bag rounds",
-    previewFlow: ["Warm-up - bag distance and easy rhythm", "Bag rounds - jab-cross reset, jab-cross exit, body-head shape, defense reset, best combo", "Cooldown - breathing and shakeout"],
+    previewFlow: ["Warm-up - bag distance and easy rhythm", "Bag rounds - jab-cross reset, jab-cross exit, body-head touch, defense reset, clean combo", "Cooldown - breathing and shakeout"],
     quickLog: quickLog("Warm up, run short bag-combination rounds, then cool down.", "The combo ends at guard. Exit before adding more."),
     rounds: [
       { title: "Round 1: Jab-cross and reset", doThis: "Touch jab-cross, bring both hands home, and reset your feet.", coachCue: "Combo ends at guard.", microCues: ["Rear hand back.", "Feet under you.", "Do not chase power."] },
       { title: "Round 2: Jab-cross exit", doThis: "Touch jab-cross, step out, and freeze in stance before starting again.", coachCue: "Punch, leave, reset.", microCues: ["Exit clean.", "Hands home.", "Stay balanced."] },
-      { title: "Round 3: Body-head shape", doThis: "Make a shallow level change, touch body-head, then step out.", coachCue: "Level change stays small.", microCues: ["Eyes up.", "Hips stay under you.", "Do not dip too low."] },
+      { title: "Round 3: Body-head touch", doThis: "Make a shallow level change, touch body-head, then step out.", coachCue: "Level change stays small.", microCues: ["Eyes up.", "Hips stay under you.", "Do not dip too low."] },
       { title: "Round 4: Add defense reset", doThis: "Touch a short combo, bring both hands home, make one small defensive reset, then exit.", coachCue: "Combo, defense, reset.", microCues: ["Hands home first.", "Defense small.", "Exit clean.", "No extra shots."] },
       { title: "Round 5: Short combo around jab", doThis: "Start every combination with a clean jab. Add only one or two punches before resetting.", coachCue: "Jab starts the work.", microCues: ["Jab home.", "Short combo.", "Feet under you.", "Power capped."] },
       { title: "Round 6: Combo and exit quality", doThis: "Touch your cleanest short combination, then leave range before starting again.", coachCue: "Exit is part of the combo.", microCues: ["Clean finish.", "Step out.", "Guard home.", "No admiring."] },
@@ -753,17 +753,17 @@ function conditioningRecipe(input: WorkoutRecipeResolutionInput): WorkoutRecipe 
     cooldown: boxingCooldown(cooldownId),
     ...boxingTiming(input, { policy: input.family === "alactic_sprints" ? "short" : undefined }),
     blockTitle: input.family === "alactic_sprints" ? "Short burst work" : "Conditioning rounds",
-    previewFlow: ["Warm-up - stance and easy movement", "Work rounds - smooth rhythm, clean shape, repeatable effort", "Cooldown - breathing and shakeout"],
+    previewFlow: ["Warm-up - stance and easy movement", "Work rounds - smooth rhythm, clean form, repeatable effort", "Cooldown - breathing and shakeout"],
     quickLog: quickLog("Warm up, complete repeatable solo work rounds, then cool down.", "Smooth is the score. Stop before coordination fades."),
     rounds: [
       { title: "Round 1: Easy footwork rhythm", doThis: "Move smoothly in stance with quiet feet and controlled breathing.", coachCue: "Smooth is the score.", microCues: FOOTWORK_MICRO_CUES.slice(0, 3), safetyStop: EASY_STOP },
-      { title: "Round 2: Shadow rhythm", doThis: "Use light punch shapes only if guard return stays clean.", coachCue: "Light touch, full reset.", microCues: ["Hands home.", "Breathe while you move.", "No rush."], safetyStop: EASY_STOP },
+      { title: "Round 2: Shadow rhythm", doThis: "Use light punches only if guard return stays clean.", coachCue: "Light touch, full reset.", microCues: ["Hands home.", "Breathe while you move.", "No rush."], safetyStop: EASY_STOP },
       { title: "Round 3: Low-impact movement", doThis: "Switch to low-impact movement, core control, or easy range if effort rises.", coachCue: "Keep it repeatable.", microCues: ["Stay tall.", "Slow your breathing.", "No sprint finish."], safetyStop: EASY_STOP },
-      { title: "Round 4: Breath reset rhythm", doThis: "Keep moving while breathing settles. Use only simple shapes that stay repeatable.", coachCue: "Breathe before adding pace.", microCues: ["Long exhale.", "Shoulders down.", "No sprinting.", "Stay smooth."], safetyStop: EASY_STOP },
-      { title: "Round 5: Guard-return rhythm", doThis: "Use light punch shapes and make every hand return home before your feet move again.", coachCue: "Hands home, then feet.", microCues: ["Guard home.", "Feet quiet.", "Do not rush.", "Reset every action."], safetyStop: EASY_STOP },
+      { title: "Round 4: Breath reset rhythm", doThis: "Keep moving while breathing settles. Use only simple actions that stay repeatable.", coachCue: "Breathe before adding pace.", microCues: ["Long exhale.", "Shoulders down.", "No sprinting.", "Stay smooth."], safetyStop: EASY_STOP },
+      { title: "Round 5: Guard-return rhythm", doThis: "Use light punches and make every hand return home before your feet move again.", coachCue: "Hands home, then feet.", microCues: ["Guard home.", "Feet quiet.", "Do not rush.", "Reset every action."], safetyStop: EASY_STOP },
       { title: "Round 6: Coordination cap", doThis: "Stop adding pace if coordination or breathing changes.", coachCue: "Finish with control left.", microCues: ["Clean beats tired.", "Feet under you.", "Leave one gear unused.", "No sprint finish."], safetyStop: EASY_STOP },
       { title: "Round 7: Repeatable pressure", doThis: "Hold the highest pace that still lets you breathe and move cleanly. Back off the moment shape changes.", coachCue: "Repeatable beats hard.", microCues: ["Smooth pace.", "Relax jaw.", "Stay tall.", "Back off early."], safetyStop: EASY_STOP },
-      { title: "Round 8: Controlled finish", doThis: "Finish with the cleanest rhythm from the day. Do not sprint or add fatigue-chasing work.", coachCue: "Finish able to repeat it.", microCues: ["No sprint finish.", "Clean shape.", "Breathe down.", "Leave control."], safetyStop: EASY_STOP }
+      { title: "Round 8: Controlled finish", doThis: "Finish with the cleanest rhythm from the day. Do not sprint or add fatigue-chasing work.", coachCue: "Finish able to repeat it.", microCues: ["No sprint finish.", "Clean form.", "Breathe down.", "Leave control."], safetyStop: EASY_STOP }
     ]
   });
 }

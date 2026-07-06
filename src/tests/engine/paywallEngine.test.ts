@@ -7,18 +7,26 @@ describe("paywallEngine", () => {
 
     expect(viewModel.headline).toBe("Unlock CornerIQ");
     expect(viewModel.footerCopy.toLowerCase()).toContain("no free trial");
+    expect(viewModel.footerCopy.toLowerCase()).toContain("auto-renews");
     expect(viewModel.plans).toHaveLength(2);
     expect(viewModel.plans[0]).toMatchObject({
+      ctaLabel: "Subscribe monthly",
       period: "monthly",
       priceLabel: "CA$15/month",
       productId: "com.corneriq.pro.monthly"
     });
     expect(viewModel.plans[1]).toMatchObject({
+      ctaLabel: "Subscribe yearly",
       period: "annual",
       priceLabel: "CA$100/year",
       productId: "com.corneriq.pro.annual",
       valueLabel: "Lower yearly total"
     });
+    expect(viewModel.purchaseDisclosures).toEqual([
+      { id: "billing", label: "Billing", value: "App Store in-app purchase" },
+      { id: "renewal", label: "Renewal", value: "Auto-renews until canceled" },
+      { id: "trial", label: "Trial", value: "No free trial" }
+    ]);
     expect(viewModel.accountAccessCopy).toContain("delete-account controls stay available");
     expect(JSON.stringify(viewModel).toLowerCase()).not.toMatch(/sparring|contact drills|weight-class pressure wins/);
   });

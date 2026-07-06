@@ -637,15 +637,17 @@ function v2BoxingSteps(block: StructuredBlockV2, sectionIndex: number): readonly
     steps.push({
       id: `guided:${sectionIndex}:0:${exerciseId}:${steps.length}:round-${round.roundNumber}`,
       kind: "work",
-      title: `Round ${round.roundNumber}`,
-      beginnerInstruction: round.intent,
-      intent: boxing.purpose.replaceAll("_", " "),
+      title: round.title ? `Round ${round.roundNumber}: ${round.title}` : `Round ${round.roundNumber}`,
+      beginnerInstruction: round.doThis ?? round.intent,
+      intent: round.job ?? boxing.purpose.replaceAll("_", " "),
       cue: round.cue,
+      ...(round.doNotAdd ? { commonMistake: round.doNotAdd, microCues: [round.doNotAdd] } : {}),
       durationSeconds: round.durationSeconds,
       repsText: v2DurationText(round.durationSeconds),
       loadGuidance: `RPE ${boxing.rpe}`,
       safetyStop: boxing.stopRule,
-      successCheck: boxing.technicalQualityCheckpoint
+      successCheck: round.qualityCheck ?? boxing.technicalQualityCheckpoint,
+      ...(round.downshift ? { regression: round.downshift } : {})
     });
     if (round.roundNumber < boxing.rounds.length && round.restSeconds > 0) {
       steps.push({

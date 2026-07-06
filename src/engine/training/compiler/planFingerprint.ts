@@ -115,10 +115,16 @@ export function materialForCompiledWeek(week: CompiledWeekWithoutFingerprints): 
               purpose: block.boxingRounds.purpose,
               rounds: block.boxingRounds.rounds.map((round) => ({
                 roundNumber: round.roundNumber,
+                title: round.title,
                 durationSeconds: round.durationSeconds,
                 restSeconds: round.restSeconds,
+                job: round.job,
+                doThis: round.doThis,
                 intent: round.intent,
-                cue: round.cue
+                cue: round.cue,
+                doNotAdd: round.doNotAdd,
+                qualityCheck: round.qualityCheck,
+                downshift: round.downshift
               })),
               rpe: block.boxingRounds.rpe,
               technicalQualityCheckpoint: block.boxingRounds.technicalQualityCheckpoint,

@@ -76,32 +76,119 @@ function warmupKindFor(input: WarmupStructureContext): WarmupKind {
   return "mobility";
 }
 
-function bagWarmup(): readonly WarmupStepDraft[] {
+function boxingWarmupBase(): readonly WarmupStepDraft[] {
   return [
-    step({ id: "shoulder_circles", title: "Shoulder circles", baseSeconds: 25, instruction: "Make slow circles forward, then backward. Keep your jaw and neck loose.", intent: "Warm the shoulders before punch shapes.", cue: "Smooth shoulders, quiet neck." }),
-    step({ id: "punch_and_twist", title: "Punch and twist", baseSeconds: 25, instruction: "Punch one arm across your body while gently rotating your upper back. Switch sides each punch.", intent: "Prepare rotation without forcing range.", cue: "Rotate smooth." }),
-    step({ id: "hip_hinges", title: "Hip hinges", baseSeconds: 25, instruction: "Push your hips back, keep your back long, then stand tall.", intent: "Prepare the hinge that keeps stance balanced.", cue: "Hips back, chest proud." }),
-    step({ id: "stance_bounce", title: "Stance bounce", baseSeconds: 30, instruction: "Bounce lightly in boxing stance with both hands near your cheeks.", intent: "Find a relaxed stance before touching the bag.", cue: "Warm, not tired." }),
-    step({ id: "step_and_guard_reset", title: "Step and guard reset", baseSeconds: 30, instruction: "Take one small step, recover stance width, and bring both hands home.", intent: "Make every movement return to stance and guard.", cue: "Feet first. Hands home.", microCues: ["Step small.", "Guard comes back."] }),
-    step({ id: "air_jab_to_guard", title: "Air jab to guard", baseSeconds: 30, instruction: "Touch a light jab in the air, bring it home, and reset your feet.", intent: "Rehearse the hand return before the bag moves.", cue: "The jab is done when it is home." }),
-    step({ id: "light_bag_touch", title: "Light bag touch", baseSeconds: 40, instruction: "Touch the bag lightly with the jab. Bring the hand home after every touch.", intent: "Introduce the bag without power.", cue: "Touch, home, reset.", microCues: ["Do not push.", "No power yet."] }),
-    step({ id: "step_in_out_bag_touch", title: "Step in-out bag touch", baseSeconds: 40, instruction: "Step in, touch the bag, step out, and reset your stance.", intent: "Find bag range without reaching or leaning.", cue: "In clean. Out clean." }),
-    step({ id: "easy_bag_rhythm", title: "Easy bag rhythm", baseSeconds: 45, instruction: "Move around the bag slowly. Add only light touches while shoulders stay loose and feet stay under you.", intent: "Arrive at round one accurate and relaxed.", cue: "Clean rhythm before power.", microCues: ["Power stays capped.", "Exit balanced."] })
+    step({
+      id: "easy_bounce_or_march",
+      title: "Easy bounce or march",
+      baseSeconds: 30,
+      instruction: "Bounce lightly or march in place. Keep your shoulders down and breathe through your nose if you can.",
+      intent: "Raise temperature without spending the round work early.",
+      cue: "Warm, not tired."
+    }),
+    step({
+      id: "shoulder_circles",
+      title: "Shoulder circles",
+      baseSeconds: 30,
+      instruction: "Circle both shoulders forward. Halfway through, switch backward. Keep your neck loose.",
+      intent: "Warm the shoulders before the hands come up.",
+      cue: "Smooth shoulders."
+    }),
+    step({
+      id: "slow_punches_and_turn",
+      title: "Slow punches and turn",
+      baseSeconds: 30,
+      instruction: "Throw slow straight punches. Turn your chest with each punch and bring each hand back to your face.",
+      intent: "Connect rotation to hand return before speed rises.",
+      cue: "Turn, punch, return."
+    }),
+    step({
+      id: "hip_hinges",
+      title: "Hip hinges",
+      baseSeconds: 30,
+      instruction: "Stand with feet under your hips. Soften your knees. Push your hips back, let your chest tip forward, then stand tall again.",
+      intent: "Prepare the hips without turning the warm-up into squats.",
+      cue: "Hips back, back long."
+    }),
+    step({
+      id: "ankle_bounce",
+      title: "Ankle bounce",
+      baseSeconds: 25,
+      instruction: "Bounce lightly on the balls of your feet. Keep the bounce small and quiet.",
+      intent: "Wake up light feet without chasing fatigue.",
+      cue: "Quiet feet."
+    }),
+    step({
+      id: "stance_hold_and_bounce",
+      title: "Stance hold and bounce",
+      baseSeconds: 35,
+      instruction: "Set your boxing stance. Lead foot forward, rear foot back, knees soft. Hands by your cheeks. Bounce lightly without letting your feet come together.",
+      intent: "Find a stance that can move without narrowing.",
+      cue: "Guard up, stance wide."
+    }),
+    step({
+      id: "step_and_reset",
+      title: "Step and reset",
+      baseSeconds: 35,
+      instruction: "From stance, step forward, back, left, and right. Move the nearest foot first, then bring the other foot back under you. Reset your stance before the next step.",
+      intent: "Teach the feet to move and recover before the rounds start.",
+      cue: "Step, recover, reset.",
+      microCues: ["Do not cross feet.", "Keep your hands home."]
+    }),
+    step({
+      id: "jab_to_guard",
+      title: "Jab to guard",
+      baseSeconds: 35,
+      instruction: "Throw a slow jab from stance. Keep the rear hand by your face. Bring the jab hand back to your cheek before you move again.",
+      intent: "Build the first hand return before combinations or pace.",
+      cue: "Jab home first."
+    })
   ];
 }
 
 function boxingWarmup(): readonly WarmupStepDraft[] {
   return [
-    step({ id: "shoulder_circles_forward", title: "Shoulder circles forward", baseSeconds: 20, instruction: "Make slow forward circles with both shoulders. Start small, then gradually bigger.", intent: "Prepare the shoulders without tension.", cue: "Relax your neck." }),
-    step({ id: "shoulder_circles_backward", title: "Shoulder circles backward", baseSeconds: 20, instruction: "Reverse the circles and keep your jaw relaxed.", intent: "Open the guard position before punch shapes.", cue: "Smooth circles." }),
-    step({ id: "punch_and_twist", title: "Punch and twist", baseSeconds: 25, instruction: "Punch one arm across your body while gently rotating your upper back. Switch sides each punch.", intent: "Prepare rotation for solo punch shapes.", cue: "Rotate smooth. Do not force it." }),
-    step({ id: "scoops_left", title: "Scoops left", baseSeconds: 20, instruction: "Put your left heel forward. Sweep both hands down toward the left leg, then stand tall again.", intent: "Prepare posterior-chain range without yanking.", cue: "Easy stretch." }),
-    step({ id: "scoops_right", title: "Scoops right", baseSeconds: 20, instruction: "Put your right heel forward. Sweep both hands down toward the right leg, then stand tall again.", intent: "Prepare the second side before stance work.", cue: "Easy range." }),
-    step({ id: "ankle_bounce", title: "Ankle bounce", baseSeconds: 25, instruction: "Bounce lightly on the balls of your feet. Keep the bounce tiny and quiet.", intent: "Prepare light feet without chasing fatigue.", cue: "Quiet feet." }),
-    step({ id: "stance_bounce", title: "Stance bounce", baseSeconds: 30, instruction: "Step into boxing stance. Bounce lightly with both hands near your cheeks.", intent: "Find stance before the first boxing round.", cue: "Warm, loose, not tired." }),
-    step({ id: "step_and_guard_reset", title: "Step and guard reset", baseSeconds: 30, instruction: "Take one small step, recover stance width, and bring both hands home. Repeat slowly.", intent: "Make feet and guard return together.", cue: "Feet reset. Hands home.", microCues: ["Do not cross feet.", "Guard returns first."] }),
-    step({ id: "jab_shape_to_guard", title: "Jab shape to guard", baseSeconds: 35, instruction: "Touch a light jab shape, bring the hand back to your cheek, then reset your feet before the next jab.", intent: "Build the first clean punch shape before speed rises.", cue: "Jab, guard, feet, breathe." }),
-    step({ id: "easy_shadow_flow", title: "Easy shadow flow", baseSeconds: 45, instruction: "Move slowly in stance. Add light jab shapes only if your hands and feet keep coming home.", intent: "Arrive at round one warm, coordinated, and fresh.", cue: "Get into your body." })
+    ...boxingWarmupBase(),
+    step({
+      id: "easy_shadowboxing",
+      title: "Easy shadowboxing",
+      baseSeconds: 40,
+      instruction: "Move in stance with slow single jabs. After every jab, bring the hand back and reset your feet.",
+      intent: "Bridge the warm-up into round one without adding volume.",
+      cue: "Hands home."
+    }),
+    step({
+      id: "jab_and_exit",
+      title: "Jab and exit",
+      baseSeconds: 40,
+      instruction: "Jab, step out, and reset your stance. Do not add another punch until your feet are set.",
+      intent: "Finish the warm-up with a clean entry, exit, and reset.",
+      cue: "In clean, out clean."
+    })
+  ];
+}
+
+function bagWarmup(): readonly WarmupStepDraft[] {
+  return [
+    ...boxingWarmupBase(),
+    step({
+      id: "find_bag_range",
+      title: "Find bag range",
+      baseSeconds: 40,
+      instruction: "Stand where your jab can touch the bag without reaching. Jab lightly, bring the hand back, and reset your feet.",
+      intent: "Find distance before power or combinations appear.",
+      cue: "Touch, home, reset.",
+      microCues: ["Do not push.", "No power yet."]
+    }),
+    step({
+      id: "step_in_touch_step_out",
+      title: "Step in, touch, step out",
+      baseSeconds: 40,
+      instruction: "Step in, jab the bag lightly, then step out before the bag swings back into you.",
+      intent: "Start the bag block with clean range and a safe exit.",
+      cue: "No power yet.",
+      microCues: ["Exit balanced.", "Hands home."]
+    })
   ];
 }
 
@@ -125,7 +212,7 @@ function speedWarmup(): readonly WarmupStepDraft[] {
     step({ id: "ankle_bounce", title: "Ankle bounce", baseSeconds: 25, instruction: "Bounce lightly on the balls of your feet. Keep each touch tiny and quiet.", intent: "Wake up elastic rhythm without hard impact.", cue: "Quiet bounce." }),
     step({ id: "stance_bounce", title: "Stance bounce", baseSeconds: 30, instruction: "Bounce lightly in stance with guard home and shoulders down.", intent: "Connect speed work to boxing stance.", cue: "Hands home, feet quiet." }),
     step({ id: "first_step_walkthrough", title: "First-step walkthrough", baseSeconds: 30, instruction: "Take one small first step, stop balanced, and reset. Walk it, do not sprint it.", intent: "Prepare acceleration shape without max effort.", cue: "Step, stop, reset.", microCues: ["No launch yet.", "Brake quiet."] }),
-    step({ id: "short_rhythm_touch", title: "Short rhythm touch", baseSeconds: 30, instruction: "Use one quick but relaxed jab shape or foot touch, then fully reset.", intent: "Prime speed while staying fresh.", cue: "Fast and done." }),
+    step({ id: "short_rhythm_touch", title: "Short rhythm touch", baseSeconds: 30, instruction: "Use one quick but relaxed jab or foot touch, then fully reset.", intent: "Prime speed while staying fresh.", cue: "Fast and done." }),
     step({ id: "shoulder_shakeout", title: "Shoulder shakeout", baseSeconds: 25, instruction: "Shake out your hands, forearms, and shoulders while you stay on light feet.", intent: "Start the first effort fresh, not heated up by fatigue.", cue: "Leave the top gear unused." })
   ];
 }
@@ -191,7 +278,7 @@ function whyForKind(kind: WarmupKind): string {
     case "bag":
       return "Get warm and find clean bag distance before the rounds.";
     case "boxing":
-      return "Get warm and build stance, guard, and jab shape before the boxing rounds.";
+      return "Get warm and build stance, guard, and hand return before the boxing rounds.";
     case "conditioning":
       return "Raise temperature and cap effort before conditioning so movement stays repeatable.";
     case "mobility":

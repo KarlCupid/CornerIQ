@@ -24,6 +24,7 @@ Do not use this checklist to add product scope. During this pass, avoid new Fuel
 - [ ] App Store screenshots are captured from a production-like iPhone build.
 - [ ] App Store support URL is set to `https://sites.google.com/view/corneriq/support`.
 - [ ] App Store privacy policy URL is set to `https://sites.google.com/view/corneriq/privacy-policy`.
+- [ ] App Store terms/EULA uses Apple's standard terms or the custom terms URL configured in-app.
 - [ ] Reviewer credentials are valid, confirmed, and provided only in App Store Connect Review Notes.
 - [ ] Subscription products are created in App Store Connect:
   - [ ] `com.corneriq.pro.monthly`, monthly, `CA$15/month`.
@@ -72,6 +73,7 @@ CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production
 - [ ] `EXPO_PUBLIC_CORNERIQ_ANNUAL_PRODUCT_ID=com.corneriq.pro.annual` is set or defaulted intentionally.
 - [ ] `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL` points to the public privacy policy if overriding the default.
 - [ ] `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL` points to the public support page if overriding the default.
+- [ ] `EXPO_PUBLIC_CORNERIQ_TERMS_OF_USE_URL` points to public terms if overriding the default Apple standard EULA.
 - [ ] Apple submission preflight passes with no `APPLE_SUBMISSION_BLOCKED` entries.
 
 ## Browser QA And Release Evidence
@@ -134,7 +136,7 @@ npx eas-cli@latest submit -p ios --latest
 - [ ] Production E2E/local test mode is absent.
 - [ ] Review account can sign in.
 - [ ] New public user can create an account and complete onboarding.
-- [ ] Paywall appears only after onboarding and does not block privacy, support, restore purchase, sign-out, export, or delete-account controls.
+- [ ] Paywall appears only after onboarding and does not block privacy, terms, support, restore purchase, sign-out, export, or delete-account controls.
 - [ ] Purchase flow works in sandbox/TestFlight.
 - [ ] Restore purchase works in sandbox/TestFlight.
 - [ ] Subscription cancellation/error paths keep the app safe and understandable.
@@ -154,6 +156,7 @@ npx eas-cli@latest submit -p ios --latest
 - [ ] Release notes are final.
 - [ ] Privacy Policy URL is public.
 - [ ] Support URL is public.
+- [ ] Terms/EULA URL is public.
 - [ ] Copyright and seller details are correct.
 - [ ] Pricing and availability are correct.
 - [ ] App privacy questionnaire matches the actual data collected and processed.

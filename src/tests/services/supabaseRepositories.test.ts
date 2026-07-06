@@ -1705,6 +1705,56 @@ describe("Supabase repositories", () => {
     });
   });
 
+  it("engineRunRepository supersedes stale active slot content and inserts a moved-date-preserving replacement", async () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const generated = state.training.generatedSessions[0]!;
+    const record = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash_next", "output_hash_next", { trainingBlockId: "training_block_1" });
+    const recordPayload = record.session_payload as Record<string, unknown>;
+    const existingPayload = {
+      ...recordPayload,
+      date: "2026-05-26",
+      currentScheduledDate: "2026-05-26",
+      contentFingerprint: "older-canonical-content",
+      generatedSessionLifecycle: "moved",
+      inputHash: "input_hash_existing",
+      outputHash: "output_hash_existing"
+    };
+    const { client, inserted, updated, upserted } = createGeneratedSessionSlotPersistenceClient({
+      id: "db_generated_1",
+      current_scheduled_date: "2026-05-26",
+      generated_session_lifecycle: "moved",
+      session_payload: existingPayload
+    });
+
+    await createEngineRunRepository(client).upsertGeneratedSessions([record]);
+
+    expect(upserted).toEqual([]);
+    expect(updated).toHaveLength(1);
+    expect(inserted).toHaveLength(1);
+    expect(updated[0]?.record).toMatchObject({
+      generated_session_lifecycle: "superseded",
+      session_payload: {
+        generatedSessionLifecycle: "superseded",
+        supersededReason: "canonical_content_replaced_for_active_slot",
+        supersededByGeneratedSessionKey: record.generated_session_key,
+        supersededByInputHash: "input_hash_next",
+        supersededByOutputHash: "output_hash_next"
+      }
+    });
+    expect(inserted[0]?.record).toMatchObject({
+      current_scheduled_date: "2026-05-26",
+      generated_session_lifecycle: "moved",
+      session_payload: {
+        contentFingerprint: recordPayload.contentFingerprint,
+        currentScheduledDate: "2026-05-26",
+        date: "2026-05-26",
+        generatedSessionLifecycle: "moved",
+        movedDatePreservedBySlotReconciliation: true,
+        replacesSupersededGeneratedSessionRowId: "db_generated_1"
+      }
+    });
+  });
+
   it("engineRunRepository does not resurrect completed or skipped generated slots", async () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const generated = state.training.generatedSessions[0]!;

@@ -13,7 +13,7 @@ function sessionText(session: CompiledTrainingSession): string {
       block.conditioning?.stopCondition ?? "",
       block.boxingRounds?.stopRule ?? "",
       block.boxingRounds?.technicalQualityCheckpoint ?? "",
-      ...(block.boxingRounds?.rounds.flatMap((round) => [round.intent, round.cue]) ?? []),
+      ...(block.boxingRounds?.rounds.flatMap((round) => [round.title, round.job, round.doThis, round.intent, round.cue, round.doNotAdd, round.qualityCheck, round.downshift]) ?? []),
       ...block.exercises.flatMap((exercise) => [exercise.name, exercise.loadTarget ?? "", exercise.progressionKey, exercise.regressionKey, ...exercise.stopConditions])
     ])
   ].join(" ");
@@ -100,7 +100,16 @@ function hasConditioningStructure(block: TrainingSessionBlock): boolean {
 }
 
 function hasBoxingRoundStructure(block: TrainingSessionBlock): boolean {
-  return Boolean(block.boxingRounds && block.boxingRounds.rounds.length > 0 && block.boxingRounds.rounds.every((round) => round.durationSeconds > 0 && round.restSeconds >= 0 && round.intent.length > 0 && round.cue.length > 0));
+  return Boolean(
+    block.boxingRounds &&
+      block.boxingRounds.rounds.length > 0 &&
+      block.boxingRounds.rounds.every(
+        (round) =>
+          round.durationSeconds > 0 &&
+          round.restSeconds >= 0 &&
+          [round.title, round.job, round.doThis, round.intent, round.cue, round.doNotAdd, round.qualityCheck, round.downshift].every((value) => typeof value === "string" && value.length > 0)
+      )
+  );
 }
 
 export function validateCompiledWeek(input: {

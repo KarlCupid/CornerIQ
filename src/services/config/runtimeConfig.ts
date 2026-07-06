@@ -2,6 +2,7 @@ export const PUBLIC_SUPABASE_URL_ENV = "EXPO_PUBLIC_SUPABASE_URL";
 export const PUBLIC_SUPABASE_ANON_KEY_ENV = "EXPO_PUBLIC_SUPABASE_ANON_KEY";
 export const PUBLIC_PRIVACY_POLICY_URL_ENV = "EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL";
 export const PUBLIC_SUPPORT_URL_ENV = "EXPO_PUBLIC_CORNERIQ_SUPPORT_URL";
+export const PUBLIC_TERMS_OF_USE_URL_ENV = "EXPO_PUBLIC_CORNERIQ_TERMS_OF_USE_URL";
 export const PUBLIC_PAYWALL_ENABLED_ENV = "EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED";
 export const PUBLIC_REVENUECAT_IOS_API_KEY_ENV = "EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY";
 export const PUBLIC_REVENUECAT_ANDROID_API_KEY_ENV = "EXPO_PUBLIC_CORNERIQ_REVENUECAT_ANDROID_API_KEY";
@@ -10,6 +11,7 @@ export const PUBLIC_MONTHLY_PRODUCT_ID_ENV = "EXPO_PUBLIC_CORNERIQ_MONTHLY_PRODU
 export const PUBLIC_ANNUAL_PRODUCT_ID_ENV = "EXPO_PUBLIC_CORNERIQ_ANNUAL_PRODUCT_ID";
 export const CORNERIQ_PRIVACY_POLICY_URL = "https://sites.google.com/view/corneriq/privacy-policy";
 export const CORNERIQ_SUPPORT_URL = "https://sites.google.com/view/corneriq/support";
+export const CORNERIQ_TERMS_OF_USE_URL = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
 export const PLACEHOLDER_PRIVACY_POLICY_URL = "https://example.com/corneriq/privacy-policy";
 export const CORNERIQ_REVENUECAT_ENTITLEMENT_ID = "corneriq_pro";
 export const CORNERIQ_MONTHLY_PRODUCT_ID = "com.corneriq.pro.monthly";
@@ -31,6 +33,7 @@ export interface ReleaseLinkConfig {
   privacyPolicyUrl: string | null;
   privacyPolicyUrlIsPlaceholder: boolean;
   supportUrl: string | null;
+  termsOfUseUrl: string | null;
 }
 
 export interface SubscriptionRuntimeConfig {
@@ -51,6 +54,7 @@ export function readRuntimeEnv(): RuntimeEnv {
     EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL: process.env.EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL,
     EXPO_PUBLIC_CORNERIQ_SUPPORT_URL: process.env.EXPO_PUBLIC_CORNERIQ_SUPPORT_URL,
+    EXPO_PUBLIC_CORNERIQ_TERMS_OF_USE_URL: process.env.EXPO_PUBLIC_CORNERIQ_TERMS_OF_USE_URL,
     EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED: process.env.EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED,
     EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY: process.env.EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY,
     EXPO_PUBLIC_CORNERIQ_REVENUECAT_ANDROID_API_KEY: process.env.EXPO_PUBLIC_CORNERIQ_REVENUECAT_ANDROID_API_KEY,
@@ -118,15 +122,18 @@ function isHttpUrl(value: string): boolean {
 export function getReleaseLinkConfig(env: RuntimeEnv = readRuntimeEnv()): ReleaseLinkConfig {
   const configuredPrivacyPolicyUrl = env[PUBLIC_PRIVACY_POLICY_URL_ENV]?.trim();
   const configuredSupportUrl = env[PUBLIC_SUPPORT_URL_ENV]?.trim();
+  const configuredTermsOfUseUrl = env[PUBLIC_TERMS_OF_USE_URL_ENV]?.trim();
   const privacyPolicyUrl = configuredPrivacyPolicyUrl && isHttpUrl(configuredPrivacyPolicyUrl) ? configuredPrivacyPolicyUrl : CORNERIQ_PRIVACY_POLICY_URL;
   const supportUrl = configuredSupportUrl && isHttpUrl(configuredSupportUrl) ? configuredSupportUrl : CORNERIQ_SUPPORT_URL;
+  const termsOfUseUrl = configuredTermsOfUseUrl && isHttpUrl(configuredTermsOfUseUrl) ? configuredTermsOfUseUrl : CORNERIQ_TERMS_OF_USE_URL;
   const privacyPolicyUrlIsPlaceholder = !privacyPolicyUrl || privacyPolicyUrl === PLACEHOLDER_PRIVACY_POLICY_URL || new URL(privacyPolicyUrl).hostname === "example.com";
 
   return {
     appleSubmissionBlockedReason: privacyPolicyUrlIsPlaceholder ? "APPLE_SUBMISSION_BLOCKED: set a real Privacy Policy URL before public submission." : null,
     privacyPolicyUrl,
     privacyPolicyUrlIsPlaceholder,
-    supportUrl
+    supportUrl,
+    termsOfUseUrl
   };
 }
 

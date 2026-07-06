@@ -11,6 +11,7 @@ Status: APPLE_SUBMISSION_BLOCKED until the release owner completes the blockers 
 - App icon and splash: local assets are wired in `app.json`; APPLE_SUBMISSION_BLOCKED until the release owner accepts them as final App Store assets or replaces them.
 - Screenshots: APPLE_SUBMISSION_BLOCKED until App Store screenshots are captured from a production-like build with real public privacy and support metadata.
 - Support URL: published at `https://sites.google.com/view/corneriq/support` and configured as the app default release link. `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL` can override it if the release owner moves support.
+- Terms of Use: the app defaults to Apple's standard EULA at `https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`. `EXPO_PUBLIC_CORNERIQ_TERMS_OF_USE_URL` can override it if the release owner publishes custom terms.
 - Reviewer credentials: review account prepared on 2026-06-19. Provide credentials only in App Store Connect Review Notes. Do not commit credentials.
 - Subscriptions: APPLE_SUBMISSION_BLOCKED until Apple Developer Program enrollment, Paid Apps Agreement, tax/banking, App Store Connect subscription products, RevenueCat project/products/entitlement/offering, and a TestFlight purchase/restore smoke are complete. App code expects `EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED=1`, platform-specific RevenueCat public SDK keys, entitlement `corneriq_pro`, monthly product `com.corneriq.pro.monthly`, and annual product `com.corneriq.pro.annual`. Mocked automated coverage is in place, but no live purchase or restore has passed yet.
 
@@ -68,13 +69,13 @@ CornerIQ uses auto-renewable in-app purchase subscriptions after onboarding.
 - Monthly: CA$15/month
 - Annual: CA$100/year
 - No free trial
-Users can create/sign in to an account and complete onboarding without purchase. After onboarding, app product features require subscription. Restore purchase, Privacy Policy, Support, sign out, export, and delete account remain available from the paywall without purchase.
+Users can create/sign in to an account and complete onboarding without purchase. After onboarding, app product features require subscription. Restore purchase, Privacy Policy, Terms of Use, Support, sign out, export, and delete account remain available from the paywall without purchase.
 ```
 
 ## Subscription Notes
 
 - Product features are subscription-gated after onboarding.
-- Account, privacy, support, export, restore purchase, sign-out, and delete-account controls remain available without purchase.
+- Account, privacy, terms, support, export, restore purchase, sign-out, and delete-account controls remain available without purchase.
 - Pricing decision: `CA$15/month` or `CA$100/year`, no free trial.
 - Planned product IDs: `com.corneriq.pro.monthly` and `com.corneriq.pro.annual`.
 - Planned RevenueCat entitlement: `corneriq_pro`.
@@ -111,9 +112,11 @@ Do not print or commit secret values.
 - In-app path: Profile > Data > Privacy Policy.
 - Public URL: `https://sites.google.com/view/corneriq/privacy-policy`.
 - Public support URL: `https://sites.google.com/view/corneriq/support`.
+- Public terms URL: `https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`.
 - Central config: `src/services/config/runtimeConfig.ts`.
 - Public env name: `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL`.
 - Public support env name: `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL`.
+- Public terms env name: `EXPO_PUBLIC_CORNERIQ_TERMS_OF_USE_URL`.
 - Template: `docs/legal/PRIVACY_POLICY_TEMPLATE.md`.
 - The Google Site is public and the app defaults point to the published URLs.
 
@@ -135,6 +138,7 @@ The policy must cover account/auth data, email/auth identifier, athlete profile,
 - Age rating notes: 18+ MVP; sensitive health/body/cycle/nutrition context; no Kids category.
 - Privacy Policy URL: `https://sites.google.com/view/corneriq/privacy-policy`.
 - Support URL: `https://sites.google.com/view/corneriq/support`.
+- Terms of Use URL: `https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`.
 - Account deletion instructions: Profile > Data > Danger Zone > Delete account > type `DELETE ACCOUNT`; successful deletion signs the user out.
 - Demo account/review notes: create and provide only in App Store Connect Review Notes.
 
@@ -170,6 +174,7 @@ Do not claim:
 - [x] Configure in-app Privacy Policy URL.
 - [x] Publish public Support page.
 - [x] Configure in-app Support URL.
+- [x] Configure in-app Terms of Use URL.
 - [x] Deploy `delete-account` Edge Function.
 - [x] Smoke-test Profile > Data > Delete account in production.
 - [ ] Accept the wired icon/splash as final App Store assets or replace them.

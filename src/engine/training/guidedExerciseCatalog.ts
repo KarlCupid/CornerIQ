@@ -709,9 +709,9 @@ const guidedProfileOverrides: Readonly<Record<string, GuidedProfileOverride>> = 
     oneLineGoal: "Build the home base every boxing action returns to.",
     work: [
       roundStep("Stance base", "Stand in boxing stance with soft knees, chin tucked, and quiet shoulders.", "Feet feel ready before the hands do anything.", { durationSeconds: 60, restAfterSeconds: 15, successCheck: "You can freeze without leaning or crossing feet." }),
-      roundStep("Guard home", "Bounce lightly and bring both hands back to cheekbone height after every small action.", "Hands return before the next step or punch shape.", { durationSeconds: 60, restAfterSeconds: 15, successCheck: "Both hands come home without shoulder tension." }),
+      roundStep("Guard home", "Bounce lightly and bring both hands back to cheekbone height after every small action.", "Hands return before the next step or punch.", { durationSeconds: 60, restAfterSeconds: 15, successCheck: "Both hands come home without shoulder tension." }),
       roundStep("Step and reset", "Take one small step, recover stance width, and bring the guard with the feet.", "No crossing, reaching, or falling into the reset.", { durationSeconds: 60, restAfterSeconds: 15 }),
-      roundStep("Jab shape to guard", "Touch a light jab shape, bring the hand home, then reset stance before repeating.", "The jab is finished only when stance and guard are back.", { durationSeconds: 60, restAfterSeconds: 0 })
+      roundStep("Jab to guard", "Touch a light jab, bring the hand home, then reset stance before repeating.", "The jab is finished only when stance and guard are back.", { durationSeconds: 60, restAfterSeconds: 0 })
     ],
     commonMistakes: ["Letting the hands drop while the feet reset.", "Taking steps so large the stance cannot recover."],
     safetyStops: ["Stop if balance, dizziness, neck symptoms, or repeated stance collapse appears."]
@@ -724,7 +724,7 @@ const guidedProfileOverrides: Readonly<Record<string, GuidedProfileOverride>> = 
       roundStep("Single jab return", "Throw one relaxed jab and count it only when both hands are back home.", "Count honest returns, not punches started.", { durationSeconds: 30, restAfterSeconds: 30 }),
       roundStep("Double jab return", "Throw two light jabs, keep the rear hand available, and recover stance.", "Second jab stays relaxed.", { durationSeconds: 30, restAfterSeconds: 30 }),
       roundStep("Jab-cross return", "Touch jab-cross, then bring both hands home before any foot movement.", "The combination ends at guard, not at extension.", { durationSeconds: 30, restAfterSeconds: 30 }),
-      roundStep("Step-out guard return", "Punch shape, hands home, then step out and recover stance.", "Feet move after the hands return.", { durationSeconds: 30, restAfterSeconds: 30 }),
+      roundStep("Step-out guard return", "Punch, hands home, then step out and recover stance.", "Feet move after the hands return.", { durationSeconds: 30, restAfterSeconds: 30 }),
       roundStep("Feint to guard", "Show one small feint without lifting the chin, then recover guard.", "Sell the feint without losing the rear hand.", { durationSeconds: 30, restAfterSeconds: 30 }),
       roundStep("Honest quality count", "Repeat your cleanest action and stop counting any rep with a missed return.", "Missed returns do not count.", { durationSeconds: 30, restAfterSeconds: 0 })
     ]
@@ -734,10 +734,10 @@ const guidedProfileOverrides: Readonly<Record<string, GuidedProfileOverride>> = 
     beginnerName: "Jab-Focused Shadowboxing",
     oneLineGoal: "Build a sharper jab without rushing.",
     work: [
-      roundStep("Low and slow shadow", "Shadowbox at low intensity. Move slowly enough to feel your feet, hips, shoulders, and guard.", "Get into your body first. No rush.", { durationSeconds: 120, restAfterSeconds: 60, microCues: ["Feel your feet.", "Hands come back.", "Stay loose."] }),
+      roundStep("Low and slow shadow", "Shadowbox at low intensity. Move slowly enough to check your feet, hips, shoulders, and guard.", "Settle your feet first. No rush.", { durationSeconds: 120, restAfterSeconds: 60, microCues: ["Feel your feet.", "Hands come back.", "Stay loose."] }),
       roundStep("Sharp jab focused round", "Build the round around the jab. Touch the jab, bring it back to your cheek, and reset your feet before throwing again.", "The jab is not finished until your hand is home.", { durationSeconds: 120, restAfterSeconds: 60, microCues: ["Make sure hands are coming back.", "Stay on the balls of your feet.", "Do not let your hips come up."] }),
       roundStep("Jab entry and exit", "Step in behind the jab, then step out after it. Do not add extra punches if your feet get messy.", "In clean. Out clean.", { durationSeconds: 120, restAfterSeconds: 60, microCues: ["Step in balanced.", "Exit before adding more.", "Guard home first."] }),
-      roundStep("Best clean jab round", "Use the jab version that felt cleanest. Keep the hand coming home and the feet under you.", "Best round, not hardest round.", { durationSeconds: 120, restAfterSeconds: 0, microCues: ["Clean beats hard.", "Hands home.", "Finish sharp."] })
+      roundStep("Clean jab round", "Use the jab version that felt cleanest. Keep the hand coming home and the feet under you.", "Clean beats hard.", { durationSeconds: 120, restAfterSeconds: 0, microCues: ["Clean beats hard.", "Hands home.", "Finish sharp."] })
     ]
   },
   defense_after_combo_round: {
@@ -748,7 +748,7 @@ const guidedProfileOverrides: Readonly<Record<string, GuidedProfileOverride>> = 
       roundStep("Jab-cross plus slip", "Touch jab-cross, slip small, then reset before punching again.", "Slip small and recover stance.", { durationSeconds: 120, restAfterSeconds: 60 }),
       roundStep("Double jab plus step-out", "Use a double jab, step out, and freeze in stance.", "Exit before admiring the work.", { durationSeconds: 120, restAfterSeconds: 60 }),
       roundStep("Combination plus roll", "Use a short combination, roll from the legs and trunk, then recover guard.", "The neck stays quiet.", { durationSeconds: 120, restAfterSeconds: 60 }),
-      roundStep("Combination plus pivot", "Punch shape, pivot small, recover stance, and bring guard back together.", "Pivot small enough to stay balanced.", { durationSeconds: 120, restAfterSeconds: 60 }),
+      roundStep("Combination plus pivot", "Punch, pivot small, recover stance, and bring guard back together.", "Pivot small enough to stay balanced.", { durationSeconds: 120, restAfterSeconds: 60 }),
       roundStep("Balanced defense reset", "Choose the defense that kept your feet under you and repeat only that version.", "Keep the balanced defense, remove the messy one.", { durationSeconds: 120, restAfterSeconds: 0 })
     ]
   },
@@ -769,7 +769,7 @@ const guidedProfileOverrides: Readonly<Record<string, GuidedProfileOverride>> = 
     oneLineGoal: "Use solo boxing-style rounds without partner work or fatigue chasing.",
     work: [
       roundStep("Footwork rhythm", "Move smoothly in stance with quiet feet and controlled breathing.", "Smooth is the score.", { durationSeconds: 120, restAfterSeconds: 60, safetyStop: "Stop if coordination, dizziness, or pain changes movement." }),
-      roundStep("Shadow rhythm", "Use light punch shapes only if guard return stays clean.", "Light touch, full reset.", { durationSeconds: 120, restAfterSeconds: 60 }),
+      roundStep("Shadow rhythm", "Use light punches only if guard return stays clean.", "Light touch, full reset.", { durationSeconds: 120, restAfterSeconds: 60 }),
       roundStep("Low-impact movement", "Switch to low-impact movement, trunk control, or mobility if effort rises.", "Keep it repeatable.", { durationSeconds: 120, restAfterSeconds: 60 }),
       roundStep("Coordination cap", "Stop adding pace if coordination or breathing changes.", "Finish with control left.", { durationSeconds: 120, restAfterSeconds: 0 })
     ]
