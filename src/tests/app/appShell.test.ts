@@ -17,7 +17,7 @@ import type { SupabaseSessionState } from "../../hooks/useSupabaseSession";
 import { useUserDataControls, type UserDataControlsHook } from "../../hooks/useUserDataControls";
 import { usePerformanceState } from "../../hooks/usePerformanceState";
 import type { PerformanceStateHook } from "../../hooks/usePerformanceState";
-import { CORNERIQ_PRIVACY_POLICY_URL, CORNERIQ_SUPPORT_URL } from "../../services/config/runtimeConfig";
+import { CORNERIQ_PRIVACY_POLICY_URL, CORNERIQ_SUPPORT_URL, CORNERIQ_TERMS_OF_USE_URL } from "../../services/config/runtimeConfig";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper, pro_4_round_build_strength, pro_8_round_camp_day_before_weigh_in, short_notice_unsafe_cut } from "../fixtures/engineFixtures";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
@@ -6394,6 +6394,7 @@ describe("minimal app screens", () => {
     reactNative.Linking.openURL.mockClear();
     vi.stubEnv("EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL", CORNERIQ_PRIVACY_POLICY_URL);
     vi.stubEnv("EXPO_PUBLIC_CORNERIQ_SUPPORT_URL", CORNERIQ_SUPPORT_URL);
+    vi.stubEnv("EXPO_PUBLIC_CORNERIQ_TERMS_OF_USE_URL", CORNERIQ_TERMS_OF_USE_URL);
     const previewExport = vi.fn(async () => undefined);
     const deleteData = vi.fn(async () => undefined);
     const deleteAccount = vi.fn(async () => undefined);
@@ -6437,13 +6438,16 @@ describe("minimal app screens", () => {
       expect(JSON.stringify(renderer.toJSON())).toContain("Open Privacy Policy");
       expect(JSON.stringify(renderer.toJSON())).toContain("Support");
       expect(JSON.stringify(renderer.toJSON())).toContain("Open Support");
+      expect(JSON.stringify(renderer.toJSON())).toContain("Open Terms of Use");
       expect(JSON.stringify(renderer.toJSON())).not.toContain("Privacy policy unavailable");
       await act(async () => {
         await press(pressableWithText(renderer, "Open Privacy Policy"));
         await press(pressableWithText(renderer, "Open Support"));
+        await press(pressableWithText(renderer, "Open Terms of Use"));
       });
       expect(reactNative.Linking.openURL).toHaveBeenCalledWith(CORNERIQ_PRIVACY_POLICY_URL);
       expect(reactNative.Linking.openURL).toHaveBeenCalledWith(CORNERIQ_SUPPORT_URL);
+      expect(reactNative.Linking.openURL).toHaveBeenCalledWith(CORNERIQ_TERMS_OF_USE_URL);
       await act(async () => {
         await press(pressableWithText(renderer, "Preview export"));
       });

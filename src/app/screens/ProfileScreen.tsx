@@ -342,12 +342,14 @@ function ProfilePriorityActions({
   onOpenPrivacyPolicy,
   onOpenSettings,
   onOpenSupport,
+  onOpenTermsOfUse,
   onSignOut,
   planUnavailable,
   privacyPolicyUnavailable,
   setAccountDeleteConfirmation,
   setDeleteConfirmation,
   supportUnavailable,
+  termsOfUseUnavailable,
   userDataControls
 }: {
   accountDeleteConfirmation: string;
@@ -357,12 +359,14 @@ function ProfilePriorityActions({
   onOpenPrivacyPolicy: () => void;
   onOpenSettings: () => void;
   onOpenSupport: () => void;
+  onOpenTermsOfUse: () => void;
   onSignOut: () => Promise<void>;
   planUnavailable: boolean;
   privacyPolicyUnavailable: boolean;
   setAccountDeleteConfirmation: (value: string) => void;
   setDeleteConfirmation: (value: string) => void;
   supportUnavailable: boolean;
+  termsOfUseUnavailable: boolean;
   userDataControls?: UserDataControlsHook | undefined;
 }) {
   const dataBusy = Boolean(userDataControls?.busy);
@@ -372,7 +376,7 @@ function ProfilePriorityActions({
   return (
     <DashboardCard testID="profile-priority-actions-card" title="Account essentials">
       <View style={{ gap: spacing.md }}>
-        <Text style={profileTextStyles.body}>Privacy, support, export, sign out, and clear account actions.</Text>
+        <Text style={profileTextStyles.body}>Privacy, terms, support, export, sign out, and clear account actions.</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <View style={{ flexBasis: 156, flexGrow: 1 }}>
             <ProfileIconButton disabled={busy} icon="create-outline" label="Edit setup" onPress={onOpenSettings} tone="muted" />
@@ -385,6 +389,9 @@ function ProfilePriorityActions({
           </View>
           <View style={{ flexBasis: 150, flexGrow: 1 }}>
             <ProfileIconButton accessibilityLabel="Shortcut support link" disabled={supportUnavailable} icon="help-circle-outline" label="Open Support" onPress={onOpenSupport} tone="blue" />
+          </View>
+          <View style={{ flexBasis: 180, flexGrow: 1 }}>
+            <ProfileIconButton accessibilityLabel="Shortcut terms of use link" disabled={termsOfUseUnavailable} icon="reader-outline" label="Open Terms of Use" onPress={onOpenTermsOfUse} tone="muted" />
           </View>
           <View style={{ flexBasis: 160, flexGrow: 1 }}>
             <ProfileIconButton accessibilityLabel="Shortcut data preview" disabled={!userDataControls || busy || dataBusy} icon="eye-outline" label="Preview export" onPress={() => void userDataControls?.previewExport()} tone="muted" />
@@ -480,6 +487,11 @@ export function ProfileScreen({
       void Linking.openURL(releaseLinks.supportUrl);
     }
   }, [releaseLinks.supportUrl]);
+  const openTermsOfUse = React.useCallback(() => {
+    if (releaseLinks.termsOfUseUrl) {
+      void Linking.openURL(releaseLinks.termsOfUseUrl);
+    }
+  }, [releaseLinks.termsOfUseUrl]);
   const openSettings = React.useCallback(() => setSettingsOpen(true), []);
   const openPlan = React.useCallback(() => {
     if (onOpenPlan) {
@@ -491,7 +503,7 @@ export function ProfileScreen({
   const profileDetailsSummary = "Setup details, health notes, privacy controls, and account actions.";
   const privacySummary = releaseLinks.privacyPolicyUrlIsPlaceholder
     ? "Export and delete controls. Privacy policy URL is not configured."
-    : "Export, privacy policy, support, and delete controls.";
+    : "Export, privacy policy, terms, support, and delete controls.";
   const healthSummary = viewModel.healthWarning.active
     ? "Active health warning is shown above. Open for saved health and support details."
     : "Health notes, support path, and saved safety history.";
@@ -544,12 +556,14 @@ export function ProfileScreen({
         onOpenPrivacyPolicy={openPrivacyPolicy}
         onOpenSettings={openSettings}
         onOpenSupport={openSupport}
+        onOpenTermsOfUse={openTermsOfUse}
         onSignOut={onSignOut}
         planUnavailable={!onOpenPlan}
         privacyPolicyUnavailable={releaseLinks.privacyPolicyUrlIsPlaceholder}
         setAccountDeleteConfirmation={setAccountDeleteConfirmation}
         setDeleteConfirmation={setDeleteConfirmation}
         supportUnavailable={!releaseLinks.supportUrl}
+        termsOfUseUnavailable={!releaseLinks.termsOfUseUrl}
         userDataControls={userDataControls}
       />
 
