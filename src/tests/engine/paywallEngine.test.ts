@@ -5,7 +5,7 @@ describe("paywallEngine", () => {
   it("builds no-trial monthly and yearly subscription plans", () => {
     const viewModel = resolvePaywallViewModel({ entitlementStatus: "inactive" });
 
-    expect(viewModel.headline).toBe("Unlock CornerIQ");
+    expect(viewModel.headline).toBe("A smarter corner for every camp");
     expect(viewModel.footerCopy.toLowerCase()).toContain("no free trial");
     expect(viewModel.footerCopy.toLowerCase()).toContain("auto-renews");
     expect(viewModel.plans).toHaveLength(2);

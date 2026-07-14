@@ -17,6 +17,7 @@ import type { SupabaseSessionState } from "../../hooks/useSupabaseSession";
 import { useUserDataControls, type UserDataControlsHook } from "../../hooks/useUserDataControls";
 import { usePerformanceState } from "../../hooks/usePerformanceState";
 import type { PerformanceStateHook } from "../../hooks/usePerformanceState";
+import type { SubscriptionHook } from "../../hooks/useSubscription";
 import { CORNERIQ_PRIVACY_POLICY_URL, CORNERIQ_SUPPORT_URL, CORNERIQ_TERMS_OF_USE_URL } from "../../services/config/runtimeConfig";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper, pro_4_round_build_strength, pro_8_round_camp_day_before_weigh_in, short_notice_unsafe_cut } from "../fixtures/engineFixtures";
@@ -27,6 +28,7 @@ import { createDefaultOnboardingDraft, type BuildGoalDraft, type ProtectedWorkou
 import { legacyOnboardingDraftStorageKey, migrateOnboardingDraft, onboardingDraftStorageKey, validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
 import { trainPalette } from "../../app/screens/train/trainPalette";
 import { colors } from "../../design/theme";
+import { resolvePaywallViewModel } from "../../engine/subscription/paywallEngine";
 
 const LEGACY_PRESCRIPTION_CONTRACT_VERSION = "athlete_prescription_contract_v1";
 const LEGACY_PLAN_INTENT_VERSION = "plan_generation_intent_v1";
@@ -1929,6 +1931,125 @@ function createUserDataClient() {
   };
   return { client: client as unknown as CornerSupabaseClient, deleted, selected, updated };
 }
+
+function paywallSubscription(overrides: Partial<SubscriptionHook> = {}): SubscriptionHook {
+  return {
+    active: false,
+    busy: false,
+    enabled: true,
+    entitlementStatus: "inactive",
+    error: null,
+    expirationDate: null,
+    loading: false,
+    message: null,
+    purchaseAvailable: true,
+    purchasePlan: vi.fn(async () => undefined),
+    purchaseUnavailableReason: null,
+    refresh: vi.fn(async () => undefined),
+    restore: vi.fn(async () => undefined),
+    setupBlockedReason: null,
+    viewModel: resolvePaywallViewModel({
+      annualPlan: { priceLabel: "$99.99/year" },
+      entitlementStatus: "inactive",
+      monthlyPlan: { priceLabel: "$14.99/month" }
+    }),
+    ...overrides
+  };
+}
+
+describe("subscription paywall", () => {
+  it("defaults to the annual plan and purchases only from the primary checkout action", async () => {
+    const { PaywallScreen } = await import("../../app/screens/PaywallScreen");
+    const purchasePlan = vi.fn(async () => undefined);
+    const subscription = paywallSubscription({ purchasePlan });
+    const renderer = render(React.createElement(PaywallScreen, { onSignOut: vi.fn(async () => undefined), subscription }));
+
+    const annual = pressableWithAccessibilityLabel(renderer, "Annual plan, $99.99/year. Lower yearly total");
+    expect(annual?.props.accessibilityState).toMatchObject({ checked: true, disabled: false });
+    expect(pressableWithAccessibilityLabel(renderer, "Subscribe yearly")).toBeDefined();
+    expect(purchasePlan).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Subscribe yearly"));
+    });
+
+    expect(purchasePlan).toHaveBeenCalledOnce();
+    expect(purchasePlan).toHaveBeenCalledWith("annual");
+  });
+
+  it("lets the boxer select monthly before starting checkout", async () => {
+    const { PaywallScreen } = await import("../../app/screens/PaywallScreen");
+    const purchasePlan = vi.fn(async () => undefined);
+    const subscription = paywallSubscription({ purchasePlan });
+    const renderer = render(React.createElement(PaywallScreen, { onSignOut: vi.fn(async () => undefined), subscription }));
+
+    act(() => {
+      press(pressableWithAccessibilityLabel(renderer, "Monthly plan, $14.99/month. Billed monthly"));
+    });
+
+    expect(purchasePlan).not.toHaveBeenCalled();
+    expect(pressableWithAccessibilityLabel(renderer, "Monthly plan, $14.99/month. Billed monthly")?.props.accessibilityState).toMatchObject({ checked: true, disabled: false });
+    expect(pressableWithAccessibilityLabel(renderer, "Subscribe monthly")).toBeDefined();
+
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Subscribe monthly"));
+    });
+
+    expect(purchasePlan).toHaveBeenCalledOnce();
+    expect(purchasePlan).toHaveBeenCalledWith("monthly");
+  });
+
+  it("shows explicit loading and retry states for localized App Store prices", async () => {
+    const { PaywallScreen } = await import("../../app/screens/PaywallScreen");
+    const loadingRenderer = render(
+      React.createElement(PaywallScreen, {
+        onSignOut: vi.fn(async () => undefined),
+        subscription: paywallSubscription({ loading: true, purchaseAvailable: false })
+      })
+    );
+
+    expect(JSON.stringify(loadingRenderer.toJSON())).toContain("Loading App Store prices");
+    expect(pressableWithAccessibilityLabel(loadingRenderer, "Subscribe yearly")).toBeUndefined();
+
+    const refresh = vi.fn(async () => undefined);
+    const retryRenderer = render(
+      React.createElement(PaywallScreen, {
+        onSignOut: vi.fn(async () => undefined),
+        subscription: paywallSubscription({
+          purchaseAvailable: false,
+          purchaseUnavailableReason: "App Store prices are unavailable right now.",
+          refresh
+        })
+      })
+    );
+
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(retryRenderer, "Retry App Store prices"));
+    });
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("keeps account and data controls collapsed until requested", async () => {
+    const { PaywallScreen } = await import("../../app/screens/PaywallScreen");
+    const renderer = render(
+      React.createElement(PaywallScreen, {
+        onSignOut: vi.fn(async () => undefined),
+        subscription: paywallSubscription()
+      })
+    );
+
+    expect(pressableWithAccessibilityLabel(renderer, "Support")).toBeUndefined();
+    expect(pressableWithAccessibilityLabel(renderer, "Sign out")).toBeUndefined();
+
+    act(() => {
+      press(pressableWithAccessibilityLabel(renderer, "Show account and data options"));
+    });
+
+    expect(pressableWithAccessibilityLabel(renderer, "Support")).toBeDefined();
+    expect(pressableWithAccessibilityLabel(renderer, "Sign out")).toBeDefined();
+    expect(pressableWithAccessibilityLabel(renderer, "Hide account and data options")).toBeDefined();
+  });
+});
 
 describe("minimal app screens", () => {
   it("AuthScreen renders", async () => {

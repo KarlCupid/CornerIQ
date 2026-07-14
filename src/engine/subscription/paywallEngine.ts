@@ -45,7 +45,7 @@ function planWithDefaults(period: SubscriptionPlanPeriod, override: Partial<Subs
   return {
     badge: monthly ? null : "Best value",
     ctaLabel: monthly ? "Subscribe monthly" : "Subscribe yearly",
-    description: monthly ? "Month-to-month access after onboarding." : "Twelve months of CornerIQ access at a lower total price.",
+    description: monthly ? "Flexible month-to-month CornerIQ Pro access." : "A full year of CornerIQ Pro at the lower total price.",
     id: monthly ? "monthly" : "annual",
     period,
     priceLabel: monthly ? "CA$15/month" : "CA$100/year",
@@ -69,8 +69,8 @@ export function resolvePaywallViewModel(input: ResolvePaywallViewModelInput): Pa
   return {
     accountAccessCopy: "Account, privacy, support, export, sign-out, and delete-account controls stay available without a subscription.",
     footerCopy: "Auto-renews until canceled. No free trial. Manage or cancel renewal in your Apple account after purchase.",
-    headline: "Unlock CornerIQ",
-    legalCopy: "App Store confirms the price and charges your Apple ID after purchase confirmation.",
+    headline: "A smarter corner for every camp",
+    legalCopy: "Payment is charged to your Apple Account when you confirm the purchase.",
     plans: [planWithDefaults("monthly", input.monthlyPlan), planWithDefaults("annual", input.annualPlan)],
     purchaseDisclosures: [
       { id: "billing", label: "Billing", value: "App Store in-app purchase" },
@@ -80,7 +80,7 @@ export function resolvePaywallViewModel(input: ResolvePaywallViewModelInput): Pa
     restoreLabel: "Restore purchase",
     setupBlockedReason,
     statusLabel,
-    summary: "Use CornerIQ after onboarding for boxing training, fuel, planning, and safety-aware manual logging.",
+    summary: "Bring boxing training, fuel, planning, and safety-aware adjustments into one focused daily system.",
     supportBullets: [
       "Manual input stays first-class; no wearable is required.",
       "Missing data remains unknown, not safe.",
