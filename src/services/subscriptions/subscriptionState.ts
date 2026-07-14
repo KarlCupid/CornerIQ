@@ -1,4 +1,4 @@
-import type { CustomerInfo, PurchasesOffering, PurchasesPackage } from "react-native-purchases";
+import type { CustomerInfo, PurchasesOffering, PurchasesPackage, PurchasesStoreProduct } from "react-native-purchases";
 import type { SubscriptionEntitlementStatus, SubscriptionPlanPeriod, SubscriptionPlanViewModel } from "../../engine/subscription/paywallEngine";
 import type { SubscriptionRuntimeConfig } from "../config/runtimeConfig";
 
@@ -54,6 +54,14 @@ function packageForPeriod(offering: PurchasesOffering | null, period: Subscripti
   return preferred ?? offering.availablePackages.find((aPackage) => aPackage.product.identifier === configuredProductId || packagePeriod(aPackage, config) === period) ?? null;
 }
 
+function packageWithFreshStoreProduct(aPackage: PurchasesPackage | null, storeProducts: PurchasesStoreProduct[]): PurchasesPackage | null {
+  if (!aPackage) {
+    return null;
+  }
+  const freshProduct = storeProducts.find((product) => product.identifier === aPackage.product.identifier);
+  return freshProduct ? { ...aPackage, product: freshProduct } : aPackage;
+}
+
 function planFromPackage(aPackage: PurchasesPackage | null, period: SubscriptionPlanPeriod, config: SubscriptionRuntimeConfig): Partial<SubscriptionPlanViewModel> {
   const fallbackProductId = period === "annual" ? config.annualProductId : config.monthlyProductId;
   if (!aPackage) {
@@ -96,9 +104,14 @@ export function subscriptionSnapshotFromCustomerInfo(customerInfo: CustomerInfo,
   };
 }
 
-export function mergeOfferingIntoSubscriptionSnapshot(snapshot: SubscriptionSnapshot, offering: PurchasesOffering | null, config: SubscriptionRuntimeConfig): SubscriptionSnapshot {
-  const monthlyPackage = packageForPeriod(offering, "monthly", config);
-  const annualPackage = packageForPeriod(offering, "annual", config);
+export function mergeOfferingIntoSubscriptionSnapshot(
+  snapshot: SubscriptionSnapshot,
+  offering: PurchasesOffering | null,
+  config: SubscriptionRuntimeConfig,
+  storeProducts: PurchasesStoreProduct[] = []
+): SubscriptionSnapshot {
+  const monthlyPackage = packageWithFreshStoreProduct(packageForPeriod(offering, "monthly", config), storeProducts);
+  const annualPackage = packageWithFreshStoreProduct(packageForPeriod(offering, "annual", config), storeProducts);
   return {
     ...snapshot,
     annualPackage,

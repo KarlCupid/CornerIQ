@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CustomerInfo, LogInResult, MakePurchaseResult, PurchasesOfferings, PurchasesPackage } from "react-native-purchases";
+import type { CustomerInfo, LogInResult, MakePurchaseResult, PurchasesOfferings, PurchasesPackage, PurchasesStoreProduct } from "react-native-purchases";
 import type { SubscriptionRuntimeConfig } from "../../services/config/runtimeConfig";
 
 vi.mock("react-native", () => ({
@@ -246,6 +246,44 @@ describe("revenueCatClient", () => {
     expect(snapshot.monthlyPackage).toBeNull();
     expect(snapshot.annualPackage).toBeNull();
     expect(snapshot.offeringsError).toContain("offerings unavailable");
+  });
+
+  it("uses freshly fetched StoreKit products instead of stale offering prices", async () => {
+    const sdk = createSdk();
+    sdk.getProducts = vi.fn(async () => {
+      const monthly = packageFor("monthly").product;
+      const annual = packageFor("annual").product;
+      return [
+        {
+          ...monthly,
+          currencyCode: "CAD",
+          price: 14.99,
+          priceString: "$14.99"
+        },
+        {
+          ...annual,
+          currencyCode: "CAD",
+          price: 99.99,
+          pricePerMonth: 8.33,
+          pricePerMonthString: "$8.33",
+          priceString: "$99.99"
+        }
+      ] as PurchasesStoreProduct[];
+    });
+
+    const snapshot = await loadSubscriptionSnapshot({
+      appUserId: "supabase-user-a",
+      config: subscriptionConfig(),
+      platform: "ios",
+      sdk
+    });
+
+    expect(sdk.getProducts).toHaveBeenCalledWith(["com.corneriq.pro.monthly", "com.corneriq.pro.annual"]);
+    expect(snapshot.monthlyPlan.priceLabel).toBe("$14.99/month");
+    expect(snapshot.annualPlan.priceLabel).toBe("$99.99/year");
+    expect(snapshot.annualPlan.valueLabel).toBe("$8.33/month equivalent");
+    expect(snapshot.monthlyPackage?.product.currencyCode).toBe("CAD");
+    expect(snapshot.annualPackage?.product.currencyCode).toBe("CAD");
   });
 
   it("registers and removes the customer info update listener when the SDK supports removal", async () => {

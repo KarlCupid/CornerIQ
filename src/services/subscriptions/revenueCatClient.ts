@@ -6,7 +6,8 @@ import type {
   MakePurchaseResult,
   PurchasesConfiguration,
   PurchasesOfferings,
-  PurchasesPackage
+  PurchasesPackage,
+  PurchasesStoreProduct
 } from "react-native-purchases";
 import { getSubscriptionRuntimeConfig, type SubscriptionRuntimeConfig } from "../config/runtimeConfig";
 import {
@@ -25,6 +26,7 @@ export interface RevenueCatSdk {
   configure: (configuration: PurchasesConfiguration) => void;
   getCustomerInfo: () => Promise<CustomerInfo>;
   getOfferings: () => Promise<PurchasesOfferings>;
+  getProducts?: ((productIdentifiers: string[]) => Promise<PurchasesStoreProduct[]>) | undefined;
   logIn: (appUserID: string) => Promise<LogInResult>;
   purchasePackage: (aPackage: PurchasesPackage) => Promise<MakePurchaseResult>;
   removeCustomerInfoUpdateListener?: ((listenerToRemove: CustomerInfoUpdateListener) => boolean) | undefined;
@@ -223,7 +225,15 @@ export async function loadSubscriptionSnapshot(input: SubscriptionClientInput): 
 
   try {
     const offerings = await session.sdk.getOfferings();
-    return mergeOfferingIntoSubscriptionSnapshot(entitlementSnapshot, offerings.current, config);
+    let storeProducts: PurchasesStoreProduct[] = [];
+    if (session.sdk.getProducts) {
+      try {
+        storeProducts = await session.sdk.getProducts([config.monthlyProductId, config.annualProductId]);
+      } catch {
+        // Keep the offering available if a direct StoreKit refresh is temporarily unavailable.
+      }
+    }
+    return mergeOfferingIntoSubscriptionSnapshot(entitlementSnapshot, offerings.current, config, storeProducts);
   } catch (offeringsError) {
     return markSubscriptionOfferingsUnavailable(entitlementSnapshot, offeringsError);
   }
