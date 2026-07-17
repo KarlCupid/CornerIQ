@@ -5,6 +5,7 @@
   },
   "build": {
     "development": {
+      "environment": "development",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
@@ -14,6 +15,7 @@
       }
     },
     "preview": {
+      "environment": "development",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
