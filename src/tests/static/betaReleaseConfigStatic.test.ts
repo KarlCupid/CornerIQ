@@ -63,6 +63,20 @@ describe("release config static checks", () => {
     expect(codeqlWorkflow).not.toMatch(/CORNERIQ_SMOKE|SERVICE_ROLE/i);
   });
 
+  it("routes migration dry-runs to Supabase by target branch", () => {
+    const workflow = readSource(".github/workflows/quality.yml");
+
+    expect(workflow).toContain("TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}");
+    expect(workflow).toContain("PRODUCTION_SUPABASE_PROJECT_REF: fohdypahnobcchfmcrrn");
+    expect(workflow).toContain("DEVELOPMENT_SUPABASE_PROJECT_REF: llsmdsraunsweqmvefhj");
+    expect(workflow).toContain('if [ "$TARGET_BRANCH" = "main" ]');
+    expect(workflow).toContain('target_environment="production"');
+    expect(workflow).toContain('target_environment="development"');
+    expect(workflow).toContain("npx supabase db push --dry-run --linked");
+    expect(workflow).not.toContain("vars.SUPABASE_PROJECT_REF");
+    expect(workflow).not.toContain("SUPABASE_DB_PASSWORD");
+  });
+
   it("runs production preflight without printing env values", () => {
     expect(existsSync("scripts/production-preflight.mjs")).toBe(true);
     const secretUrl = "https://do-not-print.supabase.co";

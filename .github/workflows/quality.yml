@@ -41,15 +41,36 @@ jobs:
       - name: Coverage
         run: npm run test:coverage
 
+      - name: Select Supabase dry-run target
+        id: supabase-target
+        env:
+          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
+          PRODUCTION_SUPABASE_PROJECT_REF: fohdypahnobcchfmcrrn
+          DEVELOPMENT_SUPABASE_PROJECT_REF: llsmdsraunsweqmvefhj
+        run: |
+          set -eu
+          if [ "$TARGET_BRANCH" = "main" ]; then
+            target_environment="production"
+            project_ref="$PRODUCTION_SUPABASE_PROJECT_REF"
+          else
+            target_environment="development"
+            project_ref="$DEVELOPMENT_SUPABASE_PROJECT_REF"
+          fi
+          echo "environment=$target_environment" >> "$GITHUB_OUTPUT"
+          echo "project_ref=$project_ref" >> "$GITHUB_OUTPUT"
+          echo "::notice::Supabase migration dry-run will use the $target_environment project."
+
       - name: Supabase migration dry-run
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+          SUPABASE_PROJECT_REF: ${{ steps.supabase-target.outputs.project_ref }}
+          SUPABASE_TARGET_ENVIRONMENT: ${{ steps.supabase-target.outputs.environment }}
         run: |
-          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_DB_PASSWORD" ] || [ -z "$SUPABASE_PROJECT_REF" ]; then
-            echo "::notice::Supabase migration dry-run skipped because CI Supabase secrets or vars are not configured."
+          set -eu
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::notice::Supabase migration dry-run skipped because SUPABASE_ACCESS_TOKEN is not configured."
             exit 0
           fi
-          npx supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          npx supabase db push --dry-run
+          echo "::notice::Checking migrations against the $SUPABASE_TARGET_ENVIRONMENT Supabase project."
+          npx supabase link --project-ref "$SUPABASE_PROJECT_REF" --yes
+          npx supabase db push --dry-run --linked
