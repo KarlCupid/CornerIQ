@@ -22,25 +22,10 @@ function profile(overrides: Partial<AthleteProfile> = {}): AthleteProfile {
     boxingLevel: "amateur_open",
     amateurOrPro: "amateur",
     trainingAgeYears: 4,
-    injuryHistory: [],
-    medicalFlags: [],
-    pregnancyStatus: "not_pregnant",
-    eatingDisorderRisk: {
-      activeConcern: false,
-      severeRestrictionHistory: false,
-      rapidWeightLossConcern: false,
-      notes: []
-    },
-    priorWeightCutHistory: {
-      hasCutBefore: true,
-      adverseEvents: [],
-      lowestRecentFightingWeightKg: 63.5
-    },
     typicalWalkAroundWeightKg: 67,
     lowestRecentFightingWeightKg: 63.5,
     coachInvolved: true,
     dietitianInvolved: false,
-    medicalProfessionalInvolved: false,
     equipmentAccess: ["dumbbells", "bands", "medicine_ball"],
     scheduleAvailability: ["mon_pm", "tue_pm", "wed_pm", "fri_pm", "sat_am"],
     protectedBoxingSchedule: [],

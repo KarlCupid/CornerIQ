@@ -4,14 +4,12 @@ import { stableHash } from "../engine/core/stableHash";
 import { createDefaultOnboardingDraft, MVP_MAXIMUM_AGE_YEARS, MVP_MINIMUM_AGE_YEARS, OnboardingDraftSchema, type OnboardingDraft } from "../services/supabase/onboardingService";
 
 export const ONBOARDING_STEPS = [
-  "Boxer basics",
-  "Body weight",
-  "Training access",
-  "Fixed boxing schedule",
+  "Basic information",
+  "Boxing background",
+  "Available training days",
+  "Existing training schedule",
   "Cycle support",
-  "Wearables",
-  "Safety",
-  "Goal phase"
+  "Training goal"
 ] as const;
 
 interface DraftStorage {
@@ -125,40 +123,38 @@ function validISODate(value: string): boolean {
 
 export function validateOnboardingStep(draft: OnboardingDraft, stepIndex: number): string | null {
   if (stepIndex === 0) {
-    return validateNonNegativeNumber(draft.boxing.trainingAgeYears, "Training age");
-  }
-  if (stepIndex === 1) {
     return (
+      (draft.basicInformation.preferredName.trim() ? null : "Preferred name is required.") ??
+      (!Number.isInteger(draft.basicInformation.ageYears) || draft.basicInformation.ageYears > MVP_MAXIMUM_AGE_YEARS
+        ? "Age is required."
+        : draft.basicInformation.ageYears < MVP_MINIMUM_AGE_YEARS
+          ? "CornerIQ is currently available for boxers 18 or older."
+          : null) ??
       validatePositiveNumber(draft.bodyMass.heightCm, "Height") ??
       validatePositiveNumber(draft.bodyMass.currentBodyMassKg, "Current body weight") ??
       validatePositiveNumber(draft.bodyMass.typicalWalkAroundWeightKg, "Walk-around body weight")
     );
   }
+  if (stepIndex === 1) {
+    return validateNonNegativeNumber(draft.boxing.trainingAgeYears, "Training experience");
+  }
   if (stepIndex === 2) {
     if (draft.trainingAccess.equipmentAccess.length === 0) {
-      return "Equipment access is required. Enter none/bodyweight if that is the honest setup.";
+      return "Choose at least one equipment option.";
     }
     if (draft.trainingAccess.scheduleAvailability.length === 0) {
-      return "Training availability is required.";
+      return "Choose at least one available training day.";
     }
   }
   if (stepIndex === 3) {
     const invalidAnchor = draft.protectedSchedule.find((anchor) => !validISODate(anchor.date) || !Number.isInteger(anchor.durationMinutes) || anchor.durationMinutes <= 0);
     const invalidRecurringAnchor = (draft.recurringProtectedSchedule ?? []).find((anchor) => !Number.isInteger(anchor.durationMinutes) || anchor.durationMinutes <= 0);
     if (invalidAnchor) {
-      return "One-off boxing sessions need a real date and positive duration.";
+      return "One-off workouts need a real date and positive duration.";
     }
-    return invalidRecurringAnchor ? "Weekly boxing sessions need a weekday and positive duration." : null;
+    return invalidRecurringAnchor ? "Weekly workouts need a weekday and positive duration." : null;
   }
-  if (stepIndex === 6) {
-    if (!Number.isInteger(draft.safety.ageYears) || draft.safety.ageYears > MVP_MAXIMUM_AGE_YEARS) {
-      return "Age is required for safety screening.";
-    }
-    return draft.safety.ageYears >= MVP_MINIMUM_AGE_YEARS
-      ? null
-      : "CornerIQ MVP is for athletes 18 or older. Youth/minor support requires guardian and policy handling outside this release.";
-  }
-  if (stepIndex === 7) {
+  if (stepIndex === 5) {
     if (draft.goal.phase === "fight_known") {
       return (
         (validISODate(draft.goal.fight.boutDate) ? null : "Fight date must be a real YYYY-MM-DD date.") ??

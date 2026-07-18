@@ -1,5 +1,6 @@
 import { addDays } from "../core/dates";
 import type { ISODateString, ProtectedWorkout, RecurringProtectedWorkoutAnchor, WeeklyProtectedAnchorWeekday } from "../core/types";
+import { existingTrainingHasComponent } from "./existingTraining";
 
 const WEEKDAY_INDEX: Record<WeeklyProtectedAnchorWeekday, number> = {
   sunday: 0,
@@ -16,7 +17,7 @@ export function anchorsForDate(anchors: readonly ProtectedWorkout[], date: strin
 }
 
 export function hasProtectedSparring(anchors: readonly ProtectedWorkout[], date: string): boolean {
-  return anchors.some((anchor) => anchor.date === date && anchor.type === "sparring");
+  return anchors.some((anchor) => anchor.date === date && existingTrainingHasComponent(anchor, "sparring"));
 }
 
 export function hasProtectedCompetition(anchors: readonly ProtectedWorkout[], date: string): boolean {
@@ -45,7 +46,12 @@ function protectedWorkoutKey(workout: ProtectedWorkout): string {
     workout.durationMinutes,
     workout.intensity,
     workout.rounds ?? "",
-    workout.note ?? ""
+    workout.note ?? "",
+    ...(workout.components ?? []),
+    workout.primaryComponent ?? "",
+    workout.boxingFormat ?? "",
+    workout.strengthArea ?? "",
+    workout.conditioningFormat ?? ""
   ].join("|");
 }
 
@@ -58,6 +64,11 @@ function materializedRecurringAnchor(anchor: RecurringProtectedWorkoutAnchor, da
     durationMinutes: anchor.durationMinutes,
     intensity: anchor.intensity,
     protected: true,
+    ...(anchor.components ? { components: anchor.components } : {}),
+    ...(anchor.primaryComponent !== undefined ? { primaryComponent: anchor.primaryComponent } : {}),
+    ...(anchor.boxingFormat ? { boxingFormat: anchor.boxingFormat } : {}),
+    ...(anchor.strengthArea ? { strengthArea: anchor.strengthArea } : {}),
+    ...(anchor.conditioningFormat ? { conditioningFormat: anchor.conditioningFormat } : {}),
     ...(anchor.rounds === undefined ? {} : { rounds: anchor.rounds }),
     ...(anchor.note ? { note: anchor.note } : {}),
     recurringAnchorId: anchor.id,

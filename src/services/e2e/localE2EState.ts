@@ -156,7 +156,7 @@ export function buildLocalE2EPerformanceState(input: {
                   equipment: buildGoalDraft.equipment ?? athlete.equipmentAccess,
                   modalityPreferences: buildGoalDraft.modalityPreferences ?? [],
                   modalityAvoidances: buildGoalDraft.modalityAvoidances ?? [],
-                  currentLimitations: buildGoalDraft.currentLimitations ?? [...athlete.injuryHistory, ...athlete.medicalFlags],
+                  currentLimitations: buildGoalDraft.currentLimitations ?? [],
                   userPreferences: buildGoalDraft.userPreferences ?? [],
                   planStartDate,
                   requestedAt: `${asOfDate}T12:05:00.000Z`,

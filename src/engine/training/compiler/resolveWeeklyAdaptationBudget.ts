@@ -11,6 +11,7 @@ import type {
   StrengthSubFocus,
   WeeklyAdaptationBudget
 } from "./types";
+import { existingTrainingComponents, existingTrainingHasComponent } from "../existingTraining";
 
 interface MutableBudgetCore {
   strength: WeeklyAdaptationBudget["strength"];
@@ -88,7 +89,7 @@ function roundAnchorCount(anchor: ProtectedWorkout): number {
 }
 
 function hardAnchor(anchor: ProtectedWorkout): boolean {
-  return anchor.intensity === "hard" || anchor.intensity === "max" || anchor.type === "sparring" || anchor.type === "competition";
+  return anchor.intensity === "hard" || anchor.intensity === "max" || existingTrainingHasComponent(anchor, "sparring") || anchor.type === "competition";
 }
 
 function fixedContributionFor(anchors: readonly ProtectedWorkout[]): FixedContribution {
@@ -107,11 +108,35 @@ function fixedContributionFor(anchors: readonly ProtectedWorkout[]): FixedContri
     if (hardAnchor(anchor)) {
       hardDates.add(anchor.date);
     }
+    const components = existingTrainingComponents(anchor);
+    if (components.includes("strength")) {
+      strengthSets += Math.max(6, Math.round(anchor.durationMinutes / 6));
+    }
+    if (components.includes("conditioning")) {
+      if (anchor.intensity === "hard" || anchor.intensity === "max") {
+        tempoWorkMinutes += Math.max(10, Math.round(anchor.durationMinutes * 0.7));
+        intervalRepetitions += 4;
+      } else {
+        aerobicMinutes += anchor.durationMinutes;
+      }
+    }
+    if (components.includes("boxing")) {
+      if (anchor.intensity === "hard") boxingConditioningRounds += roundAnchorCount(anchor);
+      else boxingTechnicalRounds += roundAnchorCount(anchor);
+    }
+    if (components.includes("sparring")) {
+      boxingConditioningRounds += roundAnchorCount(anchor);
+    }
+    if (components.length > 0) {
+      continue;
+    }
     switch (anchor.type) {
       case "coach_assigned_strength":
+      case "strength":
         strengthSets += Math.max(6, Math.round(anchor.durationMinutes / 6));
         break;
       case "roadwork":
+      case "conditioning":
         if (anchor.intensity === "hard" || anchor.intensity === "max") {
           tempoWorkMinutes += Math.max(10, Math.round(anchor.durationMinutes * 0.7));
           intervalRepetitions += 4;
@@ -140,6 +165,7 @@ function fixedContributionFor(anchors: readonly ProtectedWorkout[]): FixedContri
         break;
       case "travel":
       case "recovery_day":
+      case "mixed_training":
         break;
     }
   }

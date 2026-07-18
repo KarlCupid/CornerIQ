@@ -33,7 +33,7 @@ const floatingTabTouchTarget = 50;
 const floatingTabPuckSize = 46;
 const floatingTabIconSize = 20;
 const floatingTabBarMaxWidth = 368;
-const floatingTabBarMinWidth = floatingTabTouchTarget * 5 + spacing.md * 2;
+const floatingTabBarMinWidth = floatingTabTouchTarget * 4 + spacing.md * 2;
 
 const tabAccents: Record<keyof RootTabParamList, string> = {
   Fuel: colors.amberCaution,
@@ -383,6 +383,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
                 navigation.navigate("Fuel");
               }}
               onOpenPlan={() => navigation.navigate("Plan")}
+              onOpenProfile={() => navigation.navigate("Profile")}
               onOpenTrain={() => navigation.navigate("Train")}
               onOpenTrainWorkout={() => {
                 setTrainInitialSection("workout");
@@ -461,7 +462,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
             />
           )}
         </Tab.Screen>
-        <Tab.Screen name="Profile">
+        <Tab.Screen name="Profile" options={{ tabBarButton: () => null }}>
           {({ navigation }) => (
             <ProfileScreen
               asOfDate={asOfDate}
@@ -476,8 +477,6 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               recentLogs={state.viewModels.recentLogs}
               userDataControls={userDataControls}
               viewModel={state.viewModels.profile}
-              wearablePreference={state.athlete.wearablePreference}
-              wearableStatus={state.wearable.hasWearable ? state.wearable.platforms.join(", ") : "manual only"}
             />
           )}
         </Tab.Screen>

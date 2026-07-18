@@ -33,10 +33,6 @@ export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingSt
     updateDraft((current) => ({ ...current, goal: { phase: "build" } }));
     setStepError(null);
   };
-  const setRecovery = () => {
-    updateDraft((current) => ({ ...current, goal: { phase: "maintenance_recovery" } }));
-    setStepError(null);
-  };
   const setFight = () => {
     const weight = positiveNumber(contractedWeightKg);
     if (weight === null) {
@@ -79,17 +75,21 @@ export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingSt
 
   return (
     <View style={{ gap: spacing.md }}>
-      <Text style={screenStyles.sectionTitle}>Goal phase</Text>
-      <Text style={screenStyles.subtle}>Choose the planning context for Today and Plan.</Text>
-      <FieldGroup helper="Pick the closest current situation." label="Current goal">
+      <Text style={screenStyles.sectionTitle}>What is your current training goal?</Text>
+      <FieldGroup label="Training goal">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <ChipButton active={phaseOf(draft) === "build"} label="Build phase" onPress={setBuild} />
-          <ChipButton active={phaseOf(draft) === "maintenance_recovery"} label="Maintenance/recovery" onPress={setRecovery} />
-          <ChipButton active={phaseOf(draft) === "fight_known"} label="Fight known" onPress={setFight} />
-          <ChipButton active={phaseOf(draft) === "tournament_known"} label="Tournament known" onPress={setTournament} />
+          <ChipButton active={phaseOf(draft) === "build"} description="Improve your boxing, strength, and conditioning." label="Build phase" onPress={setBuild} />
+          <ChipButton active={phaseOf(draft) !== "build"} description="Prepare for an upcoming competition." label="Fight camp" onPress={setFight} />
         </View>
       </FieldGroup>
-      <Text style={screenStyles.subtle}>Fight and tournament details can stay tentative until confirmed.</Text>
+      {draft.goal.phase !== "build" ? (
+        <FieldGroup helper="This changes how CornerIQ handles weigh-ins and recovery between bouts." label="What are you preparing for?">
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+            <ChipButton active={draft.goal.phase === "fight_known"} label="Single fight" onPress={setFight} />
+            <ChipButton active={draft.goal.phase === "tournament_known"} label="Tournament" onPress={setTournament} />
+          </View>
+        </FieldGroup>
+      ) : null}
       {draft.goal.phase === "fight_known" ? (
         <View style={{ gap: spacing.md }}>
           <LabeledTextInput

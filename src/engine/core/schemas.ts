@@ -10,8 +10,12 @@ const confidenceLevelSchema = z.enum(["high", "medium", "low", "unknown"]);
 const MealTagSchema = z.enum(["breakfast", "lunch", "dinner", "snack", "pre_training", "post_training", "day_total", "other"]);
 const FoodLogEntryTypeSchema = z.enum(["meal", "snack", "day_total", "quick_fuel_check"]);
 const FoodLogSourceSchema = z.enum(["manual", "label", "restaurant_estimate", "import", "unknown"]);
-const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]);
+const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "strength", "conditioning", "mixed_training", "competition", "travel", "recovery_day"]);
 const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
+const ExistingTrainingComponentSchema = z.enum(["boxing", "sparring", "strength", "conditioning"]);
+const ExistingBoxingFormatSchema = z.enum(["boxing_class", "technical_work", "pads_mitts", "bag_work", "footwork"]);
+const ExistingStrengthAreaSchema = z.enum(["full_body", "lower_body", "upper_body", "trunk"]);
+const ExistingConditioningFormatSchema = z.enum(["steady_cardio", "intervals", "short_bursts", "timed_rounds", "circuit"]);
 const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 const GeneratedSessionDurationPolicyCategorySchema = z.enum(["normal_support", "workload_moderated", "recovery", "taper", "microdose", "safety_capped"]);
 const TrainingStimulusSchema = z.enum(["strength", "conditioning", "power", "durability", "mobility", "recovery", "taper", "boxing_skill", "technical", "agility", "tactical"]);
@@ -317,6 +321,11 @@ export const ProtectedWorkoutSchema = z.object({
   durationMinutes: z.number().int().positive(),
   intensity: SessionIntensitySchema,
   protected: z.literal(true),
+  components: z.array(ExistingTrainingComponentSchema).min(1).optional(),
+  primaryComponent: ExistingTrainingComponentSchema.nullable().optional(),
+  boxingFormat: ExistingBoxingFormatSchema.optional(),
+  strengthArea: ExistingStrengthAreaSchema.optional(),
+  conditioningFormat: ExistingConditioningFormatSchema.optional(),
   rounds: z.number().int().nonnegative().optional(),
   note: z.string().optional(),
   recurringAnchorId: z.string().min(1).optional(),
@@ -331,6 +340,11 @@ export const RecurringProtectedWorkoutAnchorSchema = z.object({
   durationMinutes: z.number().int().positive(),
   intensity: SessionIntensitySchema,
   protected: z.literal(true),
+  components: z.array(ExistingTrainingComponentSchema).min(1).optional(),
+  primaryComponent: ExistingTrainingComponentSchema.nullable().optional(),
+  boxingFormat: ExistingBoxingFormatSchema.optional(),
+  strengthArea: ExistingStrengthAreaSchema.optional(),
+  conditioningFormat: ExistingConditioningFormatSchema.optional(),
   rounds: z.number().int().nonnegative().optional(),
   note: z.string().optional(),
   activeFrom: ISODateSchema.optional(),
@@ -346,6 +360,7 @@ const FatFreeMassEstimateSchema = z.object({
 
 export const AthleteProfileSchema = z.object({
   athleteId: z.string().min(1),
+  preferredName: z.string().trim().min(1).optional(),
   dateOfBirth: ISODateSchema.optional(),
   ageYears: z.number().int().min(5).max(80).optional(),
   sexAtBirth: z.enum(["female", "male", "intersex", "prefer_not_to_say"]).optional(),
@@ -360,26 +375,10 @@ export const AthleteProfileSchema = z.object({
   amateurOrPro: z.enum(["amateur", "pro"]),
   stance: z.enum(["orthodox", "southpaw", "switch", "unknown"]).optional(),
   trainingAgeYears: z.number().min(0),
-  injuryHistory: z.array(z.string()),
-  medicalFlags: z.array(z.string()),
-  medications: z.array(z.string()).optional(),
-  pregnancyStatus: z.enum(["not_pregnant", "possible", "confirmed", "postpartum", "unknown"]).optional(),
-  eatingDisorderRisk: z.object({
-    activeConcern: z.boolean(),
-    severeRestrictionHistory: z.boolean(),
-    rapidWeightLossConcern: z.boolean(),
-    notes: z.array(z.string())
-  }),
-  priorWeightCutHistory: z.object({
-    hasCutBefore: z.boolean(),
-    adverseEvents: z.array(z.string()),
-    lowestRecentFightingWeightKg: z.number().positive().nullable()
-  }),
   typicalWalkAroundWeightKg: z.number().positive().nullable(),
   lowestRecentFightingWeightKg: z.number().positive().nullable(),
   coachInvolved: z.boolean(),
   dietitianInvolved: z.boolean(),
-  medicalProfessionalInvolved: z.boolean(),
   equipmentAccess: z.array(z.string()),
   scheduleAvailability: z.array(z.string()),
   protectedBoxingSchedule: z.array(ProtectedWorkoutSchema),

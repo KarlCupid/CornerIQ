@@ -57,8 +57,7 @@ export function BoxerBasicsStep({ draft, setStepError, updateDraft }: Onboarding
 
   return (
     <View style={{ gap: spacing.md }}>
-      <Text style={screenStyles.sectionTitle}>Boxing identity</Text>
-      <Text style={screenStyles.subtle}>Boxer-first across amateur and pro contexts.</Text>
+      <Text style={screenStyles.sectionTitle}>Boxing background</Text>
       <FieldGroup helper="Choose your current lane." label="Boxing status">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ChipButton
@@ -100,7 +99,7 @@ export function BoxerBasicsStep({ draft, setStepError, updateDraft }: Onboarding
         </View>
         {selectedLevel ? <Text style={screenStyles.subtle}>{selectedLevel.description}</Text> : null}
       </FieldGroup>
-      <FieldGroup example="Use 0 if brand new." helper="Choose the closest option." label="Training age">
+      <FieldGroup example="Use 0 if brand new." helper="Choose the closest option." label="Years of boxing experience">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {trainingAgeOptions.map((option) => (
             <ChipButton

@@ -19,6 +19,10 @@ export type { FuelHistoryViewModel } from "./fuelHistoryViewModel";
 export type { NutritionReviewHistoryViewModel } from "./nutritionReviewHistoryViewModel";
 import type {
   DetailedTrainingSession,
+  ExistingBoxingFormat,
+  ExistingConditioningFormat,
+  ExistingStrengthArea,
+  ExistingTrainingComponent,
   GeneratedSessionDurationAuditItem,
   GeneratedSessionDurationPolicyCategory,
   GeneratedSessionAddOnBlock,
@@ -722,6 +726,11 @@ export interface PlanViewModel {
     intensityLabel: string;
     rounds: number | null;
     note: string | null;
+    components?: readonly ExistingTrainingComponent[] | undefined;
+    primaryComponent?: ExistingTrainingComponent | null | undefined;
+    boxingFormat?: ExistingBoxingFormat | null | undefined;
+    strengthArea?: ExistingStrengthArea | null | undefined;
+    conditioningFormat?: ExistingConditioningFormat | null | undefined;
   }[];
   weeklyAnchors: readonly {
     id: string;
@@ -737,6 +746,11 @@ export interface PlanViewModel {
     note: string | null;
     activeFrom: string | null;
     activeUntil: string | null;
+    components?: readonly ExistingTrainingComponent[] | undefined;
+    primaryComponent?: ExistingTrainingComponent | null | undefined;
+    boxingFormat?: ExistingBoxingFormat | null | undefined;
+    strengthArea?: ExistingStrengthArea | null | undefined;
+    conditioningFormat?: ExistingConditioningFormat | null | undefined;
   }[];
   adjustmentSummary: string;
   activeAdjustments: readonly string[];

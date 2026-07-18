@@ -61,10 +61,6 @@ export function resolveEnergyAvailabilityEstimate(input: {
   if (input.readiness.color === "red") {
     riskSignals.add("Red readiness protects recovery fuel.");
   }
-  if (input.athlete.eatingDisorderRisk.activeConcern || input.athlete.eatingDisorderRisk.severeRestrictionHistory) {
-    riskSignals.add("Eating-disorder risk or severe restriction history blocks deficit pressure.");
-  }
-
   const intakeAvailable = hasCompleteEnergyIntake(input.foodLogSummary);
   if (!intakeAvailable) {
     missingInputs.add("complete energy intake");
@@ -79,10 +75,7 @@ export function resolveEnergyAvailabilityEstimate(input: {
     missingInputs.add(missingInput);
   }
 
-  const hardBlock =
-    input.athlete.eatingDisorderRisk.activeConcern ||
-    input.athlete.eatingDisorderRisk.severeRestrictionHistory ||
-    input.riskFlags.some((flag) => flag.hardStop && (flag.domain === "nutrition" || flag.domain === "body_mass" || flag.domain === "medical"));
+  const hardBlock = input.riskFlags.some((flag) => flag.hardStop && (flag.domain === "nutrition" || flag.domain === "body_mass" || flag.domain === "medical"));
   if (hardBlock) {
     return {
       status: "blocked",

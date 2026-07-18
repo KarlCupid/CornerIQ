@@ -170,7 +170,7 @@ export function normalizeAthleteTrainingProfile(input: {
     modalityPreferences: uniqueStrings([...(input.modalityPreferences ?? []), ...preferenceTokens.preferences]),
     modalityAvoidances: uniqueStrings([...(input.modalityAvoidances ?? []), ...preferenceTokens.avoidances]),
     preferredSessionDurationMinutes,
-    currentLimitations: uniqueStrings([...(input.athlete.injuryHistory ?? []), ...(input.athlete.medicalFlags ?? []), ...(input.currentLimitations ?? []), ...preferenceTokens.limitations]),
+    currentLimitations: uniqueStrings([...(input.currentLimitations ?? []), ...preferenceTokens.limitations]),
     fixedBoxingSchedule: input.fixedBoxingSchedule ?? input.athlete.protectedBoxingSchedule
   };
 }

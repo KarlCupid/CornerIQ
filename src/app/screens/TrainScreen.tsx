@@ -812,6 +812,7 @@ function TodayTrainingPlanCard({
     >
       <View style={{ gap: spacing.md }}>
         <View style={{ gap: spacing.sm }}>
+          {hasSessionSummary ? <Text style={{ color: trainPalette.tonePurple, fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>CornerIQ workout</Text> : null}
           <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={2} style={{ color: trainPalette.textPrimary, fontSize: 40, fontWeight: "900", letterSpacing: 0, lineHeight: 45 }}>
             {planTitle(session, card, generated)}
           </Text>

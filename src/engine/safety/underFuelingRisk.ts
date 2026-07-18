@@ -101,18 +101,6 @@ export function assessUnderFuelingRisk(
       )
     );
   }
-  if (athlete?.eatingDisorderRisk.activeConcern || athlete?.eatingDisorderRisk.severeRestrictionHistory || athlete?.eatingDisorderRisk.rapidWeightLossConcern) {
-    flags.push(
-      createRiskFlag(
-        "nutrition",
-        "high_underfueling_blocks_deficit",
-        "critical",
-        "Eating-disorder risk or severe restriction history blocks deficit pressure and acute protocol support.",
-        { eatingDisorderRisk: athlete.eatingDisorderRisk, evidenceIds: UNDER_FUELING_EVIDENCE_IDS },
-        true
-      )
-    );
-  }
   if (readiness?.color === "red" && (training?.plannedLoadLedger.hardDayCount ?? 0) >= 3) {
     flags.push(
       createRiskFlag(

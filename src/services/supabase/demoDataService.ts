@@ -11,24 +11,10 @@ export function buildDemoAthleteProfile(userId: string): AthleteProfile {
     amateurOrPro: "amateur",
     stance: "unknown",
     trainingAgeYears: 1,
-    injuryHistory: [],
-    medicalFlags: [],
-    eatingDisorderRisk: {
-      activeConcern: false,
-      severeRestrictionHistory: false,
-      rapidWeightLossConcern: false,
-      notes: []
-    },
-    priorWeightCutHistory: {
-      hasCutBefore: false,
-      adverseEvents: [],
-      lowestRecentFightingWeightKg: null
-    },
     typicalWalkAroundWeightKg: 68,
     lowestRecentFightingWeightKg: null,
     coachInvolved: false,
     dietitianInvolved: false,
-    medicalProfessionalInvolved: false,
     equipmentAccess: ["jump_rope", "bands"],
     scheduleAvailability: ["mon_pm", "wed_pm", "sat_am"],
     protectedBoxingSchedule: [],

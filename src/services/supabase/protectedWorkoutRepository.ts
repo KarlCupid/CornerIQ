@@ -50,6 +50,11 @@ export function createProtectedWorkoutRepository(client: CornerSupabaseClient) {
           localStartTime: validated.localStartTime,
           durationMinutes: validated.durationMinutes,
           intensity: validated.intensity,
+          components: validated.components,
+          primaryComponent: validated.primaryComponent,
+          boxingFormat: validated.boxingFormat,
+          strengthArea: validated.strengthArea,
+          conditioningFormat: validated.conditioningFormat,
           rounds: validated.rounds,
           note: validated.note,
           metadata: options.metadata
@@ -72,6 +77,11 @@ export function createProtectedWorkoutRepository(client: CornerSupabaseClient) {
             localStartTime: validated.localStartTime,
             durationMinutes: validated.durationMinutes,
             intensity: validated.intensity,
+            components: validated.components,
+            primaryComponent: validated.primaryComponent,
+            boxingFormat: validated.boxingFormat,
+            strengthArea: validated.strengthArea,
+            conditioningFormat: validated.conditioningFormat,
             rounds: validated.rounds,
             note: validated.note,
             metadata: options.metadata

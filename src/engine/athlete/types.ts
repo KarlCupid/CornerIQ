@@ -31,19 +31,6 @@ export type BoxingLevel =
   | "pro_8_10_round"
   | "pro_12_round";
 
-export interface EatingDisorderRiskFlags {
-  activeConcern: boolean;
-  severeRestrictionHistory: boolean;
-  rapidWeightLossConcern: boolean;
-  notes: readonly string[];
-}
-
-export interface PriorWeightCutHistory {
-  hasCutBefore: boolean;
-  adverseEvents: readonly string[];
-  lowestRecentFightingWeightKg: number | null;
-}
-
 export type FatFreeMassSource = "dexa" | "bod_pod" | "skinfold" | "bioimpedance" | "clinician" | "user_estimate" | "unknown";
 
 export interface FatFreeMassEstimate {
@@ -55,6 +42,7 @@ export interface FatFreeMassEstimate {
 
 export interface AthleteProfile {
   athleteId: string;
+  preferredName?: string | undefined;
   dateOfBirth?: ISODateString | undefined;
   ageYears?: number | undefined;
   sexAtBirth?: "female" | "male" | "intersex" | "prefer_not_to_say" | undefined;
@@ -69,17 +57,10 @@ export interface AthleteProfile {
   amateurOrPro: AmateurOrPro;
   stance?: "orthodox" | "southpaw" | "switch" | "unknown" | undefined;
   trainingAgeYears: number;
-  injuryHistory: readonly string[];
-  medicalFlags: readonly string[];
-  medications?: readonly string[] | undefined;
-  pregnancyStatus?: "not_pregnant" | "possible" | "confirmed" | "postpartum" | "unknown" | undefined;
-  eatingDisorderRisk: EatingDisorderRiskFlags;
-  priorWeightCutHistory: PriorWeightCutHistory;
   typicalWalkAroundWeightKg: number | null;
   lowestRecentFightingWeightKg: number | null;
   coachInvolved: boolean;
   dietitianInvolved: boolean;
-  medicalProfessionalInvolved: boolean;
   equipmentAccess: readonly string[];
   scheduleAvailability: readonly string[];
   protectedBoxingSchedule: readonly ProtectedWorkout[];

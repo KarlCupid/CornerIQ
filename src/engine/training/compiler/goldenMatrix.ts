@@ -59,24 +59,10 @@ function baseAthlete(overrides: Partial<AthleteProfile> = {}): AthleteProfile {
     amateurOrPro: "amateur",
     stance: "orthodox",
     trainingAgeYears: 3,
-    injuryHistory: [],
-    medicalFlags: [],
-    eatingDisorderRisk: {
-      activeConcern: false,
-      severeRestrictionHistory: false,
-      rapidWeightLossConcern: false,
-      notes: []
-    },
-    priorWeightCutHistory: {
-      hasCutBefore: false,
-      adverseEvents: [],
-      lowestRecentFightingWeightKg: null
-    },
     typicalWalkAroundWeightKg: 72,
     lowestRecentFightingWeightKg: null,
     coachInvolved: true,
     dietitianInvolved: false,
-    medicalProfessionalInvolved: false,
     equipmentAccess: ["bodyweight"],
     scheduleAvailability: [],
     protectedBoxingSchedule: [],
@@ -297,8 +283,7 @@ export function goldenMatrixCases(): readonly GoldenMatrixCaseDefinition[] {
             athleteId: "golden_knee_bike",
             boxingLevel: "amateur_open",
             trainingAgeYears: 3,
-            equipmentAccess: ["bike", "bands"],
-            injuryHistory: ["knee caution"]
+            equipmentAccess: ["bike", "bands"]
           }),
           focus: "conditioning",
           subFocus: "intervals",
@@ -321,8 +306,7 @@ export function goldenMatrixCases(): readonly GoldenMatrixCaseDefinition[] {
             athleteId: "golden_shoulder_strength",
             boxingLevel: "amateur_open",
             trainingAgeYears: 3,
-            equipmentAccess: ["dumbbells", "bands"],
-            injuryHistory: ["shoulder caution"]
+            equipmentAccess: ["dumbbells", "bands"]
           }),
           focus: "strength",
           subFocus: "upper_body_trunk_strength",

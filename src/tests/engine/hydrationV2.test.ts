@@ -50,14 +50,7 @@ describe("hydration plan V2", () => {
     expect(state.nutrition.hydrationPlanV2.reasons).toContain("Body-mass data is stale; daily fluid range stays unavailable.");
   });
 
-  it("requires review for kidney/cardiac/hypertension flags and post-weigh-in caps", () => {
-    const medical = resolvePerformanceState({
-      journey: {
-        ...no_wearable_manual_only,
-        athlete: { ...no_wearable_manual_only.athlete, medicalFlags: ["hypertension"] }
-      },
-      asOfDate: fixtureAsOfDate
-    });
+  it("requires review for post-weigh-in caps", () => {
     const cap = resolvePerformanceState({
       journey: {
         ...pro_8_round_camp_day_before_weigh_in,
@@ -72,7 +65,6 @@ describe("hydration plan V2", () => {
       asOfDate: fixtureAsOfDate
     });
 
-    expect(medical.nutrition.hydrationPlanV2.status).toBe("review_required");
     expect(cap.nutrition.hydrationPlanV2.status).toBe("review_required");
   });
 

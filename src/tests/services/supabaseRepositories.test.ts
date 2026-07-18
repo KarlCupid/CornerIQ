@@ -2693,29 +2693,25 @@ describe("Supabase repositories", () => {
     }
   });
 
-  it("mapAthleteProfileRow normalizes legacy profile payloads with conservative setup review", () => {
-    const legacyProfile = { ...no_wearable_manual_only.athlete } as Record<string, unknown>;
-    delete legacyProfile.eatingDisorderRisk;
-    delete legacyProfile.priorWeightCutHistory;
+  it("mapAthleteProfileRow discards obsolete questionnaire fields from legacy profiles", () => {
+    const legacyProfile = {
+      ...no_wearable_manual_only.athlete,
+      eatingDisorderRisk: { activeConcern: true },
+      priorWeightCutHistory: { hasCutBefore: true },
+      medicalFlags: ["legacy medical value"],
+      pregnancyStatus: "unknown"
+    } as Record<string, unknown>;
     delete legacyProfile.cycleTrackingPreference;
     delete legacyProfile.wearablePreference;
 
     const profile = mapAthleteProfileRow({ profile: legacyProfile as never });
 
-    expect(profile.eatingDisorderRisk).toEqual({
-      activeConcern: false,
-      severeRestrictionHistory: false,
-      rapidWeightLossConcern: false,
-      notes: []
-    });
-    expect(profile.priorWeightCutHistory).toEqual({
-      hasCutBefore: false,
-      adverseEvents: [],
-      lowestRecentFightingWeightKg: null
-    });
+    expect("eatingDisorderRisk" in profile).toBe(false);
+    expect("priorWeightCutHistory" in profile).toBe(false);
+    expect("medicalFlags" in profile).toBe(false);
+    expect("pregnancyStatus" in profile).toBe(false);
     expect(profile.cycleTrackingPreference).toBe("undecided");
     expect(profile.wearablePreference).toBe("manual_only");
-    expect(profile.medicalFlags).toContain("Profile safety setup needs review after an app update.");
   });
 
   it("loadAthleteJourney keeps the account ready when optional journey history cannot refresh", async () => {

@@ -286,11 +286,10 @@ describe("onboardingService", () => {
     expect(repositories.engineRun.upsertGeneratedSessions).not.toHaveBeenCalled();
   });
 
-  it("cycle enabled and manual-only wearable preferences write to athlete profile", async () => {
+  it("cycle preference writes while wearable mode remains hidden and manual", async () => {
     const { repositories, store } = createOnboardingRepositories();
     const draft = createDefaultOnboardingDraft(fixtureAsOfDate);
     draft.cycleSupport.preference = "enabled";
-    draft.wearablePreference.preference = "manual_only";
 
     await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft, repositories });
 
@@ -298,18 +297,18 @@ describe("onboardingService", () => {
     expect(store.profile?.wearablePreference).toBe("manual_only");
   });
 
-  it("onboarding safety demographics write to the athlete profile for engine use", async () => {
+  it("basic information writes demographics used by the engine", async () => {
     const { repositories, store } = createOnboardingRepositories();
     const draft = createDefaultOnboardingDraft(fixtureAsOfDate);
-    draft.safety.ageYears = 29;
-    draft.safety.sexAtBirth = "female";
-    draft.safety.pregnancyStatus = "not_pregnant";
+    draft.basicInformation.preferredName = "Kai";
+    draft.basicInformation.ageYears = 29;
+    draft.basicInformation.sexAtBirth = "female";
 
     await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft, repositories });
 
     expect(store.profile?.ageYears).toBe(29);
     expect(store.profile?.sexAtBirth).toBe("female");
-    expect(store.profile?.pregnancyStatus).toBe("not_pregnant");
+    expect(store.profile?.preferredName).toBe("Kai");
   });
 
   it("fight setup onboarding writes a fight opportunity and resolves camp objective", async () => {
@@ -361,7 +360,7 @@ describe("onboardingService", () => {
   it("MVP onboarding rejects under-18 profile setup before writes", async () => {
     const { repositories } = createOnboardingRepositories();
     const draft = createDefaultOnboardingDraft(fixtureAsOfDate);
-    draft.safety.ageYears = 16;
+    draft.basicInformation.ageYears = 16;
     draft.bodyMass.currentBodyMassKg = 61;
     draft.bodyMass.typicalWalkAroundWeightKg = 61;
     draft.goal = {
@@ -450,7 +449,6 @@ describe("onboardingService", () => {
       currentProfile: store.profile,
       draft: {
         cycleTrackingPreference: "disabled",
-        wearablePreference: "undecided",
         equipmentAccess: ["jump_rope", "bag"],
         protectedWorkout: { type: "bag_work", date: fixtureAsOfDate, durationMinutes: 30, intensity: "moderate" }
       },
@@ -832,7 +830,7 @@ describe("onboardingService", () => {
               preferredSessionDurationMinutes: 45,
               maxSessionDurationMinutes: 70,
               targetBlockLengthWeeks: 4,
-              equipment: expect.arrayContaining(["jump_rope"]),
+              equipment: expect.arrayContaining(["bodyweight"]),
               currentLimitations: []
             })
           })

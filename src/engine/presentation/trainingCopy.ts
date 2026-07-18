@@ -219,6 +219,9 @@ export function plainFuelDemandLabel(fuelDemand: "low" | "moderate" | "high" | s
 }
 
 export function plainWorkoutTitle(title: string, family?: GeneratedSessionFamily | string | null | undefined): string {
+  if (family && isGeneratedSessionFamily(family)) {
+    return FAMILY_LABELS[family];
+  }
   const raw = collapseWhitespace(title);
   if (isGeneratedSessionFamily(raw)) {
     return FAMILY_LABELS[raw];

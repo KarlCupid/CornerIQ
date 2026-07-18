@@ -79,24 +79,10 @@ function athlete(overrides: Partial<AthleteProfile> = {}): AthleteProfile {
     amateurOrPro: "amateur",
     stance: "orthodox",
     trainingAgeYears: 3,
-    injuryHistory: [],
-    medicalFlags: [],
-    eatingDisorderRisk: {
-      activeConcern: false,
-      severeRestrictionHistory: false,
-      rapidWeightLossConcern: false,
-      notes: []
-    },
-    priorWeightCutHistory: {
-      hasCutBefore: false,
-      adverseEvents: [],
-      lowestRecentFightingWeightKg: null
-    },
     typicalWalkAroundWeightKg: 72,
     lowestRecentFightingWeightKg: null,
     coachInvolved: true,
     dietitianInvolved: false,
-    medicalProfessionalInvolved: false,
     equipmentAccess: ["bodyweight"],
     scheduleAvailability: [],
     protectedBoxingSchedule: [],
@@ -134,12 +120,12 @@ function compileCase(input: {
   const fixed = input.fixed ?? [];
   const sourceAthlete = athlete({
     equipmentAccess: input.equipment ?? ["bodyweight"],
-    injuryHistory: input.limitations ?? [],
     protectedBoxingSchedule: fixed
   });
   const normalizedAthlete = normalizeAthleteTrainingProfile({
     athlete: sourceAthlete,
     fixedBoxingSchedule: fixed,
+    currentLimitations: input.limitations,
     userPreferences: input.preferences
   });
   const planIntent = normalizePlanIntent({

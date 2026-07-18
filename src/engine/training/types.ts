@@ -75,11 +75,18 @@ export type ProtectedWorkoutType =
   | "sparring"
   | "roadwork"
   | "coach_assigned_strength"
+  | "strength"
+  | "conditioning"
+  | "mixed_training"
   | "competition"
   | "travel"
   | "recovery_day";
 
 export type SessionIntensity = "easy" | "moderate" | "hard" | "max";
+export type ExistingTrainingComponent = "boxing" | "sparring" | "strength" | "conditioning";
+export type ExistingBoxingFormat = "boxing_class" | "technical_work" | "pads_mitts" | "bag_work" | "footwork";
+export type ExistingStrengthArea = "full_body" | "lower_body" | "upper_body" | "trunk";
+export type ExistingConditioningFormat = "steady_cardio" | "intervals" | "short_bursts" | "timed_rounds" | "circuit";
 export type WeeklyProtectedAnchorWeekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 export type ExerciseCategory =
   | "warm_up"
@@ -105,6 +112,11 @@ export interface ProtectedWorkout {
   durationMinutes: number;
   intensity: SessionIntensity;
   protected: true;
+  components?: readonly ExistingTrainingComponent[] | undefined;
+  primaryComponent?: ExistingTrainingComponent | null | undefined;
+  boxingFormat?: ExistingBoxingFormat | undefined;
+  strengthArea?: ExistingStrengthArea | undefined;
+  conditioningFormat?: ExistingConditioningFormat | undefined;
   rounds?: number | undefined;
   note?: string | undefined;
   recurringAnchorId?: string | undefined;
@@ -119,6 +131,11 @@ export interface RecurringProtectedWorkoutAnchor {
   durationMinutes: number;
   intensity: SessionIntensity;
   protected: true;
+  components?: readonly ExistingTrainingComponent[] | undefined;
+  primaryComponent?: ExistingTrainingComponent | null | undefined;
+  boxingFormat?: ExistingBoxingFormat | undefined;
+  strengthArea?: ExistingStrengthArea | undefined;
+  conditioningFormat?: ExistingConditioningFormat | undefined;
   rounds?: number | undefined;
   note?: string | undefined;
   activeFrom?: ISODateString | undefined;

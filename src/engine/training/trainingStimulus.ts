@@ -1,4 +1,5 @@
 import type { GeneratedSessionFamily, GeneratedSessionTypeLabel, GeneratedTrainingSession, ProtectedWorkout, TrainingStimulus, TrainingStimulusMix } from "./types";
+import { existingTrainingHasComponent } from "./existingTraining";
 
 export const EMPTY_TRAINING_STIMULUS_MIX: TrainingStimulusMix = {
   strength: 0,
@@ -162,7 +163,7 @@ export function isHighStimulusFamily(family: GeneratedSessionFamily): boolean {
 }
 
 export function isHighStimulusProtectedWorkout(anchor: ProtectedWorkout): boolean {
-  return anchor.type === "sparring" || anchor.type === "competition" || anchor.intensity === "hard" || anchor.intensity === "max";
+  return existingTrainingHasComponent(anchor, "sparring") || anchor.type === "competition" || anchor.intensity === "hard" || anchor.intensity === "max";
 }
 
 export function isHighStimulusGeneratedSession(session: GeneratedTrainingSession): boolean {

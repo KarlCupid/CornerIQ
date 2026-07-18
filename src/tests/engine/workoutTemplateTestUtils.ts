@@ -26,24 +26,10 @@ export function templateAthlete(overrides: Partial<AthleteProfile> = {}): Athlet
     amateurOrPro: "amateur",
     stance: "orthodox",
     trainingAgeYears: 3,
-    injuryHistory: [],
-    medicalFlags: [],
-    eatingDisorderRisk: {
-      activeConcern: false,
-      severeRestrictionHistory: false,
-      rapidWeightLossConcern: false,
-      notes: []
-    },
-    priorWeightCutHistory: {
-      hasCutBefore: false,
-      adverseEvents: [],
-      lowestRecentFightingWeightKg: null
-    },
     typicalWalkAroundWeightKg: 72,
     lowestRecentFightingWeightKg: null,
     coachInvolved: true,
     dietitianInvolved: false,
-    medicalProfessionalInvolved: false,
     equipmentAccess: ["bodyweight", "dumbbells", "bands", "bike", "medicine_ball", "bag"],
     scheduleAvailability: [],
     protectedBoxingSchedule: [],
@@ -119,10 +105,10 @@ export function compileTemplateCase(input: {
   const athlete = normalizeAthleteTrainingProfile({
     athlete: templateAthlete({
       equipmentAccess: input.equipment ?? ["bodyweight", "dumbbells", "bands", "bike", "medicine_ball", "bag"],
-      injuryHistory: input.limitations ?? [],
       protectedBoxingSchedule: fixed
     }),
-    fixedBoxingSchedule: fixed
+    fixedBoxingSchedule: fixed,
+    currentLimitations: input.limitations
   });
   const planIntent = normalizePlanIntent({
     userId: "template_user",

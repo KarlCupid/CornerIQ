@@ -16,7 +16,7 @@ export interface ProfileSettingsScreenProps {
   onOpenPlan?: (() => void) | undefined;
   onUpdateSettings: (draft: ProfileSettingsDraft) => Promise<void>;
   preferredUnits: "metric" | "imperial";
-  wearablePreference: "manual_only" | "wearable_connected" | "undecided";
+  wearablePreference?: "manual_only" | "wearable_connected" | "undecided" | undefined;
 }
 
 function OptionButton({ active, busy, label, onPress }: { active: boolean; busy: boolean; label: string; onPress: () => void }) {
@@ -48,11 +48,9 @@ export function ProfileSettingsScreen({
   equipmentAccess,
   onOpenPlan,
   onUpdateSettings,
-  preferredUnits,
-  wearablePreference
+  preferredUnits
 }: ProfileSettingsScreenProps) {
   const [cyclePreference, setCyclePreference] = useState(cycleTrackingPreference);
-  const [wearable, setWearable] = useState(wearablePreference);
   const [units, setUnits] = useState(preferredUnits);
   const [equipment, setEquipment] = useState(equipmentAccess.join(", "));
   const [equipmentOpen, setEquipmentOpen] = useState(false);
@@ -67,7 +65,6 @@ export function ProfileSettingsScreen({
       }
       await onUpdateSettings({
         cycleTrackingPreference: cyclePreference,
-        wearablePreference: wearable,
         preferredUnits: units,
         equipmentAccess: equipmentAccessDraft
       });
@@ -87,13 +84,6 @@ export function ProfileSettingsScreen({
           <OptionButton active={cyclePreference === "enabled"} busy={busy} label="On" onPress={() => setCyclePreference("enabled")} />
           <OptionButton active={cyclePreference === "disabled"} busy={busy} label="Off" onPress={() => setCyclePreference("disabled")} />
           <OptionButton active={cyclePreference === "undecided"} busy={busy} label="Not sure" onPress={() => setCyclePreference("undecided")} />
-        </View>
-      </SettingsGroup>
-      <SettingsGroup title="Wearables" subtitle="Manual input is complete.">
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <OptionButton active={wearable === "manual_only"} busy={busy} label="Manual only" onPress={() => setWearable("manual_only")} />
-          <OptionButton active={wearable === "wearable_connected"} busy={busy} label="Connect later" onPress={() => setWearable("wearable_connected")} />
-          <OptionButton active={wearable === "undecided"} busy={busy} label="Not sure" onPress={() => setWearable("undecided")} />
         </View>
       </SettingsGroup>
       <SettingsGroup title="Units" subtitle="Display preference. Safety math stays kg.">
@@ -117,8 +107,8 @@ export function ProfileSettingsScreen({
         </Pressable>
         {equipmentOpen ? <TextInput onChangeText={setEquipment} placeholder="Equipment, comma-separated" placeholderTextColor={colors.wrap} style={screenStyles.input} value={equipment} /> : null}
       </SettingsGroup>
-      <SettingsGroup title="Planning" subtitle="Fixed boxing schedule lives in Plan.">
-        <Text style={screenStyles.body}>Use Plan to add, edit, or remove boxing commitments.</Text>
+      <SettingsGroup title="Planning" subtitle="Your existing training schedule lives in Plan.">
+        <Text style={screenStyles.body}>Use Plan to add, edit, or remove recurring workouts.</Text>
         <Pressable accessibilityRole="button" disabled={busy} onPress={onOpenPlan ?? (() => undefined)} style={screenStyles.quietButton}>
           <Text style={screenStyles.quietButtonText}>Open Plan</Text>
         </Pressable>

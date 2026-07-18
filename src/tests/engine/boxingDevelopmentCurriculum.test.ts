@@ -20,25 +20,10 @@ function athlete(overrides: Partial<AthleteProfile> = {}): AthleteProfile {
     boxingLevel: "amateur_open",
     amateurOrPro: "amateur",
     trainingAgeYears: 4,
-    injuryHistory: [],
-    medicalFlags: [],
-    pregnancyStatus: "not_pregnant",
-    eatingDisorderRisk: {
-      activeConcern: false,
-      severeRestrictionHistory: false,
-      rapidWeightLossConcern: false,
-      notes: []
-    },
-    priorWeightCutHistory: {
-      hasCutBefore: true,
-      adverseEvents: [],
-      lowestRecentFightingWeightKg: null
-    },
     typicalWalkAroundWeightKg: 67,
     lowestRecentFightingWeightKg: null,
     coachInvolved: true,
     dietitianInvolved: false,
-    medicalProfessionalInvolved: false,
     equipmentAccess: ["dumbbells", "bands"],
     scheduleAvailability: ["mon_pm", "wed_pm", "fri_pm"],
     protectedBoxingSchedule: [],
@@ -132,4 +117,3 @@ describe("boxing development curriculum traceability", () => {
     expect(sequence).toEqual(expect.arrayContaining(["boxing_jab_entry_exit", "boxing_bag_skill", "strength_upper"]));
   });
 });
-

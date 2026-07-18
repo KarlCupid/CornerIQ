@@ -88,29 +88,6 @@ function requiredBodyMassMaxAgeDays(daysUntilWeighIn: number | null): number {
   return daysUntilWeighIn !== null && daysUntilWeighIn <= 7 ? FIGHT_WEEK_BODY_MASS_MAX_AGE_DAYS : ACTIVE_CUT_RECENT_BODY_MASS_MAX_AGE_DAYS;
 }
 
-function pregnancyCutSafety(input: AthleteProfile): "blocked" | "review" | "unknown" | "clear" {
-  if (input.pregnancyStatus === "possible" || input.pregnancyStatus === "confirmed") {
-    return "blocked";
-  }
-  if (input.pregnancyStatus === "postpartum") {
-    return "review";
-  }
-  if (input.sexAtBirth === "male" || input.pregnancyStatus === "not_pregnant") {
-    return "clear";
-  }
-  if (input.pregnancyStatus === "unknown" || input.pregnancyStatus === undefined) {
-    return "unknown";
-  }
-  return "clear";
-}
-
-function pregnancyCutSafetyEvidence(input: AthleteProfile): Record<string, unknown> {
-  return {
-    pregnancyStatus: input.pregnancyStatus ?? "missing",
-    sexAtBirth: input.sexAtBirth ?? "missing"
-  };
-}
-
 export function resolveWeighInContext(fight: FightOpportunity | null, asOfDate: string): WeighInContext {
   if (!fight || fight.status === "canceled" || fight.status === "completed") {
     return {
@@ -207,23 +184,6 @@ export function resolveAcuteProtocolEligibility(input: {
     fail("no hard-stop symptoms", "A hard-stop symptom blocks acute protocol support.");
   } else {
     pass("no hard-stop symptoms");
-  }
-
-  if (input.athlete.eatingDisorderRisk.activeConcern || input.athlete.eatingDisorderRisk.severeRestrictionHistory) {
-    fail("no active ED or severe restriction risk", "Eating-disorder or severe restriction risk blocks acute protocols.");
-  } else {
-    pass("no active ED or severe restriction risk");
-  }
-
-  const pregnancySafety = pregnancyCutSafety(input.athlete);
-  if (pregnancySafety === "blocked") {
-    fail("no pregnancy possible/confirmed", "Possible or confirmed pregnancy blocks cut protocols.");
-  } else if (pregnancySafety === "review") {
-    fail("postpartum review before cut protocols", "Postpartum context requires professional review before cut protocols.");
-  } else if (pregnancySafety === "unknown") {
-    fail("pregnancy safety context known", "Pregnancy safety context is unknown; acute cut protocols stay blocked until it is known.");
-  } else {
-    pass("pregnancy safety context clear");
   }
 
   if (input.safetyFlags.some((flag) => flag.code === "rapid_weight_loss" || flag.code === "repeated_low_intake" || flag.code === "missed_period_underfueling_risk")) {
@@ -401,41 +361,6 @@ export function resolveWeightClassFeasibility(input: {
   if (age !== undefined && age < 18 && requiredLossKg > 0) {
     riskFlags.push(
       createRiskFlag("body_mass", "minor_acute_cut_blocked", "critical", "Minor athletes cannot receive acute weight manipulation protocols.", { age }, true)
-    );
-  }
-
-  if (input.athlete.eatingDisorderRisk.activeConcern || input.athlete.eatingDisorderRisk.severeRestrictionHistory) {
-    riskFlags.push(
-      createRiskFlag("body_mass", "ed_risk_cut_blocked", "critical", "Active eating-disorder risk blocks weight-cut protocols.", {}, true)
-    );
-  }
-
-  const pregnancySafety = pregnancyCutSafety(input.athlete);
-  if (pregnancySafety === "blocked") {
-    riskFlags.push(
-      createRiskFlag("body_mass", "pregnancy_cut_blocked", "critical", "Possible or confirmed pregnancy blocks weight-cut protocols.", { pregnancyStatus: input.athlete.pregnancyStatus }, true)
-    );
-  } else if (pregnancySafety === "review") {
-    riskFlags.push(
-      createRiskFlag(
-        "body_mass",
-        "postpartum_cut_review",
-        "high",
-        "Postpartum context requires professional review before weight-cut protocols.",
-        pregnancyCutSafetyEvidence(input.athlete),
-        true
-      )
-    );
-  } else if (pregnancySafety === "unknown") {
-    riskFlags.push(
-      createRiskFlag(
-        "body_mass",
-        "pregnancy_status_unknown",
-        "high",
-        "Pregnancy safety context is unknown, so weight-cut protocols require review before use.",
-        pregnancyCutSafetyEvidence(input.athlete),
-        true
-      )
     );
   }
 

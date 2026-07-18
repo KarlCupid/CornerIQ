@@ -105,8 +105,7 @@ export function BodyMassStep({ draft, setStepError, updateDraft }: OnboardingSte
 
   return (
     <View style={{ gap: spacing.md }}>
-      <Text style={screenStyles.sectionTitle}>Body weight</Text>
-      <Text style={screenStyles.subtle}>Used for conservative weight-class safety.</Text>
+      <Text style={screenStyles.sectionTitle}>Measurements</Text>
       <LabeledTextInput
         example={unitCopy.currentExample}
         helper="Current scale value."

@@ -103,7 +103,6 @@ export type Database = {
           id: string
           profile: Json
           sensitive_cycle: Json
-          sensitive_medical: Json
           updated_at: string
           user_id: string
         }
@@ -112,7 +111,6 @@ export type Database = {
           id?: string
           profile?: Json
           sensitive_cycle?: Json
-          sensitive_medical?: Json
           updated_at?: string
           user_id: string
         }
@@ -121,7 +119,6 @@ export type Database = {
           id?: string
           profile?: Json
           sensitive_cycle?: Json
-          sensitive_medical?: Json
           updated_at?: string
           user_id?: string
         }

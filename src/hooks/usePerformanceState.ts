@@ -395,7 +395,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   const saveProtectedSession = useCallback(
     async (workoutId: string | null, draft: ProtectedWorkoutDraft) => {
       if (result?.status !== "ready") {
-        setMessage("Fixed boxing schedule is available after engine state loads.");
+        setMessage("Existing training schedule is available after engine state loads.");
         return;
       }
       const currentProfile = latestAthleteProfileRef.current ?? result.state.athlete;
@@ -415,7 +415,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
         await refresh("amending_plan");
         setMessage(workoutId ? "Fixed boxing session updated. Preview next week when you are ready." : "Fixed boxing session added. Preview next week when you are ready.");
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Fixed boxing schedule failed.");
+        setMessage(error instanceof Error ? error.message : "Existing training schedule failed.");
         setLoading(false);
         setGenerationStatus("idle");
       }
@@ -457,7 +457,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   const deleteProtectedSession = useCallback(
     async (workoutId: string) => {
       if (result?.status !== "ready") {
-        setMessage("Fixed boxing schedule is available after engine state loads.");
+        setMessage("Existing training schedule is available after engine state loads.");
         return;
       }
       setLoading(true);

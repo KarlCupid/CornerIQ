@@ -29,6 +29,7 @@ import { legacyOnboardingDraftStorageKey, migrateOnboardingDraft, onboardingDraf
 import { trainPalette } from "../../app/screens/train/trainPalette";
 import { colors } from "../../design/theme";
 import { resolvePaywallViewModel } from "../../engine/subscription/paywallEngine";
+import { plainWorkoutTitle } from "../../engine/presentation/trainingCopy";
 
 const LEGACY_PRESCRIPTION_CONTRACT_VERSION = "athlete_prescription_contract_v1";
 const LEGACY_PLAN_INTENT_VERSION = "plan_generation_intent_v1";
@@ -3990,7 +3991,7 @@ describe("minimal app screens", () => {
     const tournamentOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: tournament.viewModels.train })).toJSON());
     const redOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: red.viewModels.train })).toJSON());
 
-    expect(taperOutput).toContain("Power quality exposure");
+    expect(taperOutput).toContain(taper.viewModels.train.sessionCards[0]?.title ?? "Fight-week sharpness");
     expect(taperOutput).toContain("Fight-week day");
     expect(tournamentOutput).toContain("Tournament day: no extra hard conditioning.");
     expect(redOutput).toContain("Before you train");
@@ -4281,7 +4282,7 @@ describe("minimal app screens", () => {
 
       let output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("WORKOUT PREVIEW");
-      expect(output).toContain("Player test workout");
+      expect(output).toContain(plainWorkoutTitle(session.title, session.family));
       expect(output).toContain("WHY");
       expect(output).toContain("FLOW");
       expect(output).toContain("DO THIS");
@@ -4496,18 +4497,19 @@ describe("minimal app screens", () => {
     vi.useFakeTimers();
     try {
       const { WorkoutPlayer } = await import("../../app/screens/train/WorkoutPlayer");
+      const session = movementFlowPlayerTestSession();
       const renderer = render(
         React.createElement(WorkoutPlayer, {
           busy: false,
           completionActions: { complete: vi.fn(), skip: vi.fn() },
           onClose: vi.fn(),
           onDiscard: vi.fn(),
-          session: movementFlowPlayerTestSession()
+          session
         })
       );
 
       let output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("Movement flow");
+      expect(output).toContain(plainWorkoutTitle(session.title, session.family));
       expect(output).toContain("You'll move one movement at a time.");
       expect(output).not.toContain("Preparation");
 
@@ -4884,7 +4886,7 @@ describe("minimal app screens", () => {
     const warningOutput = JSON.stringify(warningRenderer.toJSON());
     expect(warningOutput).toContain("Plan tools");
     expect(warningOutput).toContain("Adjust plan");
-    expect(warningOutput).toContain("Edit boxing schedule");
+    expect(warningOutput).toContain("Edit existing training");
     expect(warningOutput).toContain("Plan changes");
     expect(warningOutput).toContain("Plan history");
     expect(warningOutput).toContain("Missing readiness lowers confidence.");
@@ -4947,7 +4949,7 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Week at a Glance");
     expect(output).not.toContain("Built Around");
     expect(output).toContain("Plan tools");
-    expect(output).toContain("Edit boxing schedule");
+    expect(output).toContain("Edit existing training");
     expect(output).toContain("Plan changes");
     expect(output).toContain("Plan history");
     expect(output.indexOf("Plan Your Path screen header")).toBeLessThan(output.indexOf("plan-hero-card"));
@@ -5044,11 +5046,11 @@ describe("minimal app screens", () => {
     expect(output).toContain("build strength - progress");
 
     const scheduleRenderer = renderPlan();
-    await switchSection(scheduleRenderer, "Edit boxing schedule");
+    await switchSection(scheduleRenderer, "Edit existing training");
     output = JSON.stringify(scheduleRenderer.toJSON());
     expect(visibleModalCount(scheduleRenderer)).toBe(0);
     expectActiveWorkspaceBeforeOverview(output, "fixed-boxing-schedule-card");
-    expect(output).toContain("Add one-off session");
+    expect(output).toContain("Add one-off workout");
 
     const historyRenderer = renderPlan();
     await switchSection(historyRenderer, "Plan history");
@@ -5349,16 +5351,16 @@ describe("minimal app screens", () => {
       })
     );
 
-    expect(JSON.stringify(renderer.toJSON())).toContain("Edit boxing schedule");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Edit existing training");
     await act(async () => {
-      await press(pressableWithText(renderer, "Edit boxing schedule"));
+      await press(pressableWithText(renderer, "Edit existing training"));
     });
-    expect(JSON.stringify(renderer.toJSON())).toContain("Fixed boxing schedule");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Existing training schedule");
     await act(async () => {
-      await press(pressableWithText(renderer, "Add one-off session"));
+      await press(pressableWithText(renderer, "Add one-off workout"));
     });
     await act(async () => {
-      await press(pressableWithText(renderer, "Save session"));
+      await press(pressableWithText(renderer, "Save workout"));
     });
     expect(onSaveProtectedSession).toHaveBeenCalledWith(null, expect.objectContaining({ date: fixtureAsOfDate, durationMinutes: 60, intensity: "moderate", type: "technical_session" }));
 
@@ -5366,10 +5368,10 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Coach/team sparring"));
     });
     act(() => {
-      changeInput(renderer, "Duration minutes", "90");
+      changeInput(renderer, "Total duration in minutes", "90");
     });
     await act(async () => {
-      await press(pressableWithText(renderer, "Save changes"));
+      await press(pressableWithText(renderer, "Save workout"));
     });
     expect(onSaveProtectedSession).toHaveBeenCalledWith("sparring_1", expect.objectContaining({ durationMinutes: 90, type: "sparring" }));
 
@@ -5377,10 +5379,10 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Coach/team sparring"));
     });
     await act(async () => {
-      await press(pressableWithText(renderer, "Remove session"));
+      await press(pressableWithText(renderer, "Remove workout"));
     });
     await act(async () => {
-      await press(pressableWithText(renderer, "Confirm remove"));
+      await press(pressableWithText(renderer, "Confirm remove workout"));
     });
     expect(onDeleteProtectedSession).toHaveBeenCalledWith("sparring_1");
 
@@ -5388,17 +5390,17 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Every Monday"));
     });
     await act(async () => {
-      await press(pressableWithText(renderer, "Save weekly session"));
+      await press(pressableWithText(renderer, "Save workout"));
     });
     expect(onSaveRecurringProtectedAnchor).toHaveBeenCalledWith("weekly_technical_monday", expect.objectContaining({ weekday: "monday", type: "technical_session" }));
     await act(async () => {
       await press(pressableWithText(renderer, "Every Monday"));
     });
     await act(async () => {
-      await press(pressableWithText(renderer, "Remove weekly session"));
+      await press(pressableWithText(renderer, "Remove workout"));
     });
     await act(async () => {
-      await press(pressableWithText(renderer, "Confirm remove weekly session"));
+      await press(pressableWithText(renderer, "Confirm remove workout"));
     });
     expect(onDeleteRecurringProtectedAnchor).toHaveBeenCalledWith("weekly_technical_monday");
   });
@@ -6827,12 +6829,11 @@ describe("minimal app screens", () => {
     const e2eRenderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, demoShortcutEnabled: true, message: null, onComplete: vi.fn(), onCreateDemoProfile: vi.fn(), onSignOut, userId: "user_1" }));
     const e2eOutput = JSON.stringify(e2eRenderer.toJSON());
 
-    expect(output).toContain("Boxer setup");
-    expect(output).toContain("Boxing identity");
-    expect(output).toContain("Training age");
-    expect(output).toContain("Early amateur; limited sanctioned bouts.");
-    expect(output).not.toContain("Currently fighting longer pro bouts.");
-    expect(output).toContain("Choose the closest option");
+    expect(output).toContain("CornerIQ setup");
+    expect(output).toContain("Basic information");
+    expect(output).toContain("Preferred name");
+    expect(output).toContain("Sex at birth");
+    expect(output).toContain("Measurements");
     expect(output).not.toContain("Development shortcut: create safe demo boxer");
     expect(e2eOutput).toContain("Development shortcut: create safe demo boxer");
     expect(output).toContain("Sign out");
@@ -6843,49 +6844,20 @@ describe("minimal app screens", () => {
     expect(onSignOut).toHaveBeenCalledTimes(1);
   });
 
-  it("PostOnboardingWalkthroughScreen explains the app safely and can be finished or skipped", async () => {
+  it("PostOnboardingWalkthroughScreen provides one clear completion action", async () => {
     const { PostOnboardingWalkthroughScreen } = await import("../../app/screens/onboarding/PostOnboardingWalkthroughScreen");
     const onFinish = vi.fn(async () => undefined);
-    const onSkip = vi.fn(async () => undefined);
-    const renderer = render(React.createElement(PostOnboardingWalkthroughScreen, { onFinish, onSkip }));
+    const renderer = render(React.createElement(PostOnboardingWalkthroughScreen, { onFinish }));
 
-    let output = JSON.stringify(renderer.toJSON());
+    const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Setup complete");
-    expect(output).toContain("Meet CornerIQ");
-    expect(output).toContain("Start with Today");
-    expect(output).toContain("Missing data stays unknown.");
+    expect(output).toContain("Your training is ready");
+    expect(output).toContain("CornerIQ workouts will be clearly labeled");
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Next"));
-    });
-    output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Manual logs are enough");
-    expect(output).toContain("Wearables are optional.");
-
-    await act(async () => {
-      await press(pressableWithText(renderer, "Next"));
-    });
-    output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Train around boxing");
-    expect(output).toContain("CornerIQ does not create contact drills or unsupervised fight simulation.");
-
-    await act(async () => {
-      await press(pressableWithText(renderer, "Next"));
-    });
-    await act(async () => {
-      await press(pressableWithText(renderer, "Next"));
-    });
-    await act(async () => {
-      await press(pressableWithText(renderer, "Start Today"));
+      await press(pressableWithText(renderer, "Go to Today"));
     });
     expect(onFinish).toHaveBeenCalledTimes(1);
-    expect(onSkip).not.toHaveBeenCalled();
-
-    const skipRenderer = render(React.createElement(PostOnboardingWalkthroughScreen, { onFinish, onSkip }));
-    await act(async () => {
-      await press(pressableWithText(skipRenderer, "Skip walkthrough"));
-    });
-    expect(onSkip).toHaveBeenCalledTimes(1);
   });
 
   it("onboarding setup steps show visible labels, examples, chips, and recurring anchor copy", async () => {
@@ -6918,22 +6890,22 @@ describe("minimal app screens", () => {
     const accessOutput = JSON.stringify(render(React.createElement(TrainingAccessStep, stepProps)).toJSON());
     expect(accessOutput).toContain("Equipment access");
     expect(accessOutput).toContain("Bodyweight only");
-    expect(accessOutput).toContain("Pick your usual training days.");
+    expect(accessOutput).toContain("Choose the days CornerIQ can place a workout.");
     for (const weekday of ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]) {
       expect(accessOutput).toContain(weekday);
     }
     expect(accessOutput).not.toContain("Weekday evenings");
     expect(accessOutput).not.toContain("3 days/week");
-    expect(accessOutput).toContain("Optional availability notes");
+    expect(accessOutput).not.toContain("Optional availability notes");
 
     const protectedOutput = JSON.stringify(render(React.createElement(ProtectedScheduleStep, stepProps)).toJSON());
-    expect(protectedOutput).toContain("Add boxing commitments, travel, or recovery days already set outside CornerIQ.");
-    expect(protectedOutput).toContain("Sparring here means a coach/team session already on your calendar.");
-    expect(protectedOutput).toContain("No fixed sessions right now");
-    expect(protectedOutput).toContain("CornerIQ will place support workouts from your availability.");
+    expect(protectedOutput).toContain("Add the recurring workouts already set by you, your coach, or your gym.");
+    expect(protectedOutput).toContain("Workout includes");
+    expect(protectedOutput).toContain("Strength");
+    expect(protectedOutput).toContain("Conditioning");
     expect(protectedOutput).not.toContain("Every Wednesday");
     expect(protectedOutput).not.toContain("mapped to");
-    expect(protectedOutput).toContain("I have fixed boxing sessions");
+    expect(protectedOutput).toContain("Add workout");
   });
 
   it("legacy onboarding draft migration removes only the old seeded Wednesday anchor", () => {
@@ -7017,34 +6989,6 @@ describe("minimal app screens", () => {
       });
       setDeviceStorageOverrideForTests(undefined);
     }
-  });
-
-  it("male safety selection hides pregnancy choices with plain explanation", async () => {
-    const { SafetyScreeningStep } = await import("../../app/screens/onboarding/steps/SafetyScreeningStep");
-    function Probe() {
-      const [draft, setDraft] = React.useState(createDefaultOnboardingDraft(fixtureAsOfDate));
-      return React.createElement(SafetyScreeningStep, {
-        draft,
-        setStepError: vi.fn(),
-        updateDraft: (updater: (current: typeof draft) => typeof draft) => setDraft((current) => updater(current))
-      });
-    }
-    const renderer = render(React.createElement(Probe));
-    expect(JSON.stringify(renderer.toJSON())).toContain("Pregnancy safety context");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Add only restrictions that should make training more conservative.");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Clinician told me to avoid dehydration or weight cuts");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Recent concussion or head injury concern");
-    expect(JSON.stringify(renderer.toJSON())).not.toContain("Medications");
-
-    await act(async () => {
-      await press(pressableWithExactText(renderer, "male"));
-    });
-
-    const output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Pregnancy choices are hidden");
-    expect(output).not.toContain("confirmed");
-    expect(output).not.toContain("possible");
-    expect(output).not.toContain("Medications");
   });
 
   it("log cards validate required fields before calling insert actions", async () => {
@@ -7204,10 +7148,8 @@ describe("minimal app screens", () => {
     const onComplete = vi.fn();
     const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn(), onSignOut: vi.fn(async () => undefined), userId: "user_1" }));
 
-    await act(async () => {
-      await press(pressableWithText(renderer, "Next"));
-    });
     act(() => {
+      changeInput(renderer, "What should we call you?", "Kai");
       changeInput(renderer, "Current body weight kg", "not a number");
     });
     await act(async () => {
@@ -7241,6 +7183,7 @@ describe("minimal app screens", () => {
 
   it("invalid onboarding draft cannot finish", () => {
     const draft = createDefaultOnboardingDraft(fixtureAsOfDate);
+    draft.basicInformation.preferredName = "Kai";
     draft.bodyMass.currentBodyMassKg = Number.NaN;
 
     expect(validateOnboardingDraftForFinish(draft)).toContain("Current body weight");
@@ -7251,12 +7194,8 @@ describe("minimal app screens", () => {
     const onComplete = vi.fn();
     const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn(), onSignOut: vi.fn(async () => undefined), userId: "user_1" }));
 
-    for (let step = 0; step < 6; step += 1) {
-      await act(async () => {
-        await press(pressableWithText(renderer, "Next"));
-      });
-    }
     act(() => {
+      changeInput(renderer, "What should we call you?", "Kai");
       changeInput(renderer, "Age", "17");
     });
     await act(async () => {
@@ -7265,7 +7204,7 @@ describe("minimal app screens", () => {
 
     const output = JSON.stringify(renderer.toJSON());
     expect(onComplete).not.toHaveBeenCalled();
-    expect(output).toContain("CornerIQ MVP is for athletes 18 or older");
+    expect(output).toContain("CornerIQ is currently available for boxers 18 or older");
     expect(output).not.toContain("Pregnancy safety context");
   });
 
@@ -7274,7 +7213,10 @@ describe("minimal app screens", () => {
     const onComplete = vi.fn(async () => ({ status: "failed" as const, message: "Profile save failed." }));
     const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn(), onSignOut: vi.fn(async () => undefined), userId: "user_1" }));
 
-    for (let step = 0; step < 7; step += 1) {
+    act(() => {
+      changeInput(renderer, "What should we call you?", "Kai");
+    });
+    for (let step = 0; step < 5; step += 1) {
       await act(async () => {
         await press(pressableWithText(renderer, "Next"));
       });
@@ -7419,7 +7361,7 @@ describe("minimal app screens", () => {
     expect(currentQuickLogs().busy).toBe(false);
   });
 
-  it("ProfileSettingsScreen can update cycle and wearable preference", async () => {
+  it("ProfileSettingsScreen updates cycle preferences without exposing wearables", async () => {
     const { ProfileSettingsScreen } = await import("../../app/screens/profile/ProfileSettingsScreen");
     const onUpdateSettings = vi.fn();
     const renderer = render(
@@ -7433,17 +7375,16 @@ describe("minimal app screens", () => {
         wearablePreference: "manual_only"
       })
     );
-    const buttons = renderer.root.findAllByType("Pressable");
-
     await act(async () => {
-      press(buttons[1]);
-      press(buttons[5]);
+      await press(pressableWithText(renderer, "Off"));
     });
     await act(async () => {
-      await press(buttons[buttons.length - 1]);
+      await press(pressableWithText(renderer, "Save settings"));
     });
 
-    expect(onUpdateSettings).toHaveBeenCalledWith(expect.objectContaining({ cycleTrackingPreference: "disabled", wearablePreference: "undecided" }));
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Wearables");
+    expect(onUpdateSettings).toHaveBeenCalledWith(expect.objectContaining({ cycleTrackingPreference: "disabled" }));
+    expect(onUpdateSettings.mock.calls[0]?.[0]).not.toHaveProperty("wearablePreference");
   });
 
   it("screens do not import low-level engine calculation modules", () => {

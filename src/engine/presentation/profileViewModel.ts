@@ -356,7 +356,7 @@ function buildHealthWarning(state: PerformanceState): ProfileHealthWarningViewMo
 
 function buildAthleteSetup(state: PerformanceState, healthWarning: ProfileHealthWarningViewModel): ProfileAthleteSetupViewModel {
   const missing = setupMissingLabels(state);
-  const contextParts = [`${titleCase(state.phase.phase)} - Week ${state.training.activeBlock.progressionState.weekIndex}`];
+  const contextParts = [state.athlete.preferredName, `${titleCase(state.phase.phase)} - Week ${state.training.activeBlock.progressionState.weekIndex}`].filter((value): value is string => Boolean(value));
   if (state.tournamentContext) {
     contextParts.push("Tournament active");
   } else if (state.fightContext) {

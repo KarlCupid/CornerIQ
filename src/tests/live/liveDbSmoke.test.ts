@@ -69,7 +69,7 @@ describeLive("live Supabase CRUD smoke", () => {
     const asOfDate = todayLocalISODate();
     const smokeRunId = `corneriq_live_smoke_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const insertedIds: { bodyMass?: string; electrolyte?: string; food?: string; protectedWorkout?: string; readiness?: string; water?: string } = {};
-    let existingProfile: Pick<TableRow<"athlete_profiles">, "id" | "profile" | "sensitive_medical" | "sensitive_cycle"> | null = null;
+    let existingProfile: Pick<TableRow<"athlete_profiles">, "id" | "profile" | "sensitive_cycle"> | null = null;
     let existingGeneratedSessions: Pick<TableRow<"generated_training_sessions">, "id" | "session_payload">[] = [];
     let existingNutritionTargets: Pick<TableRow<"nutrition_targets">, "id" | "target_payload">[] = [];
     let existingRiskFlags: Pick<TableRow<"risk_flags">, "id" | "severity" | "flag_payload">[] = [];
@@ -107,7 +107,7 @@ describeLive("live Supabase CRUD smoke", () => {
       expect(Array.isArray(coachRelationships)).toBe(true);
       const existingProfileResponse = await client
         .from("athlete_profiles")
-        .select("id, profile, sensitive_medical, sensitive_cycle")
+        .select("id, profile, sensitive_cycle")
         .eq("user_id", userId)
         .limit(1)
         .maybeSingle();
@@ -139,7 +139,6 @@ describeLive("live Supabase CRUD smoke", () => {
       existingTrainingNextWeekPreviewIds = new Set((existingPreviewResponse.data ?? []).map((row) => row.id));
 
       await repositories.athlete.upsertProfile(userId, buildDemoAthleteProfile(userId));
-      await client.from("athlete_profiles").update({ sensitive_medical: { smokeRunId } }).eq("user_id", userId);
       insertedIds.bodyMass = (await repositories.bodyMass.insertManualLog({ userId, date: asOfDate, bodyMassKg: 68 })).id;
       insertedIds.readiness = (await repositories.readiness.insertCheckIn({ userId, date: asOfDate, energy1To5: 3, painNotes: [], illnessSymptoms: [], metadata: { smokeRunId } })).id;
       insertedIds.food = (await repositories.nutrition.insertFoodLog({ userId, date: asOfDate, calories: 2100, proteinGrams: 125, carbohydrateGrams: 260, fatGrams: 62, fiberGrams: 24, sodiumMg: 1800, confidence: "medium" })).id;
@@ -740,8 +739,7 @@ describeLive("live Supabase CRUD smoke", () => {
           .from("athlete_profiles")
           .update({
             profile: existingProfile.profile as Json,
-            sensitive_cycle: existingProfile.sensitive_cycle as Json,
-            sensitive_medical: existingProfile.sensitive_medical as Json
+            sensitive_cycle: existingProfile.sensitive_cycle as Json
           })
           .eq("id", existingProfile.id)
           .eq("user_id", userId);

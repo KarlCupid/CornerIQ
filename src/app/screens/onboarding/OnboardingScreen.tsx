@@ -8,14 +8,12 @@ import type { ISODateString } from "../../../engine/core/types";
 import { useOnboardingDraft } from "../../../hooks/useOnboardingDraft";
 import type { OnboardingCompletionResult, OnboardingDraft } from "../../../services/supabase/onboardingService";
 import { screenStyles } from "../screenStyles";
-import { BodyMassStep } from "./steps/BodyMassStep";
+import { BasicInformationStep } from "./steps/BasicInformationStep";
 import { BoxerBasicsStep } from "./steps/BoxerBasicsStep";
 import { CycleSupportStep } from "./steps/CycleSupportStep";
 import { GoalPhaseStep } from "./steps/GoalPhaseStep";
 import { ProtectedScheduleStep } from "./steps/ProtectedScheduleStep";
-import { SafetyScreeningStep } from "./steps/SafetyScreeningStep";
 import { TrainingAccessStep } from "./steps/TrainingAccessStep";
-import { WearablePreferenceStep } from "./steps/WearablePreferenceStep";
 
 export interface OnboardingScreenProps {
   asOfDate: ISODateString;
@@ -31,21 +29,17 @@ export interface OnboardingScreenProps {
 function stepWhy(stepIndex: number): string {
   switch (stepIndex) {
     case 0:
-      return "Boxing status, level, and ring age keep training boxing-specific.";
+      return "Start with the information CornerIQ uses in training and fuel calculations.";
     case 1:
-      return "Body data anchors safety. Missing values stay unknown.";
+      return "Tell us where you are in boxing right now.";
     case 2:
-      return "Equipment and availability can be simple. Bodyweight-only is valid.";
+      return "Choose the days and equipment CornerIQ can use.";
     case 3:
-      return "Add fixed boxing sessions so support work stays second.";
+      return "Add workouts already set by you, your coach, or your gym.";
     case 4:
-      return "Cycle support is optional, private, and symptom-aware.";
-    case 5:
-      return "Manual-only is complete. Fresh wearables only raise confidence.";
-    case 6:
-      return "Safety screening blocks unsafe weight pressure.";
+      return "Cycle support is optional and can be changed later.";
     default:
-      return "Choose the phase Today and Plan should prioritize.";
+      return "Choose what CornerIQ should plan for first.";
   }
 }
 
@@ -55,9 +49,6 @@ function goalSummary(draft: OnboardingDraft): string {
   }
   if (draft.goal.phase === "tournament_known") {
     return `Finishing setup will save tournament context from ${draft.goal.tournament.tournamentStartDate} to ${draft.goal.tournament.tournamentEndDate}. The strategy stays conservative until real details are known.`;
-  }
-  if (draft.goal.phase === "maintenance_recovery") {
-    return "Finishing setup will start a maintenance/recovery phase. Safety and consistency stay ahead of performance or weight-class pressure.";
   }
   return "Finishing setup will start a build phase. CornerIQ will protect boxing sessions and place support workouts around them.";
 }
@@ -77,10 +68,10 @@ function OnboardingHeader({
         <PremiumIconBadge icon="shield-checkmark-outline" tone="neutral" />
         <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
           <Text style={{ color: colors.mutedText, fontFamily: fontFamilies.black, fontSize: 11, fontWeight: "900", lineHeight: 15, textTransform: "uppercase" }}>
-            Boxer setup
+            Setup
           </Text>
           <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={1} style={{ color: colors.canvas, fontFamily: fontFamilies.extraBold, fontSize: 30, fontWeight: "800", lineHeight: 35 }}>
-            Boxer setup
+            CornerIQ setup
           </Text>
         </View>
         <View
@@ -127,19 +118,15 @@ export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, 
   const step = (() => {
     switch (onboarding.stepIndex) {
       case 0:
-        return <BoxerBasicsStep {...stepProps} />;
+        return <BasicInformationStep {...stepProps} />;
       case 1:
-        return <BodyMassStep {...stepProps} />;
+        return <BoxerBasicsStep {...stepProps} />;
       case 2:
         return <TrainingAccessStep {...stepProps} />;
       case 3:
         return <ProtectedScheduleStep {...stepProps} />;
       case 4:
         return <CycleSupportStep {...stepProps} />;
-      case 5:
-        return <WearablePreferenceStep {...stepProps} />;
-      case 6:
-        return <SafetyScreeningStep {...stepProps} />;
       default:
         return <GoalPhaseStep {...stepProps} />;
     }

@@ -17,6 +17,7 @@ import { daysBetween } from "../core/dates";
 import { formatGeneratedSupportWeekdays, normalizeGeneratedSupportWeekdays } from "../training/supportAvailability";
 import { buildBodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
 import { plainFuelDemandLabel, plainGeneratedSessionFamilyLabel, plainTrainingCopy, plainWorkoutTitle } from "./trainingCopy";
+import { existingTrainingComponents, existingTrainingTitle } from "../training/existingTraining";
 
 const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
 const SEVERE_FUELING_RISK_CODES = new Set<string>(["rapid_weight_loss", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
@@ -49,6 +50,9 @@ function protectedTypeLabel(type: ProtectedWorkoutType): string {
     bag_work: "Bag work",
     boxing_class: "Boxing class",
     coach_assigned_strength: "Assigned strength",
+    strength: "Strength",
+    conditioning: "Conditioning",
+    mixed_training: "Combined workout",
     competition: "Competition",
     footwork_session: "Footwork session",
     pads_mitts: "Pads / mitts",
@@ -59,6 +63,10 @@ function protectedTypeLabel(type: ProtectedWorkoutType): string {
     travel: "Travel"
   };
   return labels[type];
+}
+
+function protectedWorkoutLabel(workout: ProtectedWorkout | RecurringProtectedWorkoutAnchor): string {
+  return workout.components?.length ? existingTrainingTitle(workout) : protectedTypeLabel(workout.type);
 }
 
 function intensityLabel(intensity: SessionIntensity): string {
@@ -132,7 +140,7 @@ function compactTagForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "prot
 function compactSummaryForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "protectedAnchors" | "role">): string {
   const firstAnchor = day.protectedAnchors[0];
   if (firstAnchor) {
-    return protectedTypeLabel(firstAnchor.type);
+    return protectedWorkoutLabel(firstAnchor);
   }
   const firstGenerated = day.generatedSessions[0];
   if (firstGenerated) {
@@ -197,7 +205,7 @@ function workSummaryForDay(day: TrainingDayPlan): PlanViewModel["dayPlans"][numb
   const boxingMinutes = day.protectedAnchors.reduce((total, anchor) => total + anchor.durationMinutes, 0);
   const appWorkMinutes = day.generatedSessions.reduce((total, session) => total + session.durationMinutes, 0);
   const totalMinutes = boxingMinutes + appWorkMinutes;
-  const boxingTitle = boxingCount === 1 && firstAnchor ? protectedTypeLabel(firstAnchor.type) : countLabel(boxingCount, "boxing session");
+  const boxingTitle = boxingCount === 1 && firstAnchor ? protectedWorkoutLabel(firstAnchor) : countLabel(boxingCount, "existing workout");
   const appWorkTitle = appWorkCount === 1 && firstSession ? plainWorkoutTitle(firstSession.title, firstSession.family) : countLabel(appWorkCount, "app session");
   const title =
     boxingCount > 0 && appWorkCount > 0
@@ -208,7 +216,7 @@ function workSummaryForDay(day: TrainingDayPlan): PlanViewModel["dayPlans"][numb
   const detailParts = [
     boxingCount > 0
       ? boxingCount === 1 && firstAnchor
-        ? `${protectedTypeLabel(firstAnchor.type)} ${firstAnchor.durationMinutes} min`
+        ? `${protectedWorkoutLabel(firstAnchor)} ${firstAnchor.durationMinutes} min`
         : `${countLabel(boxingCount, "boxing session")} ${boxingMinutes} min`
       : null,
     appWorkCount > 0
@@ -290,13 +298,18 @@ function upcomingFixedSchedule(state: PerformanceState): PlanViewModel["fixedSch
       date: workout.date,
       label: dayLabel(workout.date),
       type: workout.type,
-      typeLabel: protectedTypeLabel(workout.type),
+      typeLabel: protectedWorkoutLabel(workout),
       startTime: workout.startTime ?? workout.localStartTime ?? null,
       durationMinutes: workout.durationMinutes,
       intensity: workout.intensity,
       intensityLabel: intensityLabel(workout.intensity),
       rounds: workout.rounds ?? null,
-      note: workout.note ?? null
+      note: workout.note ?? null,
+      components: existingTrainingComponents(workout),
+      primaryComponent: workout.primaryComponent ?? null,
+      boxingFormat: workout.boxingFormat ?? null,
+      strengthArea: workout.strengthArea ?? null,
+      conditioningFormat: workout.conditioningFormat ?? null
     }));
 }
 
@@ -338,13 +351,13 @@ function weeklyAnchorSchedule(state: PerformanceState): PlanViewModel["weeklyAnc
       return (left.localStartTime ?? "").localeCompare(right.localStartTime ?? "");
     })
     .map((anchor) => {
-      const labelParts = [`Every ${weekdayLabel(anchor.weekday)}`, protectedTypeLabel(anchor.type), timeLabel(anchor.localStartTime ?? null), `${anchor.durationMinutes} min`].filter(Boolean);
+      const labelParts = [`Every ${weekdayLabel(anchor.weekday)}`, protectedWorkoutLabel(anchor), timeLabel(anchor.localStartTime ?? null), `${anchor.durationMinutes} min`].filter(Boolean);
       return {
         id: anchor.id,
         label: labelParts.join(" · "),
         weekday: anchor.weekday,
         type: anchor.type,
-        typeLabel: protectedTypeLabel(anchor.type),
+        typeLabel: protectedWorkoutLabel(anchor),
         startTime: anchor.localStartTime ?? null,
         durationMinutes: anchor.durationMinutes,
         intensity: anchor.intensity,
@@ -352,7 +365,12 @@ function weeklyAnchorSchedule(state: PerformanceState): PlanViewModel["weeklyAnc
         rounds: anchor.rounds ?? null,
         note: anchor.note ?? null,
         activeFrom: anchor.activeFrom ?? null,
-        activeUntil: anchor.activeUntil ?? null
+        activeUntil: anchor.activeUntil ?? null,
+        components: existingTrainingComponents(anchor),
+        primaryComponent: anchor.primaryComponent ?? null,
+        boxingFormat: anchor.boxingFormat ?? null,
+        strengthArea: anchor.strengthArea ?? null,
+        conditioningFormat: anchor.conditioningFormat ?? null
       };
     });
 }

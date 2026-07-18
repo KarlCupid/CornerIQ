@@ -183,13 +183,16 @@ describe("agent browser QA static checks", () => {
   it("covers the refined onboarding decision inputs in the agent audit", () => {
     const scenario = readSource("qa/e2e/agent-browser-audit.spec.ts");
 
-    expect(scenario).toContain("Training for boxing, not competing yet.");
+    expect(scenario).toContain("Preferred name");
+    expect(scenario).toContain("Current body weight (kg)");
     expect(scenario).toContain("Monday");
-    expect(scenario).toContain("Wednesday");
     expect(scenario).toContain("Friday");
-    expect(scenario).toContain("1 = very easy, 10 = all-out");
-    expect(scenario).toContain("Medical safety restrictions");
-    expect(scenario).toContain("medications");
+    expect(scenario).toContain("Boxing \\+ Strength");
+    expect(scenario).toContain("Sparring");
+    expect(scenario).toContain("Fight camp");
+    expect(scenario).toContain("Do not use cycle context");
+    expect(scenario).not.toContain("Wearable preference");
+    expect(scenario).not.toContain("Safety screening");
   });
 
   it("defines the launch QA loop rubric, matrix, state, and bundle outputs", () => {

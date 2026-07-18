@@ -114,8 +114,8 @@ export interface ProfileScreenProps {
   recentLogs: RecentLogsViewModel;
   userDataControls?: UserDataControlsHook | undefined;
   viewModel: ProfileViewModel;
-  wearablePreference: "manual_only" | "wearable_connected" | "undecided";
-  wearableStatus: string;
+  wearablePreference?: "manual_only" | "wearable_connected" | "undecided" | undefined;
+  wearableStatus?: string | undefined;
 }
 
 function iconForTone(tone: ProfileVisualTone): keyof typeof Ionicons.glyphMap {
@@ -188,19 +188,15 @@ function snapshotFactFromSetup(items: readonly ProfileSetupFactViewModel[], labe
 
 function ProfileSetupSnapshot({
   cycleTrackingStatus,
-  viewModel,
-  wearableStatus
+  viewModel
 }: {
   cycleTrackingStatus: string;
   viewModel: ProfileViewModel;
-  wearableStatus: string;
 }) {
   const equipment = snapshotFactFromSetup(viewModel.keySetup, "Equipment", "Needs details");
   const schedule = snapshotFactFromSetup(viewModel.keySetup, "Schedule", "Needs details");
   const units = snapshotFactFromSetup(viewModel.keySetup, "Units", "Metric");
-  const wearableTone: ProfileVisualTone = /connected|fresh|wearable/i.test(wearableStatus) ? "green" : "muted";
   const cycleTone: ProfileVisualTone = cycleTrackingStatus === "enabled" ? "green" : cycleTrackingStatus === "undecided" ? "orange" : "muted";
-  const wearableCycleValue = `${wearableStatus}; cycle ${cycleTrackingStatus}`;
   return (
     <DashboardCard testID="profile-setup-snapshot" title="Setup snapshot">
       <GroupedMetricTiles
@@ -208,7 +204,7 @@ function ProfileSetupSnapshot({
           { icon: "barbell-outline", label: equipment.label, tone: equipment.tone, value: equipment.value },
           { icon: "calendar-outline", label: schedule.label, tone: schedule.tone, value: schedule.value },
           { icon: "resize-outline", label: units.label, tone: units.tone, value: units.value },
-          { icon: "person-outline", label: "Manual / cycle", tone: cycleTrackingStatus === "enabled" ? cycleTone : wearableTone, value: wearableCycleValue }
+          { icon: "sync-outline", label: "Cycle support", tone: cycleTone, value: cycleTrackingStatus }
         ]}
       />
     </DashboardCard>
@@ -455,9 +451,7 @@ export function ProfileScreen({
   preferredUnits,
   recentLogs,
   userDataControls,
-  viewModel,
-  wearablePreference,
-  wearableStatus
+  viewModel
 }: ProfileScreenProps) {
   const [fallbackDeleteConfirmation, setFallbackDeleteConfirmation] = React.useState("");
   const deleteConfirmation = userDataControls?.deleteConfirmation ?? fallbackDeleteConfirmation;
@@ -499,7 +493,7 @@ export function ProfileScreen({
     }
   }, [onOpenPlan]);
 
-  const setupDetailsSummary = "Inputs, units, wearable preference, and quick maintenance.";
+  const setupDetailsSummary = "Inputs, units, schedule, and quick updates.";
   const profileDetailsSummary = "Setup details, health notes, privacy controls, and account actions.";
   const privacySummary = releaseLinks.privacyPolicyUrlIsPlaceholder
     ? "Export and delete controls. Privacy policy URL is not configured."
@@ -532,7 +526,7 @@ export function ProfileScreen({
         </DashboardCard>
       </View>
 
-      <ProfileSetupSnapshot cycleTrackingStatus={cycleTrackingStatus} viewModel={viewModel} wearableStatus={wearableStatus} />
+      <ProfileSetupSnapshot cycleTrackingStatus={cycleTrackingStatus} viewModel={viewModel} />
 
       {viewModel.healthWarning.active ? (
         <DashboardCard headerRight={<ProfileStatusPill label={viewModel.healthWarning.statusLabel} tone="red" />} testID="profile-health-warning-card" title="Health warning">
@@ -577,7 +571,6 @@ export function ProfileScreen({
             onOpenPlan={onOpenPlan}
             onUpdateSettings={onUpdateSettings}
             preferredUnits={preferredUnits}
-            wearablePreference={wearablePreference}
           />
         </View>
       ) : null}
@@ -622,19 +615,19 @@ export function ProfileScreen({
           </DashboardCard>
           <DashboardCard testID="profile-quick-updates-card" title="Quick updates">
             <View style={{ gap: spacing.md }}>
-              <Text style={profileTextStyles.subtle}>Wearable: {wearableStatus}. Cycle support: {cycleTrackingStatus}.</Text>
+              <Text style={profileTextStyles.subtle}>Cycle support: {cycleTrackingStatus}.</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                 <View style={{ flexBasis: 220, flexGrow: 1 }}>
                   <ProfileIconButton disabled={!onOpenPlan || busy} icon="flag-outline" label="Change goal or schedule" onPress={openPlan} tone="blue" />
                 </View>
                 <View style={{ flexBasis: 220, flexGrow: 1 }}>
-                  <ProfileIconButton disabled={!onOpenPlan || busy} icon="calendar-outline" label="Edit boxing schedule" onPress={openPlan} tone="green" />
+                  <ProfileIconButton disabled={!onOpenPlan || busy} icon="calendar-outline" label="Edit existing training" onPress={openPlan} tone="green" />
                 </View>
                 <View style={{ flexBasis: 220, flexGrow: 1 }}>
                   <ProfileIconButton disabled={busy} icon="barbell-outline" label="Update equipment" onPress={openSettings} tone="muted" />
                 </View>
                 <View style={{ flexBasis: 220, flexGrow: 1 }}>
-                  <ProfileIconButton disabled={busy} icon="watch-outline" label="Units & wearable" onPress={openSettings} tone="muted" />
+                  <ProfileIconButton disabled={busy} icon="resize-outline" label="Units" onPress={openSettings} tone="muted" />
                 </View>
                 <View style={{ flexBasis: 220, flexGrow: 1 }}>
                   <ProfileIconButton disabled={busy} icon="sync-outline" label="Cycle support" onPress={openSettings} tone="muted" />

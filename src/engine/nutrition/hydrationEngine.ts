@@ -33,13 +33,6 @@ const HYDRATION_EVIDENCE_IDS = [
   "hydration_warning_symptoms_hard_stop"
 ] as const;
 
-function hasMedicalHydrationFlag(athlete: AthleteProfile): boolean {
-  return athlete.medicalFlags.some((flag) => /kidney|renal|cardiac|heart|hypertension|blood pressure|pregnan|postpartum/i.test(flag)) ||
-    athlete.pregnancyStatus === "possible" ||
-    athlete.pregnancyStatus === "confirmed" ||
-    athlete.pregnancyStatus === "postpartum";
-}
-
 function dailyFluidRangeLiters(kg: number | null): HydrationPlanV2["dailyFluidLiters"] {
   if (kg === null) {
     return null;
@@ -117,7 +110,6 @@ export function resolveHydrationPlanV2(input: {
   const sodiumToday = todaySodiumMg(input.electrolyteLogs, input.asOfDate);
   const overdrinkingFlag = input.riskFlags.find((flag) => flag.code === "excess_plain_water_low_sodium");
   const hardFlags = hardHydrationFlags(input.riskFlags);
-  const medicalReview = hasMedicalHydrationFlag(input.athlete);
   const postWeighIn = input.phase?.phase === "post_weigh_in";
   const postWeighInCap = input.weighInContext?.postWeighInWeightCapKg !== null && input.weighInContext?.postWeighInWeightCapKg !== undefined;
   const hardSession = input.training?.todaySessions.some((session) => session.fuelDemand === "high") ?? false;
@@ -131,7 +123,6 @@ export function resolveHydrationPlanV2(input: {
     bodyMassContext.reason,
     hardSession ? "Hard sweating sessions need electrolyte attention." : null,
     overdrinkingFlag ? "Plain-water intake is high relative to sodium context." : null,
-    medicalReview ? "Medical hydration context requires qualified review." : null,
     postWeighInCap ? "Post-weigh-in cap requires monitoring and review." : null
   ].filter((value): value is string => value !== null);
 
@@ -150,7 +141,7 @@ export function resolveHydrationPlanV2(input: {
     };
   }
 
-  const reviewRequired = medicalReview || postWeighInCap || input.weighInContext?.hydrationTestingRequired === true;
+  const reviewRequired = postWeighInCap || input.weighInContext?.hydrationTestingRequired === true;
   if (reviewRequired) {
     return {
       status: "review_required",

@@ -20,6 +20,8 @@ import type { PlanGenerationIntent } from "../../engine/training/types";
 import type { AthleteJourneyRepositories } from "./loadAthleteJourney";
 import { RepositoryError, assertUserId, parseWithSchema } from "./repositoryTypes";
 import { GENERATED_SUPPORT_WEEKDAYS, normalizeGeneratedSupportWeekdays, type GeneratedSupportWeekday } from "../../engine/training/supportAvailability";
+import { existingTrainingTitle, protectedWorkoutTypeForComponents } from "../../engine/training/existingTraining";
+import type { ExistingTrainingComponent } from "../../engine/training/types";
 
 const ISODateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const ISODateTimeSchema = z.string().datetime();
@@ -83,9 +85,20 @@ const V2PlanDraftFields = {
 export const MVP_MINIMUM_AGE_YEARS = 18;
 export const MVP_MAXIMUM_AGE_YEARS = 80;
 export const BoxingLevelSchema = z.enum(["aspiring_boxer", "amateur_novice", "amateur_open", "amateur_elite", "pro_development", "pro_4_6_round", "pro_8_10_round", "pro_12_round"]);
-const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]);
+const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "strength", "conditioning", "mixed_training", "competition", "travel", "recovery_day"]);
 const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
 const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
+const ExistingTrainingComponentSchema = z.enum(["boxing", "sparring", "strength", "conditioning"]);
+const ExistingBoxingFormatSchema = z.enum(["boxing_class", "technical_work", "pads_mitts", "bag_work", "footwork"]);
+const ExistingStrengthAreaSchema = z.enum(["full_body", "lower_body", "upper_body", "trunk"]);
+const ExistingConditioningFormatSchema = z.enum(["steady_cardio", "intervals", "short_bursts", "timed_rounds", "circuit"]);
+const ExistingTrainingDetailsSchema = {
+  components: z.array(ExistingTrainingComponentSchema).min(1).optional(),
+  primaryComponent: ExistingTrainingComponentSchema.nullable().optional(),
+  boxingFormat: ExistingBoxingFormatSchema.optional(),
+  strengthArea: ExistingStrengthAreaSchema.optional(),
+  conditioningFormat: ExistingConditioningFormatSchema.optional()
+};
 
 export type OnboardingCompletionResult =
   | { status: "saved" }
@@ -100,7 +113,8 @@ export const ProtectedWorkoutDraftSchema = z.object({
   durationMinutes: z.number().int().positive(),
   intensity: SessionIntensitySchema,
   rounds: z.number().int().nonnegative().optional(),
-  note: z.string().optional()
+  note: z.string().optional(),
+  ...ExistingTrainingDetailsSchema
 });
 
 export const RecurringProtectedWorkoutAnchorDraftSchema = z.object({
@@ -113,7 +127,8 @@ export const RecurringProtectedWorkoutAnchorDraftSchema = z.object({
   rounds: z.number().int().nonnegative().optional(),
   note: z.string().optional(),
   activeFrom: ISODateSchema.optional(),
-  activeUntil: ISODateSchema.optional()
+  activeUntil: ISODateSchema.optional(),
+  ...ExistingTrainingDetailsSchema
 });
 
 const PendingProtectedScheduleDraftFields = {
@@ -171,6 +186,11 @@ export const TournamentSetupDraftSchema = z.object({
 });
 
 export const OnboardingDraftSchema = z.object({
+  basicInformation: z.object({
+    preferredName: z.string().trim().max(60),
+    ageYears: z.number().int().min(MVP_MINIMUM_AGE_YEARS).max(MVP_MAXIMUM_AGE_YEARS),
+    sexAtBirth: z.enum(["female", "male", "prefer_not_to_say"])
+  }),
   boxing: z.object({
     amateurOrPro: z.enum(["amateur", "pro"]),
     boxingLevel: BoxingLevelSchema,
@@ -193,26 +213,8 @@ export const OnboardingDraftSchema = z.object({
   cycleSupport: z.object({
     preference: z.enum(["enabled", "disabled", "undecided"])
   }),
-  wearablePreference: z.object({
-    preference: z.enum(["manual_only", "wearable_connected", "undecided"])
-  }),
-  safety: z.object({
-    ageYears: z.number().int().min(MVP_MINIMUM_AGE_YEARS).max(MVP_MAXIMUM_AGE_YEARS),
-    sexAtBirth: z.enum(["female", "male", "intersex", "prefer_not_to_say"]).optional(),
-    medicalFlags: z.array(z.string()),
-    medications: z.array(z.string()),
-    pregnancyStatus: z.enum(["not_pregnant", "possible", "confirmed", "postpartum", "unknown"]).optional(),
-    eatingDisorderRisk: z.object({
-      activeConcern: z.boolean(),
-      severeRestrictionHistory: z.boolean(),
-      rapidWeightLossConcern: z.boolean(),
-      notes: z.array(z.string())
-    }),
-    priorWeightCutAdverseEvents: z.array(z.string())
-  }),
   goal: z.discriminatedUnion("phase", [
     z.object({ phase: z.literal("build") }),
-    z.object({ phase: z.literal("maintenance_recovery") }),
     z.object({ phase: z.literal("fight_known"), fight: FightSetupDraftSchema }),
     z.object({ phase: z.literal("tournament_known"), tournament: TournamentSetupDraftSchema })
   ])
@@ -220,7 +222,6 @@ export const OnboardingDraftSchema = z.object({
 
 export const ProfileSettingsDraftSchema = z.object({
   cycleTrackingPreference: z.enum(["enabled", "disabled", "undecided"]).optional(),
-  wearablePreference: z.enum(["manual_only", "wearable_connected", "undecided"]).optional(),
   equipmentAccess: z.array(z.string().min(1)).optional(),
   preferredUnits: z.enum(["metric", "imperial"]).optional(),
   protectedWorkout: ProtectedWorkoutDraftSchema.optional()
@@ -264,7 +265,15 @@ export type PlanLifecycleAction = z.infer<typeof PlanLifecycleActionSchema>;
 export type ProtectedScheduleChoice = z.infer<typeof ProtectedScheduleChoiceSchema>;
 export type PlanProtectedScheduleMode = z.infer<typeof PlanProtectedScheduleModeSchema>;
 
-export const DEFAULT_BOXING_EQUIPMENT = ["jump_rope", "gloves", "hand_wraps"] as const;
+export function existingTrainingDraftTitle(draft: Pick<RecurringProtectedWorkoutAnchorDraft | ProtectedWorkoutDraft, "type" | "components" | "primaryComponent">): string {
+  return existingTrainingTitle(draft);
+}
+
+export function workoutTypeForExistingTraining(components: readonly ExistingTrainingComponent[], boxingFormat?: ProtectedWorkoutDraft["boxingFormat"]): ProtectedWorkoutDraft["type"] {
+  return protectedWorkoutTypeForComponents(components, boxingFormat);
+}
+
+export const DEFAULT_BOXING_EQUIPMENT = ["bodyweight"] as const;
 export const DEFAULT_BOXING_AVAILABILITY = ["monday", "wednesday", "saturday"] as const;
 
 export function workoutFromDraft(draft: ProtectedWorkoutDraft, index: number): ProtectedWorkout {
@@ -279,6 +288,11 @@ export function workoutFromDraft(draft: ProtectedWorkoutDraft, index: number): P
       durationMinutes: draft.durationMinutes,
       intensity: draft.intensity,
       protected: true,
+      components: draft.components,
+      primaryComponent: draft.primaryComponent,
+      boxingFormat: draft.boxingFormat,
+      strengthArea: draft.strengthArea,
+      conditioningFormat: draft.conditioningFormat,
       rounds: draft.rounds,
       note: draft.note
     },
@@ -297,6 +311,11 @@ export function recurringAnchorFromDraft(draft: RecurringProtectedWorkoutAnchorD
       durationMinutes: draft.durationMinutes,
       intensity: draft.intensity,
       protected: true,
+      components: draft.components,
+      primaryComponent: draft.primaryComponent,
+      boxingFormat: draft.boxingFormat,
+      strengthArea: draft.strengthArea,
+      conditioningFormat: draft.conditioningFormat,
       rounds: draft.rounds,
       note: draft.note,
       ...(draft.activeFrom ? { activeFrom: draft.activeFrom } : {}),
@@ -361,42 +380,28 @@ function athleteProfileFromDraft(userId: string, draft: OnboardingDraft): Athlet
   const recurringProtectedAnchors = (draft.recurringProtectedSchedule ?? []).map(recurringAnchorFromDraft);
   const profile: AthleteProfile = {
     athleteId: userId,
-    ageYears: draft.safety.ageYears,
+    ...(draft.basicInformation.preferredName.trim() ? { preferredName: draft.basicInformation.preferredName.trim() } : {}),
+    ageYears: draft.basicInformation.ageYears,
+    sexAtBirth: draft.basicInformation.sexAtBirth,
     height: { value: draft.bodyMass.heightCm, unit: "cm" },
     currentBodyMass: { value: draft.bodyMass.currentBodyMassKg, unit: "kg" },
     preferredUnits: draft.bodyMass.preferredUnits,
     boxingLevel: draft.boxing.boxingLevel,
     amateurOrPro: draft.boxing.amateurOrPro,
     trainingAgeYears: draft.boxing.trainingAgeYears,
-    injuryHistory: [],
-    medicalFlags: draft.safety.medicalFlags,
-    medications: draft.safety.medications,
-    eatingDisorderRisk: draft.safety.eatingDisorderRisk,
-    priorWeightCutHistory: {
-      hasCutBefore: draft.safety.priorWeightCutAdverseEvents.length > 0,
-      adverseEvents: draft.safety.priorWeightCutAdverseEvents,
-      lowestRecentFightingWeightKg: null
-    },
     typicalWalkAroundWeightKg: draft.bodyMass.typicalWalkAroundWeightKg,
     lowestRecentFightingWeightKg: null,
     coachInvolved: false,
     dietitianInvolved: false,
-    medicalProfessionalInvolved: draft.safety.medicalFlags.length > 0,
     equipmentAccess: normalizeEquipmentAccess(draft.trainingAccess.equipmentAccess),
     scheduleAvailability: draft.trainingAccess.scheduleAvailability,
     protectedBoxingSchedule: protectedWorkouts,
     recurringProtectedAnchors,
     cycleTrackingPreference: draft.cycleSupport.preference,
-    wearablePreference: draft.wearablePreference.preference
+    wearablePreference: "manual_only"
   };
   if (draft.boxing.stance) {
     profile.stance = draft.boxing.stance;
-  }
-  if (draft.safety.sexAtBirth) {
-    profile.sexAtBirth = draft.safety.sexAtBirth;
-  }
-  if (draft.safety.pregnancyStatus) {
-    profile.pregnancyStatus = draft.safety.pregnancyStatus;
   }
   return parseWithSchema(AthleteProfileSchema, profile, "onboarding.athleteProfile");
 }
@@ -466,7 +471,7 @@ async function planSnapshotDefaults(input: { repositories: AthleteJourneyReposit
       userPreferences: []
     };
   }
-  const currentLimitations = uniqueStrings([...(profile.injuryHistory ?? []), ...(profile.medicalFlags ?? [])]);
+  const currentLimitations: readonly string[] = [];
   return {
     equipment: normalizeEquipmentAccess(profile.equipmentAccess ?? []),
     modalityPreferences: [],
@@ -955,18 +960,10 @@ export async function completeOnboarding(input: {
     });
   }
 
-  if (draft.goal.phase === "maintenance_recovery") {
-    await input.repositories.journey.appendEvent(userId, "RecoveryStarted", {
-      source: "onboarding",
-      planGenerationDeferred: true
-    });
-  }
-
   await input.repositories.journey.appendEvent(userId, "OnboardingCompleted", {
     goalPhase: draft.goal.phase,
     protectedWorkoutCount: protectedWorkouts.length,
     recurringProtectedAnchorCount: profile.recurringProtectedAnchors?.length ?? 0,
-    wearablePreference: draft.wearablePreference.preference,
     cycleTrackingPreference: draft.cycleSupport.preference
   });
 }
@@ -1323,7 +1320,7 @@ export async function updateProfileSettings(input: {
   const nextProfile: AthleteProfile = {
     ...input.currentProfile,
     cycleTrackingPreference: draft.cycleTrackingPreference ?? input.currentProfile.cycleTrackingPreference,
-    wearablePreference: draft.wearablePreference ?? input.currentProfile.wearablePreference,
+    wearablePreference: input.currentProfile.wearablePreference,
     equipmentAccess: normalizeEquipmentAccess(draft.equipmentAccess ?? input.currentProfile.equipmentAccess),
     preferredUnits: draft.preferredUnits ?? input.currentProfile.preferredUnits
   };
@@ -1347,17 +1344,15 @@ export async function updateProfileSettings(input: {
   if (draft.cycleTrackingPreference && draft.cycleTrackingPreference !== input.currentProfile.cycleTrackingPreference) {
     await input.repositories.journey.appendEvent(userId, "CyclePatternUpdated", { cycleTrackingPreference: draft.cycleTrackingPreference });
   }
-  if (draft.wearablePreference && draft.wearablePreference !== input.currentProfile.wearablePreference) {
-    await input.repositories.journey.appendEvent(
-      userId,
-      draft.wearablePreference === "wearable_connected" ? "WearablePermissionGranted" : "WearablePermissionRevoked",
-      { wearablePreference: draft.wearablePreference }
-    );
-  }
 }
 
 export function createDefaultOnboardingDraft(_asOfDate: ISODateString): OnboardingDraft {
   return {
+    basicInformation: {
+      preferredName: "",
+      ageYears: 25,
+      sexAtBirth: "prefer_not_to_say"
+    },
     boxing: {
       amateurOrPro: "amateur",
       boxingLevel: "amateur_novice",
@@ -1379,23 +1374,6 @@ export function createDefaultOnboardingDraft(_asOfDate: ISODateString): Onboardi
     recurringProtectedSchedule: [],
     cycleSupport: {
       preference: "undecided"
-    },
-    wearablePreference: {
-      preference: "manual_only"
-    },
-    safety: {
-      ageYears: 25,
-      sexAtBirth: "prefer_not_to_say",
-      medicalFlags: [],
-      medications: [],
-      pregnancyStatus: "unknown",
-      eatingDisorderRisk: {
-        activeConcern: false,
-        severeRestrictionHistory: false,
-        rapidWeightLossConcern: false,
-        notes: []
-      },
-      priorWeightCutAdverseEvents: []
     },
     goal: {
       phase: "build"

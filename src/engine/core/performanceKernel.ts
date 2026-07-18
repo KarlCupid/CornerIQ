@@ -20,7 +20,6 @@ import { resolveHydration } from "../nutrition/hydrationEngine";
 import { calculateDailyCalorieTarget } from "../nutrition/macroTargets";
 import { assessDehydrationRisk } from "../safety/dehydrationRisk";
 import { assessInjuryRisk } from "../safety/injuryRisk";
-import { assessMedicalReview } from "../safety/medicalReviewRules";
 import { resolveSafety } from "../safety/riskSafetyEngine";
 import { assessUnderFuelingRisk } from "../safety/underFuelingRisk";
 import type { UnderFuelingCalorieTargets } from "../safety/underFuelingRisk";
@@ -300,7 +299,6 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     ...readiness.hardStops,
     ...hardStopsFromCheckIn(todayCheckIn ?? undefined),
     ...assessInjuryRisk(todayCheckIn ?? undefined),
-    ...assessMedicalReview(journey.athlete),
     ...assessDehydrationRisk(hydrationHistory, electrolyteHistory, input.asOfDate, journey.athlete),
     ...assessUnderFuelingRisk(
       trend,

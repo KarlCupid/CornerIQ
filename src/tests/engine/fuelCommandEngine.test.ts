@@ -217,19 +217,6 @@ describe("Fuel Command Center engine", () => {
     expect(state.nutrition.nutritionSafetyReview.reasons.join(" ")).toContain("Minor athletes");
   });
 
-  it("possible pregnancy blocks acute protocol", () => {
-    const state = resolvePerformanceState({
-      journey: {
-        ...pro_8_round_camp_day_before_weigh_in,
-        athlete: { ...pro_8_round_camp_day_before_weigh_in.athlete, pregnancyStatus: "possible" }
-      },
-      asOfDate: fixtureAsOfDate
-    });
-
-    expect(state.nutrition.nutritionSafetyReview.required).toBe(true);
-    expect(state.nutrition.nutritionSafetyReview.reasons.join(" ")).toContain("pregnancy");
-  });
-
   it("heavy bleeding and dizziness block cut pressure", () => {
     const state = resolvePerformanceState({ journey: menstruating_athlete_camp_heavy_symptoms, asOfDate: fixtureAsOfDate });
 

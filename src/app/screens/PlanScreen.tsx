@@ -1504,7 +1504,7 @@ function CollapsedPlanDetails({
             </Text>
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <PlanButton disabled={busy} icon="calendar-outline" label="Edit boxing schedule" onPress={() => onOpenWorkspace("fixed_schedule")} />
+            <PlanButton disabled={busy} icon="calendar-outline" label="Edit existing training" onPress={() => onOpenWorkspace("fixed_schedule")} />
             <PlanButton disabled={busy} icon="options-outline" label="Plan changes" onPress={() => onOpenWorkspace("adjustments")} />
             <PlanButton disabled={busy} icon="time-outline" label="Plan history" onPress={() => onOpenWorkspace("block_history")} />
           </View>

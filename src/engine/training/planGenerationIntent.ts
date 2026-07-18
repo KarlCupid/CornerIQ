@@ -325,7 +325,7 @@ export function resolveActivePlanGenerationIntentFromContext(journey: PlanIntent
     equipment: stringArrayValue(intentPayload?.equipment, payload.equipment, journey.athlete.equipmentAccess),
     modalityPreferences: stringArrayValue(intentPayload?.modalityPreferences, payload.modalityPreferences, payload.userPreferences),
     modalityAvoidances: stringArrayValue(intentPayload?.modalityAvoidances, payload.modalityAvoidances),
-    currentLimitations: stringArrayValue(intentPayload?.currentLimitations, payload.currentLimitations, [...journey.athlete.injuryHistory, ...journey.athlete.medicalFlags]),
+    currentLimitations: stringArrayValue(intentPayload?.currentLimitations, payload.currentLimitations, []),
     userPreferences: stringArrayValue(intentPayload?.userPreferences, payload.userPreferences, payload.modalityPreferences),
     planStartDate,
     requestedAt,

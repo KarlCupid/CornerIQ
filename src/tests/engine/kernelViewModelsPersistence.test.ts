@@ -189,6 +189,7 @@ describe("kernel immutability, view models, and persistence schema", () => {
       readFileSync("supabase/migrations/003_projection_and_exercise_result_hardening.sql", "utf8")
     ].join("\n");
     const migration003 = readFileSync("supabase/migrations/003_projection_and_exercise_result_hardening.sql", "utf8");
+    const phaseOneMigration = readFileSync("supabase/migrations/20260718092403_remove_obsolete_medical_profile_data.sql", "utf8");
     const tables = [
       "users_public",
       "athlete_profiles",
@@ -232,7 +233,6 @@ describe("kernel immutability, view models, and persistence schema", () => {
     expect(sql).toContain("engine_runs_user_id_as_of_date_engine_version_idx");
     expect(sql).toContain("comment on table public.cycle_logs");
     expect(sql).toContain("comment on table public.cycle_symptom_logs");
-    expect(sql).toContain("comment on column public.athlete_profiles.sensitive_medical");
     expect(sql).toContain("comment on column public.athlete_profiles.sensitive_cycle");
     expect(sql).toContain("comment on table public.readiness_checkins");
     expect(sql).toContain("comment on table public.wearable_signal_logs");
@@ -248,6 +248,8 @@ describe("kernel immutability, view models, and persistence schema", () => {
     expect(migration003).toContain("generated_sessions_user_date_version_key_uidx");
     expect(migration003).toContain("risk_flags_active_user_domain_code_status_uidx");
     expect(migration003).toContain("decision_traces_user_engine_run_idx");
+    expect(phaseOneMigration).toContain("drop column if exists sensitive_medical");
+    expect(phaseOneMigration).toContain("'medicalFlags'");
     expect(readFileSync("supabase/migrations/002_schema_hardening.sql", "utf8")).not.toMatch(/\bdrop\s+(table|column|constraint)\b/i);
     expect(migration003).not.toMatch(/\bdrop\s+(table|column|constraint)\b/i);
   });

@@ -56,6 +56,7 @@ import {
   trainingStimulusMix
 } from "./trainingStimulus";
 import { defaultTrainingDoseForSupportDays } from "./planGenerationIntent";
+import { existingTrainingHasComponent } from "./existingTraining";
 import { resolveDailyOperatingMode } from "./dailyOperatingMode";
 import {
   compileCurrentAndNextTrainingWeeks,
@@ -111,7 +112,7 @@ function goalModeForPrescriptionContract(input: {
 }
 
 function isProtectedBoxingSkillAnchor(anchor: ProtectedWorkout): boolean {
-  return anchor.type === "boxing_class" || anchor.type === "technical_session" || anchor.type === "pads_mitts" || anchor.type === "bag_work" || anchor.type === "footwork_session" || anchor.type === "sparring";
+  return existingTrainingHasComponent(anchor, "boxing") || existingTrainingHasComponent(anchor, "sparring");
 }
 
 function zeroStimulusMix() {
@@ -226,7 +227,7 @@ function pendingNextWeekMaterialization(input: {
     equipment: input.athlete.equipmentAccess,
     modalityPreferences: [],
     modalityAvoidances: [],
-    currentLimitations: [...input.athlete.injuryHistory, ...input.athlete.medicalFlags],
+    currentLimitations: [],
     targetGeneratedSupportCount: 0,
     targetWeeklyGeneratedMinutes: 0,
     materializedPhase: input.currentBlock.phase,

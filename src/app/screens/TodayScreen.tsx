@@ -37,6 +37,7 @@ export interface TodayScreenProps {
   onOpenFuelLog?: (() => void) | undefined;
   onOpenFuelSafety?: (() => void) | undefined;
   onOpenPlan?: (() => void) | undefined;
+  onOpenProfile?: (() => void) | undefined;
   onOpenTrain?: (() => void) | undefined;
   onOpenTrainWorkout?: (() => void) | undefined;
 }
@@ -1144,6 +1145,7 @@ export function TodayScreen({
   onOpenFuelLog,
   onOpenFuelSafety,
   onOpenPlan,
+  onOpenProfile,
   onOpenTrain,
   onOpenTrainWorkout
 }: TodayScreenProps) {
@@ -1201,6 +1203,12 @@ export function TodayScreen({
     <>
       <LuminousScreen accent="blue" testID="today-screen">
         <ScreenHeader {...tabHeroHeaders.today} />
+        {onOpenProfile ? (
+          <Pressable accessibilityLabel="Open account" accessibilityRole="button" onPress={onOpenProfile} style={[screenStyles.quietButton, { alignSelf: "flex-end", flexDirection: "row", gap: spacing.xs }]}>
+            <Ionicons color={todayPalette.textBody} name="person-outline" size={18} />
+            <Text style={screenStyles.quietButtonText}>Account</Text>
+          </Pressable>
+        ) : null}
         <TodayCheckInCard
           busy={busy}
           checkIn={checkIn}

@@ -12,6 +12,7 @@ export const heightSchema = z.object({
 
 export const athleteProfileSchema = z.object({
   athleteId: z.string().min(1),
+  preferredName: z.string().trim().min(1).optional(),
   dateOfBirth: z.string().optional(),
   ageYears: z.number().int().positive().optional(),
   sexAtBirth: z.enum(["female", "male", "intersex", "prefer_not_to_say"]).optional(),
@@ -33,26 +34,10 @@ export const athleteProfileSchema = z.object({
   amateurOrPro: z.enum(["amateur", "pro"]),
   stance: z.enum(["orthodox", "southpaw", "switch", "unknown"]).optional(),
   trainingAgeYears: z.number().min(0),
-  injuryHistory: z.array(z.string()),
-  medicalFlags: z.array(z.string()),
-  medications: z.array(z.string()).optional(),
-  pregnancyStatus: z.enum(["not_pregnant", "possible", "confirmed", "postpartum", "unknown"]).optional(),
-  eatingDisorderRisk: z.object({
-    activeConcern: z.boolean(),
-    severeRestrictionHistory: z.boolean(),
-    rapidWeightLossConcern: z.boolean(),
-    notes: z.array(z.string())
-  }),
-  priorWeightCutHistory: z.object({
-    hasCutBefore: z.boolean(),
-    adverseEvents: z.array(z.string()),
-    lowestRecentFightingWeightKg: z.number().positive().nullable()
-  }),
   typicalWalkAroundWeightKg: z.number().positive().nullable(),
   lowestRecentFightingWeightKg: z.number().positive().nullable(),
   coachInvolved: z.boolean(),
   dietitianInvolved: z.boolean(),
-  medicalProfessionalInvolved: z.boolean(),
   equipmentAccess: z.array(z.string()),
   scheduleAvailability: z.array(z.string()),
   protectedBoxingSchedule: z.array(z.unknown()),
