@@ -2,10 +2,13 @@ import React, { type PropsWithChildren } from "react";
 import { ImageBackground, KeyboardAvoidingView, Platform, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import authSignInBackground from "../../../assets/backgrounds/auth-sign-in-gloves.png";
-import { colors, spacing } from "../../design/theme";
+import authSignInBackground from "../../../assets/backgrounds/auth-sign-in-gloves-v2.png";
+import { spacing } from "../../design/theme";
 import { fontFamilies } from "../../design/typography";
 import { CornerIQWordmark } from "./CornerIQWordmark";
+
+const OPENING_BELL_BLACK = "#070A0D";
+const OPENING_BELL_IVORY = "#F2EBE0";
 
 export function AuthBackgroundShell({
   children,
@@ -19,16 +22,16 @@ export function AuthBackgroundShell({
 }>) {
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
-  const compactHeight = height < 760;
-  const veryCompactHeight = height < 700;
+  const compactHeight = height < 820;
+  const veryCompactHeight = height < 720;
   const contentWidth = Math.min(width, 430);
-  const heroHeight = veryCompactHeight ? 242 : compactHeight ? 275 : Math.min(320, Math.max(294, contentWidth * 0.78));
-  const heroTopPadding = Math.max(insets.top + spacing.sm, compactHeight ? spacing.md : spacing.lg);
-  const bodyTopPadding = veryCompactHeight ? 34 : compactHeight ? 38 : 46;
+  const heroHeight = veryCompactHeight ? 270 : compactHeight ? 294 : Math.min(318, Math.max(300, contentWidth * 0.76));
+  const heroTopPadding = Math.max(insets.top + spacing.md, spacing.xl);
+  const bodyTopPadding = veryCompactHeight ? 44 : compactHeight ? 52 : 58;
   const bottomPadding = Math.max(insets.bottom + spacing.xl, spacing.xxl);
 
   return (
-    <View style={{ alignItems: "center", backgroundColor: colors.cornerBlack, flex: 1, overflow: "hidden" }}>
+    <View style={{ alignItems: "center", backgroundColor: OPENING_BELL_BLACK, flex: 1, overflow: "hidden" }}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         accessibilityLabel="Authentication screen"
@@ -37,32 +40,43 @@ export function AuthBackgroundShell({
         testID={testID}
       >
         <ScrollView
-          contentContainerStyle={{ backgroundColor: "#080B0E", flexGrow: 1 }}
+          contentContainerStyle={{ backgroundColor: OPENING_BELL_BLACK, flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          style={{ backgroundColor: "#080B0E", flex: 1 }}
+          style={{ backgroundColor: OPENING_BELL_BLACK, flex: 1 }}
         >
           <ImageBackground
-            imageStyle={{ height: "100%", width: "100%" }}
             resizeMode="cover"
             source={authSignInBackground}
-            style={{ backgroundColor: "#F1EADF", height: heroHeight, paddingHorizontal: 22, paddingTop: heroTopPadding, width: "100%" }}
+            style={{
+              backgroundColor: OPENING_BELL_IVORY,
+              height: heroHeight,
+              paddingHorizontal: spacing.xl,
+              paddingTop: heroTopPadding,
+              width: "100%"
+            }}
           >
             <CornerIQWordmark alignment="left" editorial tone="dark" />
-            <View style={{ gap: spacing.sm, marginTop: veryCompactHeight ? 26 : compactHeight ? 34 : 48, maxWidth: 226 }}>
+            <View
+              style={{
+                gap: spacing.sm,
+                marginTop: veryCompactHeight ? 24 : compactHeight ? 30 : 38,
+                maxWidth: veryCompactHeight ? 205 : 224
+              }}
+            >
               <Text
                 adjustsFontSizeToFit
-                minimumFontScale={0.76}
-                numberOfLines={3}
+                minimumFontScale={0.82}
+                numberOfLines={2}
                 selectable={false}
                 style={{
-                  color: "#080B0E",
+                  color: OPENING_BELL_BLACK,
                   fontFamily: fontFamilies.display,
-                  fontSize: veryCompactHeight ? 43 : compactHeight ? 48 : 54,
+                  fontSize: veryCompactHeight ? 46 : compactHeight ? 50 : 54,
                   fontWeight: "400",
                   includeFontPadding: true,
-                  letterSpacing: 0.2,
-                  lineHeight: veryCompactHeight ? 45 : compactHeight ? 50 : 56,
+                  letterSpacing: 0.5,
+                  lineHeight: veryCompactHeight ? 48 : compactHeight ? 52 : 56,
                   textTransform: "uppercase"
                 }}
               >
@@ -71,24 +85,25 @@ export function AuthBackgroundShell({
               <Text
                 selectable={false}
                 style={{
-                  color: "#696763",
-                  fontFamily: fontFamilies.regular,
-                  fontSize: veryCompactHeight ? 14 : 16,
-                  fontWeight: "400",
-                  lineHeight: veryCompactHeight ? 19 : 22,
-                  maxWidth: 215
+                  color: "#5E5C58",
+                  fontFamily: fontFamilies.medium,
+                  fontSize: veryCompactHeight ? 14 : 15,
+                  fontWeight: "500",
+                  lineHeight: veryCompactHeight ? 19 : 21,
+                  maxWidth: 220
                 }}
               >
                 {subheading}
               </Text>
             </View>
           </ImageBackground>
+
           <View
             style={{
-              backgroundColor: "#080B0E",
+              backgroundColor: OPENING_BELL_BLACK,
               flexGrow: 1,
               paddingBottom: bottomPadding,
-              paddingHorizontal: 22,
+              paddingHorizontal: spacing.xl,
               paddingTop: bodyTopPadding,
               width: "100%"
             }}
@@ -96,16 +111,16 @@ export function AuthBackgroundShell({
             <View
               pointerEvents="none"
               style={{
-                backgroundColor: "#080B0E",
-                height: 34,
+                backgroundColor: OPENING_BELL_BLACK,
+                height: 30,
                 left: -8,
                 position: "absolute",
                 right: -8,
-                top: -17,
-                transform: [{ rotate: "-2deg" }]
+                top: -15,
+                transform: [{ rotate: "-1.6deg" }]
               }}
             />
-            <View style={{ alignSelf: "center", maxWidth: 430, width: "100%" }}>{children}</View>
+            <View style={{ alignSelf: "center", maxWidth: 382, width: "100%" }}>{children}</View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

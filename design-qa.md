@@ -2,6 +2,48 @@
 
 final result: passed
 
+## Opening Bell Device Refinement QA
+
+### Reference and capture
+
+- Source device feedback — Sign In: `C:\Users\karll\Desktop\WhatsApp Image 2026-07-19 at 1.09.12 AM.jpeg`
+- Source device feedback — Welcome: `C:\Users\karll\Desktop\WhatsApp Image 2026-07-19 at 1.09.13 AM.jpeg`
+- Selected design board: `C:\Users\karll\.codex\generated_images\019f7419-db17-7ef3-a083-a4dced6bbae4\exec-c69cc44b-000c-40d2-9fdc-91429283fb53.png`
+- Refined Sign In capture: `qa-artifacts/design-qa/auth-opening-bell-v2-360x800.png`
+- Refined Welcome capture: `qa-artifacts/design-qa/welcome-opening-bell-v2-360x800.png`
+- Secondary 390 x 844 captures: `qa-artifacts/design-qa/auth-opening-bell-v2-390x844.png` and `qa-artifacts/design-qa/welcome-opening-bell-v2-390x844.png`
+- Device-feedback comparison: `qa-artifacts/design-qa/auth-welcome-device-feedback-comparison-v2.png`
+- Selected-board comparison: `qa-artifacts/design-qa/auth-welcome-comparison-v2.png`
+- Viewports: 360 x 800 to match the supplied phone captures, plus the Product Design 390 x 844 baseline.
+- States: local-only E2E Sign In and first-login Welcome. The orange E2E banner and green local sign-in notice are test-only surfaces and are excluded from product-fidelity judgments.
+- The individual 360 x 800 screenshots provide focused, readable evidence for typography, crop, fields, and actions; separate detail crops were unnecessary.
+
+### Comparison history
+
+- Pass 0 found a P1 Welcome composition failure: the hero image ended through the approved subtitle, the dark seam clipped that copy, and the headline sat too close to the image boundary.
+- Pass 0 also found P2 polish drift on both screens: landscape photos were being aggressively center-cropped into shallow phone headers, boxing subjects became oversized, and the form controls lacked a deliberate focus and grouping system.
+- Pass 1 regenerated both photographs for the real mobile slots, positioned every important subject inside the center-crop safe region, removed percentage sizing from the background image layer, and rebuilt the responsive hero spacing.
+- Pass 1 constrained Welcome to a stable two-line display heading, preserves the complete subtitle above the seam, and uses the lower viewport with a space-between body layout so actions remain balanced and visible without scrolling.
+- Pass 1 refined labels, input surfaces, focus borders, the password icon, button feedback, action grouping, and the shared sharp 6px control language.
+- Post-fix device and selected-board comparisons found no remaining actionable P0, P1, or P2 mismatch.
+
+### Required fidelity surfaces
+
+- Fonts and typography: the Bebas Neue display system and Inter Tight UI system remain intact; headings no longer clip or wrap unexpectedly at either tested phone width.
+- Spacing and layout rhythm: both heroes now reserve complete copy space, Sign In retains a deliberate form buffer, and Welcome uses its full body height without the previous dead lower region.
+- Colors and tokens: warm ivory photography, near-black surfaces, graphite field borders, and CornerIQ cyan remain consistent with the selected onboarding direction.
+- Image quality and asset fidelity: the v2 glove and ring photographs were regenerated for center cropping, keep subjects restrained on the right, and preserve clean left-side copy fields without hard tonal boundaries.
+- Copy and content: approved Sign In and Welcome wording remains unchanged and fully visible.
+
+### Functional QA
+
+- Filled Email and Password and confirmed Sign In transitions to the first-login Welcome screen.
+- Confirmed `Start setup` transitions to `Basic information`.
+- Confirmed Welcome fits at 360 x 800 and 390 x 844 without scrolling or clipped primary actions.
+- Confirmed the browser console remained free of errors through the target flow.
+
+final result: passed
+
 ## Opening Bell Auth And Welcome Image-to-Code QA
 
 ### Reference and capture

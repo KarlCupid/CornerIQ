@@ -2,10 +2,13 @@ import React from "react";
 import { ImageBackground, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import onboardingWelcomeBackground from "../../../../assets/backgrounds/onboarding-welcome-ring-editorial.png";
+import onboardingWelcomeBackground from "../../../../assets/backgrounds/onboarding-welcome-ring-editorial-v2.png";
 import { CornerIQWordmark } from "../../components/CornerIQWordmark";
 import { colors, spacing } from "../../../design/theme";
 import { fontFamilies } from "../../../design/typography";
+
+const OPENING_BELL_BLACK = "#070A0D";
+const OPENING_BELL_IVORY = "#F2EBE0";
 
 export interface OnboardingWelcomeScreenProps {
   busy: boolean;
@@ -33,24 +36,26 @@ function WelcomeAction({
       onPress={onPress}
       style={({ pressed }) => ({
         alignItems: "center",
-        backgroundColor: primary ? (disabled ? "rgba(39, 206, 241, 0.34)" : colors.blueIQ) : "transparent",
-        borderColor: primary ? colors.blueIQ : "transparent",
+        backgroundColor: primary ? (disabled ? "rgba(39, 206, 241, 0.30)" : colors.blueIQ) : "transparent",
+        borderColor: primary ? (disabled ? "rgba(39, 206, 241, 0.22)" : "rgba(255, 255, 255, 0.28)") : "transparent",
         borderCurve: "continuous",
-        borderRadius: 5,
+        borderRadius: 6,
         borderWidth: primary ? 1 : 0,
+        boxShadow: primary && !disabled ? "0 10px 24px rgba(39, 206, 241, 0.13)" : "none",
         justifyContent: "center",
         minHeight: primary ? 56 : 44,
         opacity: disabled ? 0.7 : pressed ? 0.84 : 1,
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.sm,
+        transform: [{ scale: pressed ? 0.995 : 1 }],
         width: "100%"
       })}
     >
       <Text
         style={{
-          color: primary ? "#080B0E" : colors.blueIQ,
+          color: primary ? "#071015" : colors.blueIQ,
           fontFamily: fontFamilies.black,
-          fontSize: primary ? 17 : 16,
+          fontSize: primary ? 16 : 15,
           fontWeight: "900",
           lineHeight: primary ? 22 : 21,
           textAlign: "center"
@@ -65,42 +70,54 @@ function WelcomeAction({
 export function OnboardingWelcomeScreen({ busy, onSignOut, onStart }: OnboardingWelcomeScreenProps) {
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
-  const compactHeight = height < 760;
-  const veryCompactHeight = height < 700;
+  const compactHeight = height < 820;
+  const veryCompactHeight = height < 720;
   const contentWidth = Math.min(width, 430);
-  const heroHeight = veryCompactHeight ? 245 : compactHeight ? 282 : Math.min(325, Math.max(304, contentWidth * 0.8));
-  const heroTopPadding = Math.max(insets.top + spacing.sm, compactHeight ? spacing.md : spacing.lg);
-  const bodyTopPadding = veryCompactHeight ? 30 : compactHeight ? 36 : 42;
-  const bodyBottomPadding = Math.max(insets.bottom + spacing.sm, veryCompactHeight ? spacing.sm : spacing.lg);
+  const heroHeight = veryCompactHeight ? 286 : compactHeight ? 306 : Math.min(326, Math.max(310, contentWidth * 0.78));
+  const heroTopPadding = Math.max(insets.top + spacing.md, spacing.xl);
+  const bodyTopPadding = veryCompactHeight ? 32 : compactHeight ? 38 : 44;
+  const bodyBottomPadding = Math.max(insets.bottom + spacing.md, veryCompactHeight ? spacing.md : spacing.xl);
 
   return (
     <View
       accessibilityLabel="CornerIQ welcome screen"
-      style={{ alignItems: "center", backgroundColor: "#080B0E", flex: 1, overflow: "hidden" }}
+      style={{ alignItems: "center", backgroundColor: OPENING_BELL_BLACK, flex: 1, overflow: "hidden" }}
       testID="onboarding-welcome-screen"
     >
       <StatusBar style="dark" />
       <View style={{ flex: 1, maxWidth: 430, width: "100%" }}>
         <ImageBackground
-          imageStyle={{ height: "100%", width: "100%" }}
           resizeMode="cover"
           source={onboardingWelcomeBackground}
-          style={{ backgroundColor: "#F1EADF", height: heroHeight, paddingHorizontal: 22, paddingTop: heroTopPadding, width: "100%" }}
+          style={{
+            backgroundColor: OPENING_BELL_IVORY,
+            height: heroHeight,
+            paddingHorizontal: spacing.xl,
+            paddingTop: heroTopPadding,
+            width: "100%"
+          }}
         >
           <CornerIQWordmark alignment="left" editorial tone="dark" />
-          <View style={{ gap: spacing.sm, marginTop: veryCompactHeight ? 24 : compactHeight ? 32 : 44, maxWidth: 238 }}>
+          <View
+            style={{
+              gap: spacing.sm,
+              marginTop: veryCompactHeight ? 20 : compactHeight ? 24 : 30,
+              maxWidth: veryCompactHeight ? 222 : 246
+            }}
+          >
             <Text
               adjustsFontSizeToFit
-              minimumFontScale={0.78}
-              numberOfLines={3}
+              minimumFontScale={0.84}
+              numberOfLines={2}
+              selectable={false}
               style={{
-                color: "#080B0E",
+                color: OPENING_BELL_BLACK,
                 fontFamily: fontFamilies.display,
-                fontSize: veryCompactHeight ? 41 : compactHeight ? 47 : 52,
+                fontSize: veryCompactHeight ? 42 : compactHeight ? 45 : 48,
                 fontWeight: "400",
                 includeFontPadding: true,
-                letterSpacing: 0.2,
-                lineHeight: veryCompactHeight ? 43 : compactHeight ? 49 : 54,
+                letterSpacing: 0.5,
+                lineHeight: veryCompactHeight ? 44 : compactHeight ? 47 : 50,
                 textTransform: "uppercase"
               }}
             >
@@ -108,12 +125,12 @@ export function OnboardingWelcomeScreen({ busy, onSignOut, onStart }: Onboarding
             </Text>
             <Text
               style={{
-                color: "#696763",
-                fontFamily: fontFamilies.regular,
-                fontSize: veryCompactHeight ? 13 : compactHeight ? 14 : 16,
-                fontWeight: "400",
-                lineHeight: veryCompactHeight ? 18 : compactHeight ? 20 : 22,
-                maxWidth: 225
+                color: "#5E5C58",
+                fontFamily: fontFamilies.medium,
+                fontSize: veryCompactHeight ? 13 : compactHeight ? 14 : 15,
+                fontWeight: "500",
+                lineHeight: veryCompactHeight ? 18 : compactHeight ? 19 : 21,
+                maxWidth: 236
               }}
             >
               CornerIQ builds around your needs, schedule and goals.
@@ -123,10 +140,10 @@ export function OnboardingWelcomeScreen({ busy, onSignOut, onStart }: Onboarding
 
         <View
           style={{
-            backgroundColor: "#080B0E",
+            backgroundColor: OPENING_BELL_BLACK,
             flex: 1,
             paddingBottom: bodyBottomPadding,
-            paddingHorizontal: 22,
+            paddingHorizontal: spacing.xl,
             paddingTop: bodyTopPadding
           }}
           testID="onboarding-welcome-body"
@@ -134,48 +151,53 @@ export function OnboardingWelcomeScreen({ busy, onSignOut, onStart }: Onboarding
           <View
             pointerEvents="none"
             style={{
-              backgroundColor: "#080B0E",
-              height: 34,
+              backgroundColor: OPENING_BELL_BLACK,
+              height: 30,
               left: -8,
               position: "absolute",
               right: -8,
-              top: -17,
-              transform: [{ rotate: "-2deg" }]
+              top: -15,
+              transform: [{ rotate: "-1.6deg" }]
             }}
           />
-          <View style={{ flexDirection: "row", height: 4, marginBottom: veryCompactHeight ? spacing.lg : spacing.xl }}>
-            <View style={{ backgroundColor: colors.blueIQ, width: 68 }} />
-            <View style={{ backgroundColor: "rgba(247, 251, 255, 0.18)", flex: 1 }} />
-          </View>
 
-          <View style={{ gap: veryCompactHeight ? spacing.md : compactHeight ? spacing.lg : 20 }}>
-            <Text
-              style={{
-                color: colors.wrap,
-                fontFamily: fontFamilies.regular,
-                fontSize: veryCompactHeight ? 13 : compactHeight ? 14 : 15,
-                fontWeight: "400",
-                lineHeight: veryCompactHeight ? 18 : compactHeight ? 20 : 22
-              }}
-            >
-              We’ll ask a few simple questions about you, your boxing experience, when and how you can train, and the workouts already in your week.
-            </Text>
-            <Text
-              style={{
-                color: colors.wrap,
-                fontFamily: fontFamilies.regular,
-                fontSize: veryCompactHeight ? 13 : compactHeight ? 14 : 15,
-                fontWeight: "400",
-                lineHeight: veryCompactHeight ? 18 : compactHeight ? 20 : 22
-              }}
-            >
-              You’ll finish by choosing what you’re training toward. Anything optional will be clearly marked, and you can update your answers later.
-            </Text>
-          </View>
+          <View style={{ flex: 1, justifyContent: "space-between" }}>
+            <View>
+              <View style={{ flexDirection: "row", height: 3, marginBottom: veryCompactHeight ? spacing.lg : spacing.xl }}>
+                <View style={{ backgroundColor: colors.blueIQ, width: 72 }} />
+                <View style={{ backgroundColor: "#26313B", flex: 1 }} />
+              </View>
 
-          <View style={{ gap: spacing.xs, marginTop: veryCompactHeight ? spacing.lg : spacing.xl }}>
-            <WelcomeAction disabled={busy} label={busy ? "Starting..." : "Start setup"} onPress={() => void onStart()} primary />
-            <WelcomeAction disabled={busy} label="Sign out" onPress={() => void onSignOut()} />
+              <View style={{ gap: veryCompactHeight ? spacing.md : 18 }}>
+                <Text
+                  style={{
+                    color: "#E5ECF4",
+                    fontFamily: fontFamilies.regular,
+                    fontSize: veryCompactHeight ? 13 : compactHeight ? 14 : 15,
+                    fontWeight: "400",
+                    lineHeight: veryCompactHeight ? 18 : compactHeight ? 20 : 21
+                  }}
+                >
+                  We’ll ask a few simple questions about you, your boxing experience, when and how you can train, and the workouts already in your week.
+                </Text>
+                <Text
+                  style={{
+                    color: "#E5ECF4",
+                    fontFamily: fontFamilies.regular,
+                    fontSize: veryCompactHeight ? 13 : compactHeight ? 14 : 15,
+                    fontWeight: "400",
+                    lineHeight: veryCompactHeight ? 18 : compactHeight ? 20 : 21
+                  }}
+                >
+                  You’ll finish by choosing what you’re training toward. Anything optional will be clearly marked, and you can update your answers later.
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ gap: spacing.xs, marginTop: spacing.lg }}>
+              <WelcomeAction disabled={busy} label={busy ? "Starting..." : "Start setup"} onPress={() => void onStart()} primary />
+              <WelcomeAction disabled={busy} label="Sign out" onPress={() => void onSignOut()} />
+            </View>
           </View>
         </View>
       </View>

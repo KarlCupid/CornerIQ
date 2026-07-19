@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { AuthBackgroundShell } from "../components/AuthBackgroundShell";
-import { colors, radii, spacing } from "../../design/theme";
-import { typography } from "../../design/typography";
+import { colors, spacing } from "../../design/theme";
+import { fontFamilies, typography } from "../../design/typography";
 
 export interface AuthScreenProps {
   loading: boolean;
@@ -38,14 +38,22 @@ const authModeCopy: Record<AuthMode, { heading: string; subheading: string }> = 
 };
 
 function AuthCard({ children }: React.PropsWithChildren) {
-  return (
-    <View style={{ gap: 18, width: "100%" }}>{children}</View>
-  );
+  return <View style={{ gap: 20, width: "100%" }}>{children}</View>;
 }
 
 function FieldLabel({ children }: React.PropsWithChildren) {
   return (
-    <Text style={{ color: colors.canvas, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>
+    <Text
+      style={{
+        color: "#F4F7FA",
+        fontFamily: fontFamilies.bold,
+        fontSize: 12,
+        fontWeight: "700",
+        letterSpacing: 0.9,
+        lineHeight: 16,
+        textTransform: "uppercase"
+      }}
+    >
       {children}
     </Text>
   );
@@ -70,26 +78,31 @@ function AuthTextInput({
   textContentType?: "emailAddress" | "newPassword" | "password" | undefined;
   value: string;
 }) {
+  const [focused, setFocused] = useState(false);
   return (
     <TextInput
       accessibilityLabel={accessibilityLabel}
       autoCapitalize={autoCapitalize}
       keyboardType={keyboardType}
+      onBlur={() => setFocused(false)}
       onChangeText={onChangeText}
+      onFocus={() => setFocused(true)}
       placeholder={placeholder}
-      placeholderTextColor="rgba(174, 185, 201, 0.72)"
+      placeholderTextColor="#768291"
       secureTextEntry={secureTextEntry}
+      selectionColor={colors.blueIQ}
       style={{
-        backgroundColor: "#0B1016",
-        borderColor: "rgba(247, 251, 255, 0.24)",
+        backgroundColor: "#0D1319",
+        borderColor: focused ? colors.blueIQ : "#2A3540",
         borderCurve: "continuous",
-        borderRadius: 5,
+        borderRadius: 6,
         borderWidth: 1,
         color: colors.canvas,
+        fontFamily: fontFamilies.medium,
         fontSize: 16,
         fontWeight: "500",
-        minHeight: 54,
-        paddingHorizontal: spacing.lg,
+        minHeight: 58,
+        paddingHorizontal: 18,
         paddingVertical: spacing.md
       }}
       textContentType={textContentType}
@@ -127,6 +140,7 @@ function PasswordField({
   signingUp: boolean;
 }) {
   const [visible, setVisible] = useState(false);
+  const [focused, setFocused] = useState(false);
   return (
     <View style={{ gap: spacing.sm }}>
       <FieldLabel>Password</FieldLabel>
@@ -138,29 +152,33 @@ function PasswordField({
       <View
         style={{
           alignItems: "center",
-          backgroundColor: "#0B1016",
-          borderColor: "rgba(247, 251, 255, 0.24)",
+          backgroundColor: "#0D1319",
+          borderColor: focused ? colors.blueIQ : "#2A3540",
           borderCurve: "continuous",
-          borderRadius: 5,
+          borderRadius: 6,
           borderWidth: 1,
           flexDirection: "row",
-          minHeight: 54,
-          paddingLeft: spacing.lg,
+          minHeight: 58,
+          paddingLeft: 18,
           paddingRight: spacing.sm
         }}
       >
         <TextInput
           accessibilityLabel="Password"
+          onBlur={() => setFocused(false)}
           onChangeText={setPassword}
+          onFocus={() => setFocused(true)}
           placeholder="Password"
-          placeholderTextColor="rgba(174, 185, 201, 0.72)"
+          placeholderTextColor="#768291"
           secureTextEntry={!visible}
+          selectionColor={colors.blueIQ}
           style={{
             color: colors.canvas,
             flex: 1,
+            fontFamily: fontFamilies.medium,
             fontSize: 16,
             fontWeight: "500",
-            minHeight: 52,
+            minHeight: 56,
             paddingVertical: spacing.md
           }}
           textContentType={signingUp ? "newPassword" : "password"}
@@ -173,7 +191,7 @@ function PasswordField({
           onPress={() => setVisible((current) => !current)}
           style={{ alignItems: "center", height: 44, justifyContent: "center", width: 44 }}
         >
-          <Ionicons color="rgba(183, 196, 217, 0.95)" name={visible ? "eye-off-outline" : "eye-outline"} size={26} />
+          <Ionicons color={focused ? colors.blueIQ : "#8B98A8"} name={visible ? "eye-off-outline" : "eye-outline"} size={22} />
         </Pressable>
       </View>
       {!signingUp ? (
@@ -202,23 +220,33 @@ function PrimaryAuthButton({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={{
+      style={({ pressed }) => ({
         alignItems: "center",
         backgroundColor: disabled ? "rgba(39, 206, 241, 0.28)" : colors.blueIQ,
-        borderColor: "rgba(255, 255, 255, 0.32)",
+        borderColor: disabled ? "rgba(39, 206, 241, 0.24)" : "rgba(255, 255, 255, 0.28)",
         borderCurve: "continuous",
-        borderRadius: 5,
+        borderRadius: 6,
         borderWidth: 1,
-        boxShadow: disabled ? "none" : "0 8px 18px rgba(39, 206, 241, 0.14)",
+        boxShadow: disabled ? "none" : "0 10px 24px rgba(39, 206, 241, 0.13)",
         justifyContent: "center",
         minHeight: 56,
-        opacity: disabled ? 0.78 : 1,
+        opacity: disabled ? 0.72 : pressed ? 0.88 : 1,
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.md,
+        transform: [{ scale: pressed ? 0.995 : 1 }],
         width: "100%"
-      }}
+      })}
     >
-      <Text style={{ color: disabled ? colors.wrap : colors.cornerBlack, fontSize: 16, fontWeight: "900", lineHeight: 22, textAlign: "center" }}>
+      <Text
+        style={{
+          color: disabled ? colors.wrap : "#071015",
+          fontFamily: fontFamilies.black,
+          fontSize: 16,
+          fontWeight: "900",
+          lineHeight: 22,
+          textAlign: "center"
+        }}
+      >
         {loading ? "Working..." : label}
       </Text>
     </Pressable>
@@ -240,9 +268,16 @@ function LinkButton({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={{ alignItems: "center", minHeight: 44, justifyContent: "center", paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}
+      style={({ pressed }) => ({
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 44,
+        opacity: disabled ? 0.55 : pressed ? 0.72 : 1,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.xs
+      })}
     >
-      <Text style={{ color: colors.blueIQ, fontSize: 16, fontWeight: "700", lineHeight: 22, textAlign: "center" }}>
+      <Text style={{ color: colors.blueIQ, fontFamily: fontFamilies.bold, fontSize: 15, fontWeight: "700", lineHeight: 21, textAlign: "center" }}>
         {label}
       </Text>
     </Pressable>
@@ -258,12 +293,12 @@ function NoticeText({ children, tone }: React.PropsWithChildren<{ tone: "error" 
         backgroundColor: `${color}18`,
         borderColor: `${color}55`,
         borderCurve: "continuous",
-        borderRadius: radii.control,
+        borderRadius: 6,
         borderWidth: 1,
         padding: spacing.md
       }}
     >
-      <Text selectable style={{ color, fontSize: 13, fontWeight: "700", lineHeight: 19 }}>
+      <Text selectable style={{ color, fontFamily: fontFamilies.semibold, fontSize: 13, fontWeight: "600", lineHeight: 19 }}>
         {children}
       </Text>
     </View>
@@ -365,10 +400,10 @@ export function AuthScreen({ loading, error, message, onRequestPasswordReset, on
           </Text>
         ) : null}
         {effectiveMode === "sign_in" ? (
-          <>
+          <View style={{ gap: spacing.xs }}>
             <LinkButton disabled={loading} label="Forgot password?" onPress={() => switchMode("recovery")} />
             <LinkButton disabled={loading} label="New to CornerIQ? Create account" onPress={() => switchMode("sign_up")} />
-          </>
+          </View>
         ) : null}
         {recovering ? <LinkButton disabled={loading} label="Back to sign in" onPress={() => switchMode("sign_in")} /> : null}
       </AuthCard>

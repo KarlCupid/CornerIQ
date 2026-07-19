@@ -204,12 +204,15 @@ describe("fatigue-first UI copy density static checks", () => {
     const authShellSource = readFileSync("src/app/components/AuthBackgroundShell.tsx", "utf8");
     const welcomeSource = readFileSync("src/app/screens/onboarding/OnboardingWelcomeScreen.tsx", "utf8");
 
-    expect(authShellSource).toContain("auth-sign-in-gloves.png");
+    expect(authShellSource).toContain("auth-sign-in-gloves-v2.png");
     expect(authShellSource).toContain("const bodyTopPadding =");
-    expect(authShellSource).toContain("Math.min(320");
-    expect(authShellSource).not.toContain("onboarding-welcome-ring-editorial.png");
-    expect(welcomeSource).toContain("onboarding-welcome-ring-editorial.png");
-    expect(welcomeSource).toContain("Math.min(325");
+    expect(authShellSource).toContain("Math.min(318");
+    expect(authShellSource).toContain("maxWidth: 382");
+    expect(authShellSource).not.toContain("onboarding-welcome-ring-editorial-v2.png");
+    expect(welcomeSource).toContain("onboarding-welcome-ring-editorial-v2.png");
+    expect(welcomeSource).toContain("Math.min(326");
+    expect(welcomeSource).toContain('numberOfLines={2}');
+    expect(welcomeSource).toContain('justifyContent: "space-between"');
   });
 
   it("keeps the championship onboarding system shared across every setup step", () => {
