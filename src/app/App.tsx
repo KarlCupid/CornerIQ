@@ -8,10 +8,12 @@ import { StartupState } from "./components/StartupState";
 import { AppTabs } from "./navigation/AppTabs";
 import { AuthScreen } from "./screens/AuthScreen";
 import { OnboardingScreen } from "./screens/onboarding/OnboardingScreen";
+import { OnboardingWelcomeScreen } from "./screens/onboarding/OnboardingWelcomeScreen";
 import { PostOnboardingWalkthroughScreen } from "./screens/onboarding/PostOnboardingWalkthroughScreen";
 import { PaywallScreen } from "./screens/PaywallScreen";
 import { usePerformanceState } from "../hooks/usePerformanceState";
 import { useNextWeekPreviewActions, type NextWeekPreviewActionsHook } from "../hooks/useNextWeekPreviewActions";
+import { useOnboardingWelcome } from "../hooks/useOnboardingWelcome";
 import { usePostOnboardingWalkthrough } from "../hooks/usePostOnboardingWalkthrough";
 import { useQuickLogs, type QuickLogActions } from "../hooks/useQuickLogs";
 import { useSupabaseSession, type AuthCallbackStatus } from "../hooks/useSupabaseSession";
@@ -31,6 +33,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
   const [signingOut, setSigningOut] = useState(false);
   const performance = usePerformanceState({ client, session });
   const subscription = useSubscription({ appUserId: session.user.id });
+  const onboardingWelcome = useOnboardingWelcome(session.user.id);
   const postOnboardingWalkthrough = usePostOnboardingWalkthrough(session.user.id);
   const quickLogs = useQuickLogs({
     asOfDate: performance.asOfDate,
@@ -108,6 +111,12 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
   }
 
   if (performance.result?.status === "needs_profile") {
+    if (onboardingWelcome.loading) {
+      return <StartupState title="CornerIQ" message="Preparing setup." />;
+    }
+    if (onboardingWelcome.visible) {
+      return <OnboardingWelcomeScreen busy={busy} onSignOut={guardedSignOut} onStart={onboardingWelcome.start} />;
+    }
     return (
       <OnboardingScreen
         asOfDate={performance.asOfDate}
@@ -264,6 +273,7 @@ function LocalE2EApp() {
   const localScenario = localConfig.scenario;
   const promoCapture = isPromoCaptureMode();
   const [signedIn, setSignedIn] = useState(false);
+  const [welcomeStarted, setWelcomeStarted] = useState(false);
   const [todayState, setTodayState] = useState<PerformanceState | null>(null);
   const [localProtectedWorkouts, setLocalProtectedWorkouts] = useState<ProtectedWorkout[]>([]);
   const [localRecurringAnchors, setLocalRecurringAnchors] = useState<RecurringProtectedWorkoutAnchor[]>([]);
@@ -426,6 +436,7 @@ function LocalE2EApp() {
   const signOutLocalE2E = useCallback(async () => {
     setTodayState(null);
     setSignedIn(false);
+    setWelcomeStarted(false);
     setMessage("Local E2E sign-out complete.");
   }, []);
 
@@ -453,6 +464,20 @@ function LocalE2EApp() {
   }
 
   if (!todayState) {
+    if (!welcomeStarted) {
+      return (
+        <LocalE2EFrame asOfDate={localAsOfDate} promoCapture={promoCapture} scenario={localScenario}>
+          <OnboardingWelcomeScreen
+            busy={false}
+            onSignOut={signOutLocalE2E}
+            onStart={async () => {
+              setWelcomeStarted(true);
+              setMessage("Local E2E welcome complete. Continue through demo onboarding.");
+            }}
+          />
+        </LocalE2EFrame>
+      );
+    }
     return (
       <LocalE2EFrame asOfDate={localAsOfDate} promoCapture={promoCapture} scenario={localScenario}>
         <OnboardingScreen

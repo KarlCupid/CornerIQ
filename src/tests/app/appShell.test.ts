@@ -6844,6 +6844,29 @@ describe("minimal app screens", () => {
     expect(onSignOut).toHaveBeenCalledTimes(1);
   });
 
+  it("OnboardingWelcomeScreen presents the approved first-login handoff and actions", async () => {
+    const { OnboardingWelcomeScreen } = await import("../../app/screens/onboarding/OnboardingWelcomeScreen");
+    const onStart = vi.fn(async () => undefined);
+    const onSignOut = vi.fn(async () => undefined);
+    const renderer = render(React.createElement(OnboardingWelcomeScreen, { busy: false, onSignOut, onStart }));
+    const output = JSON.stringify(renderer.toJSON());
+
+    expect(output).toContain("Welcome to CornerIQ");
+    expect(output).toContain("CornerIQ builds around your needs, schedule and goals.");
+    expect(output).toContain("We’ll ask a few simple questions about you");
+    expect(output).toContain("Anything optional will be clearly marked");
+    expect(output).toContain("Start setup");
+    expect(output).toContain("Sign out");
+    expect(output).not.toContain("Skip");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Start setup"));
+      await press(pressableWithText(renderer, "Sign out"));
+    });
+    expect(onStart).toHaveBeenCalledTimes(1);
+    expect(onSignOut).toHaveBeenCalledTimes(1);
+  });
+
   it("PostOnboardingWalkthroughScreen provides one clear completion action", async () => {
     const { PostOnboardingWalkthroughScreen } = await import("../../app/screens/onboarding/PostOnboardingWalkthroughScreen");
     const onFinish = vi.fn(async () => undefined);
@@ -6937,6 +6960,64 @@ describe("minimal app screens", () => {
     expect(userAKey).toMatch(/^corneriq:onboarding:[a-f0-9]{20}:2026-05-19$/);
     expect(userBKey).toMatch(/^corneriq:onboarding:[a-f0-9]{20}:2026-05-19$/);
     expect(legacyOnboardingDraftStorageKey(fixtureAsOfDate)).toBe("corneriq:onboarding:2026-05-19");
+  });
+
+  it("onboarding welcome persists setup started state per user", async () => {
+    const { setDeviceStorageOverrideForTests } = await import("../../services/storage/deviceStorage");
+    const { onboardingWelcomeStorageKey, useOnboardingWelcome } = await import("../../hooks/useOnboardingWelcome");
+    const storage = createTestDeviceStorage();
+    type UnmountableRenderer = ReactTestRenderer & { unmount: () => void };
+    let firstRenderer: UnmountableRenderer | null = null;
+    let resumedRenderer: UnmountableRenderer | null = null;
+    let secondUserRenderer: UnmountableRenderer | null = null;
+    setDeviceStorageOverrideForTests(storage);
+    try {
+      const snapshot: { current: ReturnType<typeof useOnboardingWelcome> | null } = { current: null };
+      function Probe({ userId }: { userId: string }) {
+        snapshot.current = useOnboardingWelcome(userId);
+        return React.createElement("View");
+      }
+
+      firstRenderer = render(React.createElement(Probe, { userId: "user_1" })) as UnmountableRenderer;
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(snapshot.current?.loading).toBe(false);
+      expect(snapshot.current?.visible).toBe(true);
+
+      await act(async () => {
+        await snapshot.current?.start();
+      });
+      expect(snapshot.current?.visible).toBe(false);
+      expect(storage.state.get(onboardingWelcomeStorageKey("user_1"))).toBe("started");
+
+      await act(async () => {
+        firstRenderer?.unmount();
+      });
+      firstRenderer = null;
+      resumedRenderer = render(React.createElement(Probe, { userId: "user_1" })) as UnmountableRenderer;
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(snapshot.current?.visible).toBe(false);
+
+      secondUserRenderer = render(React.createElement(Probe, { userId: "user_2" })) as UnmountableRenderer;
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(snapshot.current?.visible).toBe(true);
+      expect(onboardingWelcomeStorageKey("user_1")).not.toBe(onboardingWelcomeStorageKey("user_2"));
+    } finally {
+      await act(async () => {
+        firstRenderer?.unmount();
+        resumedRenderer?.unmount();
+        secondUserRenderer?.unmount();
+      });
+      setDeviceStorageOverrideForTests(undefined);
+    }
   });
 
   it("post-onboarding walkthrough persists pending and completed states per user", async () => {

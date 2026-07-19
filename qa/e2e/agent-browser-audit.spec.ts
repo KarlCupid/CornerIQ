@@ -19,6 +19,7 @@ const tests: { title: string; status: string; errors: string[] }[] = [];
 const runtimeGuardFindings: { message: string; testTitle: string; type: string }[] = [];
 const activeSurfaceTestIds = [
   "auth-screen",
+  "onboarding-welcome-screen",
   "onboarding-screen",
   "today-hero-card",
   "today-check-in-card",
@@ -305,13 +306,23 @@ async function localSignIn(page: Page) {
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
+async function startLocalSetup(page: Page) {
+  const welcome = page.getByTestId("onboarding-welcome-screen");
+  await expect(welcome).toBeVisible();
+  await expect(welcome).toContainText("Welcome to CornerIQ");
+  await expect(welcome).toContainText("CornerIQ builds around your needs, schedule and goals.");
+  await expect(welcome.getByRole("button", { name: "Start setup" })).toBeVisible();
+  await welcome.getByRole("button", { name: "Start setup" }).click();
+  await expect(page.getByTestId("onboarding-screen")).toBeVisible();
+}
+
 async function openLocalToday(page: Page, options: { scenario?: "due_workout_today" | undefined } = {}) {
   const scenarioQuery = options.scenario ? `?corneriqE2EScenario=${options.scenario}` : "";
   await page.goto(`/${scenarioQuery}`);
   await expect(page.getByTestId("local-e2e-banner")).toContainText("Local E2E mode");
   await expect(page.getByTestId("auth-screen")).toBeVisible();
   await localSignIn(page);
-  await expect(page.getByTestId("onboarding-screen")).toBeVisible();
+  await startLocalSetup(page);
   await page.getByRole("button", { name: "Create safe demo boxer" }).click();
   await expect(page.getByTestId("today-screen")).toBeVisible();
 }
@@ -963,7 +974,11 @@ function expectErrorRecoverySource() {
 
 async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await localSignIn(page);
-  await expect(page.getByTestId("onboarding-screen")).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId("onboarding-welcome-screen")).toBeVisible();
+  await capture(page, testInfo, "Onboarding welcome", "02-onboarding-welcome.png", { fullPage: false, scopeTestId: "onboarding-welcome-screen" });
+  await startLocalSetup(page);
+  await page.setViewportSize({ width: 1280, height: 720 });
   await expectVisibleText(page, "CornerIQ setup");
 
   await expectVisibleText(page, "Basic information");
@@ -1118,16 +1133,18 @@ test("first launch reaches auth, local demo onboarding, Today, and quick logs", 
   await capture(page, testInfo, "Smoke auth screen", "smoke-01-auth-screen.png");
 
   await localSignIn(page);
-  await expect(page.getByTestId("onboarding-screen")).toBeVisible();
+  await expect(page.getByTestId("onboarding-welcome-screen")).toBeVisible();
+  await capture(page, testInfo, "Smoke onboarding welcome", "smoke-02-onboarding-welcome.png", { fullPage: false, scopeTestId: "onboarding-welcome-screen" });
+  await startLocalSetup(page);
   await expect(page.getByTestId("onboarding-screen")).toContainText("CornerIQ setup");
-  await capture(page, testInfo, "Smoke onboarding shortcut screen", "smoke-02-onboarding-shortcut-screen.png");
+  await capture(page, testInfo, "Smoke onboarding shortcut screen", "smoke-03-onboarding-shortcut-screen.png");
 
   await page.getByRole("button", { name: "Create safe demo boxer" }).click();
   await expect(page.getByTestId("today-screen")).toBeVisible();
   await expectTodayOverviewSurface(page);
-  await capture(page, testInfo, "Smoke Today screen", "smoke-03-today-screen.png", { scopeTestId: "today-screen" });
+  await capture(page, testInfo, "Smoke Today screen", "smoke-04-today-screen.png", { scopeTestId: "today-screen" });
   await exerciseTodayQuickLogSaves(page);
-  await capture(page, testInfo, "Smoke Today quick log saves", "smoke-05-today-quick-log-saves.png", { scopeTestId: "today-screen" });
+  await capture(page, testInfo, "Smoke Today quick log saves", "smoke-06-today-quick-log-saves.png", { scopeTestId: "today-screen" });
 });
 
 test("mobile-size browser layout smoke reaches Today", async ({ browser }, testInfo) => {

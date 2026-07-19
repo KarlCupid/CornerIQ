@@ -2,6 +2,39 @@
 
 final result: passed
 
+## First-Login Welcome Screen Image-to-Code QA
+
+### Reference and capture
+
+- Selected source mock: `C:\Users\karll\.codex\generated_images\019f7419-db17-7ef3-a083-a4dced6bbae4\exec-890270a1-07ec-4720-9f84-4c81125a0509.png`
+- Implementation capture: `qa-artifacts/design-qa/welcome-implementation-final.png`
+- Full-view side-by-side comparison: `qa-artifacts/design-qa/welcome-comparison-final.png`
+- Focused content comparison: `qa-artifacts/design-qa/welcome-comparison-detail-final.png`
+- Viewport: 390 x 844 CSS pixels
+- State: first authenticated visit before onboarding starts, using the local E2E account path without Supabase credentials.
+
+### Comparison history
+
+- Pass 1 exposed document overflow from the web image element, which clipped the wordmark and shifted the whole composition upward.
+- Pass 2 fixed the viewport geometry and card wrapping, then exposed a clipped welcome heading and a background crop that did not match the centered ring-corner reference.
+- Pass 3 introduced a clean, text-free ring background derived from the selected reference and corrected the heading size.
+- Final pass tightened the subtitle measure and removed welcome-screen-owned deprecated pointer-event props. The final full and focused composites were reviewed together against the source.
+
+### Final visual findings
+
+- No P0, P1, or P2 mismatch remains.
+- The centered ring post, blue overhead lights, dark negative space, wordmark, welcome hierarchy, cyan glass border, copy groups, primary action, and quiet sign-out action match the approved direction.
+- Runtime text is slightly crisper and heavier than text in the generated raster mock, but the typography, wrapping, spacing, and hierarchy remain faithful and readable.
+- The primary button keeps a 54px minimum touch target and the sign-out action keeps a 44px minimum touch target, so the lower card is marginally taller than the idealized mock while preserving mobile accessibility.
+
+### Functional QA
+
+- `Sign out` returned to the authentication screen.
+- `Start setup` opened onboarding step 1 of 6.
+- The per-user setup-started marker was covered by automated tests so returning users resume onboarding instead of seeing the welcome screen again.
+- Browser console review found no errors. The only warning observed during the combined auth-to-welcome check is the existing React Native Web `pointerEvents` deprecation from the authentication background shell, outside this screen.
+- The structured local browser audit passed all 11 scenarios, including full first-time onboarding and mobile-size smoke coverage.
+
 ## References
 
 - Today / mixed cards: `C:\Users\karll\.codex\generated_images\019f10e3-29d8-7193-97f0-639f401e509d\ig_0ee5d6ad45cd1889016a41ca93f2d88198b13ba4263d65d972.png`
