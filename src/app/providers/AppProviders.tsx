@@ -2,7 +2,7 @@ import React from "react";
 import type { PropsWithChildren } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-function useInterTightFonts() {
+function useCornerIQFonts() {
   React.useEffect(() => {
     const runtime = globalThis as { __DEV__?: boolean; process?: { env?: { NODE_ENV?: string } } };
     if (typeof runtime.__DEV__ !== "boolean") {
@@ -20,9 +20,11 @@ function useInterTightFonts() {
       import("@expo-google-fonts/inter-tight/600SemiBold"),
       import("@expo-google-fonts/inter-tight/700Bold"),
       import("@expo-google-fonts/inter-tight/800ExtraBold"),
-      import("@expo-google-fonts/inter-tight/900Black")
+      import("@expo-google-fonts/inter-tight/900Black"),
+      import("@expo-google-fonts/bebas-neue/400Regular")
     ])
-      .then(([{ loadAsync }, regular, medium, semibold, bold, extraBold, black]) => loadAsync({
+      .then(([{ loadAsync }, regular, medium, semibold, bold, extraBold, black, display]) => loadAsync({
+        BebasNeue_400Regular: display.BebasNeue_400Regular,
         InterTight_400Regular: regular.InterTight_400Regular,
         InterTight_500Medium: medium.InterTight_500Medium,
         InterTight_600SemiBold: semibold.InterTight_600SemiBold,
@@ -35,7 +37,7 @@ function useInterTightFonts() {
 }
 
 export function AppProviders({ children }: PropsWithChildren) {
-  useInterTightFonts();
+  useCornerIQFonts();
 
   return <SafeAreaProvider>{children}</SafeAreaProvider>;
 }

@@ -1,16 +1,13 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { spacing } from "../../../../design/theme";
-import { screenStyles } from "../../screenStyles";
 import type { OnboardingStepProps } from "./BoxerBasicsStep";
 import { ChipButton, FieldGroup } from "./StepControls";
 
 export function CycleSupportStep({ draft, updateDraft }: OnboardingStepProps) {
   return (
     <View style={{ gap: spacing.md }}>
-      <Text style={screenStyles.sectionTitle}>Cycle support</Text>
-      <Text style={screenStyles.subtle}>Optional, private, symptom-aware, and not fertility tracking.</Text>
-      <FieldGroup helper="Enable, skip, or decide later." label="Cycle support preference">
+      <FieldGroup helper="Optional, private, symptom-aware, and not fertility tracking. You can change this later." label="Cycle support preference">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ChipButton active={draft.cycleSupport.preference === "enabled"} label="Enable symptom-aware support" onPress={() => updateDraft((current) => ({ ...current, cycleSupport: { preference: "enabled" } }))} />
           <ChipButton active={draft.cycleSupport.preference === "disabled"} label="Do not use cycle context" onPress={() => updateDraft((current) => ({ ...current, cycleSupport: { preference: "disabled" } }))} />

@@ -979,7 +979,7 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await capture(page, testInfo, "Onboarding welcome", "02-onboarding-welcome.png", { fullPage: false, scopeTestId: "onboarding-welcome-screen" });
   await startLocalSetup(page);
   await page.setViewportSize({ width: 1280, height: 720 });
-  await expectVisibleText(page, "CornerIQ setup");
+  await expectVisibleText(page, "CornerIQ");
 
   await expectVisibleText(page, "Basic information");
   await page.getByLabel("Preferred name").fill("Kai");
@@ -1016,8 +1016,17 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Equipment access");
   await expectVisibleText(page, /Pick what you can reliably access\./);
   await expectVisibleText(page, /Choose the days CornerIQ can place a workout\./);
-  for (const weekday of ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]) {
-    await expectVisibleText(page, weekday);
+  for (const [weekday, shortLabel] of [
+    ["Monday", "Mon"],
+    ["Tuesday", "Tue"],
+    ["Wednesday", "Wed"],
+    ["Thursday", "Thu"],
+    ["Friday", "Fri"],
+    ["Saturday", "Sat"],
+    ["Sunday", "Sun"]
+  ] as const) {
+    await expect(page.getByRole("button", { name: weekday })).toBeVisible();
+    await expectVisibleText(page, shortLabel);
   }
   await page.getByRole("button", { name: "Dumbbells" }).click();
   await page.getByRole("button", { name: "Heavy bag" }).click();
@@ -1052,12 +1061,10 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Cycle support");
   await expectVisibleText(page, /Optional, private, symptom-aware/);
   await expectVisibleText(page, /not fertility tracking\./);
-  await expectVisibleText(page, /Enable, skip, or decide later\./);
   await page.getByRole("button", { name: "Do not use cycle context" }).click();
   await capture(page, testInfo, "Onboarding cycle support", "06-onboarding-cycle-support.png");
   await goNext(page);
 
-  await expectVisibleText(page, "What is your current training goal?");
   await expectVisibleText(page, "Training goal");
   await page.getByRole("button", { name: "Build phase" }).click();
   await expect(page.getByRole("button", { name: "Fight camp" })).toBeVisible();
@@ -1136,7 +1143,7 @@ test("first launch reaches auth, local demo onboarding, Today, and quick logs", 
   await expect(page.getByTestId("onboarding-welcome-screen")).toBeVisible();
   await capture(page, testInfo, "Smoke onboarding welcome", "smoke-02-onboarding-welcome.png", { fullPage: false, scopeTestId: "onboarding-welcome-screen" });
   await startLocalSetup(page);
-  await expect(page.getByTestId("onboarding-screen")).toContainText("CornerIQ setup");
+  await expect(page.getByTestId("onboarding-screen")).toContainText("CornerIQ");
   await capture(page, testInfo, "Smoke onboarding shortcut screen", "smoke-03-onboarding-shortcut-screen.png");
 
   await page.getByRole("button", { name: "Create safe demo boxer" }).click();

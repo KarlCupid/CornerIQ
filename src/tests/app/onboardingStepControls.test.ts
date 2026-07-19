@@ -6,6 +6,11 @@ import { ChipButton } from "../../app/screens/onboarding/steps/StepControls";
 import { createDefaultOnboardingDraft, type OnboardingDraft } from "../../services/supabase/onboardingService";
 import { fixtureAsOfDate } from "../fixtures/engineFixtures";
 
+vi.mock("@expo/vector-icons/Ionicons", () => ({
+  default: ({ color, name, size }: { color?: string; name?: string; size?: number }) =>
+    React.createElement("Ionicons", { color, name, size })
+}));
+
 vi.mock("react-native", () => {
   const component =
     (name: string) =>
@@ -104,9 +109,9 @@ describe("onboarding step controls", () => {
     });
     const focusedStyle = renderedStyle(firstPressable(renderer));
 
-    expect(hoveredStyle.borderColor).toBe("rgba(232, 240, 255, 0.36)");
-    expect(hoveredStyle.backgroundColor).toBe("rgba(169, 185, 207, 0.12)");
-    expect(hoveredStyle.boxShadow).toContain("rgba(169, 185, 207");
+    expect(hoveredStyle.borderColor).toBe("rgba(241, 234, 223, 0.36)");
+    expect(hoveredStyle.backgroundColor).toBe("rgba(241, 234, 223, 0.06)");
+    expect(hoveredStyle.boxShadow).toContain("rgba(241, 234, 223");
     expect(hoveredStyle.borderColor).not.toBe(idleStyle.borderColor);
     expect(focusedStyle.borderColor).toBe(hoveredStyle.borderColor);
   });

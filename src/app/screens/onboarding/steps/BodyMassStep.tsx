@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Text, View } from "react-native";
 import { spacing } from "../../../../design/theme";
 import { cmToIn, inToCm, kgToLb, lbToKg } from "../../../../engine/core/units";
-import { screenStyles } from "../../screenStyles";
+import { onboardingStyles } from "../onboardingTheme";
 import type { OnboardingStepProps } from "./BoxerBasicsStep";
 import { ChipButton, FieldGroup, LabeledTextInput } from "./StepControls";
 
@@ -105,7 +105,7 @@ export function BodyMassStep({ draft, setStepError, updateDraft }: OnboardingSte
 
   return (
     <View style={{ gap: spacing.md }}>
-      <Text style={screenStyles.sectionTitle}>Measurements</Text>
+      <Text style={onboardingStyles.sectionTitle}>Measurements</Text>
       <LabeledTextInput
         example={unitCopy.currentExample}
         helper="Current scale value."

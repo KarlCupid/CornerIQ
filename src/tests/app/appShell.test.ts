@@ -6854,7 +6854,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Sign out");
 
     await act(async () => {
-      await press(pressableWithText(e2eRenderer, "Sign out"));
+      await press(pressableWithAccessibilityLabel(e2eRenderer, "Sign out of onboarding"));
     });
     expect(onSignOut).toHaveBeenCalledTimes(1);
   });
@@ -6937,7 +6937,7 @@ describe("minimal app screens", () => {
     expect(accessOutput).not.toContain("Optional availability notes");
 
     const protectedOutput = JSON.stringify(render(React.createElement(ProtectedScheduleStep, stepProps)).toJSON());
-    expect(protectedOutput).toContain("Add the recurring workouts already set by you, your coach, or your gym.");
+    expect(protectedOutput).toContain("No existing workouts is a valid schedule.");
     expect(protectedOutput).toContain("Workout includes");
     expect(protectedOutput).toContain("Strength");
     expect(protectedOutput).toContain("Conditioning");

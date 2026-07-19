@@ -200,6 +200,17 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(source).toContain('accessibilityLabel="CornerIQ welcome screen"');
   });
 
+  it("keeps the championship onboarding system shared across every setup step", () => {
+    const screenSource = readFileSync("src/app/screens/onboarding/OnboardingScreen.tsx", "utf8");
+    const controlsSource = readFileSync("src/app/screens/onboarding/steps/StepControls.tsx", "utf8");
+
+    expect(screenSource).toContain("onboarding-championship-ring.png");
+    expect(screenSource).toContain("fontFamilies.display");
+    expect(screenSource).not.toContain("PremiumCard");
+    expect(controlsSource).toContain("SegmentedChoiceRow");
+    expect(controlsSource).toContain("onboardingColors.cyanDeep");
+  });
+
   it("keeps card pills free of accent rails and marker dots", () => {
     const pillBlocks: readonly { end: string; file: string; start: string }[] = [
       { file: "src/design/components/LuminousScreen.tsx", start: "export function AccentPill", end: "export function LuminousProgressBar" },

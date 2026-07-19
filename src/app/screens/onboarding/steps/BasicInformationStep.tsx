@@ -1,7 +1,6 @@
 import React, { useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { spacing } from "../../../../design/theme";
-import { screenStyles } from "../../screenStyles";
 import type { OnboardingStepProps } from "./BoxerBasicsStep";
 import { BodyMassStep } from "./BodyMassStep";
 import { ChipButton, FieldGroup, LabeledTextInput } from "./StepControls";
@@ -12,7 +11,6 @@ export function BasicInformationStep({ draft, setStepError, updateDraft }: Onboa
   return (
     <View style={{ gap: spacing.lg }}>
       <View style={{ gap: spacing.md }}>
-        <Text style={screenStyles.sectionTitle}>Basic information</Text>
         <LabeledTextInput
           autoCapitalize="words"
           label="Preferred name"

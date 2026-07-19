@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { colors, spacing } from "../../../../design/theme";
+import { spacing } from "../../../../design/theme";
+import { fontFamilies } from "../../../../design/typography";
 import type { ExistingTrainingComponent } from "../../../../engine/core/types";
 import { existingTrainingDraftTitle, workoutTypeForExistingTraining, type RecurringProtectedWorkoutAnchorDraft } from "../../../../services/supabase/onboardingService";
-import { screenStyles } from "../../screenStyles";
+import { onboardingColors, onboardingStyles } from "../onboardingTheme";
 import type { OnboardingStepProps } from "./BoxerBasicsStep";
-import { ChipButton, FieldGroup, LabeledTextInput } from "./StepControls";
+import { ChipButton, FieldGroup, LabeledTextInput, OnboardingInlineAction } from "./StepControls";
 
 const weekdays = [
   ["Monday", "monday"], ["Tuesday", "tuesday"], ["Wednesday", "wednesday"], ["Thursday", "thursday"],
@@ -115,24 +116,22 @@ export function ProtectedScheduleStep({ draft, setStepError, updateDraft }: Onbo
 
   return (
     <View style={{ gap: spacing.lg }}>
-      <View style={{ gap: spacing.xs }}>
-        <Text style={screenStyles.sectionTitle}>Existing training schedule</Text>
-        <Text style={screenStyles.subtle}>Add the recurring workouts already set by you, your coach, or your gym. CornerIQ will plan around them.</Text>
-      </View>
-
       {workouts.map((workout, index) => (
-        <View key={workout.id ?? `existing:${index}`} style={[screenStyles.quietButton, { alignItems: "center", flexDirection: "row", gap: spacing.sm }]}>
+        <View
+          key={workout.id ?? `existing:${index}`}
+          style={{ alignItems: "center", backgroundColor: onboardingColors.inkRaised, borderColor: onboardingColors.hairline, borderLeftColor: onboardingColors.cyan, borderLeftWidth: 4, borderWidth: 1, flexDirection: "row", gap: spacing.sm, minHeight: 70, padding: spacing.md }}
+        >
           <Pressable accessibilityRole="button" onPress={() => editWorkout(index)} style={{ flex: 1 }}>
-            <Text style={screenStyles.fieldLabel}>{weekdayLabel(workout.weekday)} · {existingTrainingDraftTitle(workout)}</Text>
-            <Text style={screenStyles.subtle}>{workout.durationMinutes} min · {workout.intensity}</Text>
+            <Text style={onboardingStyles.fieldLabel}>{weekdayLabel(workout.weekday)} · {existingTrainingDraftTitle(workout)}</Text>
+            <Text style={onboardingStyles.bodyCopy}>{workout.durationMinutes} min · {workout.intensity}</Text>
           </Pressable>
           <Pressable
             accessibilityLabel={`Remove ${weekdayLabel(workout.weekday)} workout`}
             accessibilityRole="button"
             onPress={() => updateDraft((current) => ({ ...current, recurringProtectedSchedule: (current.recurringProtectedSchedule ?? []).filter((_, itemIndex) => itemIndex !== index) }))}
-            style={screenStyles.quietButton}
+            style={{ alignItems: "center", justifyContent: "center", minHeight: 44, paddingHorizontal: spacing.sm }}
           >
-            <Text style={[screenStyles.quietButtonText, { color: colors.redCorner }]}>Remove</Text>
+            <Text style={{ color: "#FF6A77", fontFamily: fontFamilies.bold, fontSize: 14, fontWeight: "700" }}>Remove</Text>
           </Pressable>
         </View>
       ))}
@@ -159,10 +158,8 @@ export function ProtectedScheduleStep({ draft, setStepError, updateDraft }: Onbo
       <FieldGroup label="Day"><View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>{weekdays.map(([label, value]) => <ChipButton active={weekday === value} key={value} label={label.slice(0, 3)} onPress={() => setWeekday(value)} />)}</View></FieldGroup>
       <LabeledTextInput keyboardType="number-pad" label="Total duration (minutes)" onChangeText={setDuration} placeholder="60" value={duration} />
       <FieldGroup helper="1 is very easy. 10 is an all-out effort." label="Expected effort"><View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>{[2, 4, 6, 8, 10].map((value) => <ChipButton active={rpe === value} key={value} label={String(value)} onPress={() => setRpe(value)} />)}</View></FieldGroup>
-      <Pressable accessibilityRole="button" onPress={saveWorkout} style={screenStyles.button}>
-        <Text style={screenStyles.buttonText}>{editingIndex === null ? "Add workout" : "Save changes"}</Text>
-      </Pressable>
-      {workouts.length === 0 ? <Text style={screenStyles.subtle}>No existing workouts is a valid schedule. You can add them later in Plan.</Text> : null}
+      <OnboardingInlineAction label={editingIndex === null ? "Add workout" : "Save changes"} onPress={saveWorkout} />
+      {workouts.length === 0 ? <Text style={onboardingStyles.bodyCopy}>No existing workouts is a valid schedule. You can add them later in Plan.</Text> : null}
     </View>
   );
 }

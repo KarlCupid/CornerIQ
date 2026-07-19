@@ -1,4 +1,5 @@
 export const fontFamilies = {
+  display: "BebasNeue_400Regular",
   regular: "InterTight_400Regular",
   medium: "InterTight_500Medium",
   semibold: "InterTight_600SemiBold",

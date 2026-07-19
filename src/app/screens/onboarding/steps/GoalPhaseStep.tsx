@@ -1,8 +1,7 @@
 import React, { useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { spacing } from "../../../../design/theme";
 import { createDefaultFightDraft, createDefaultTournamentDraft, type OnboardingDraft } from "../../../../services/supabase/onboardingService";
-import { screenStyles } from "../../screenStyles";
 import type { OnboardingStepProps } from "./BoxerBasicsStep";
 import { ChipButton, FieldGroup, LabeledTextInput } from "./StepControls";
 
@@ -75,7 +74,6 @@ export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingSt
 
   return (
     <View style={{ gap: spacing.md }}>
-      <Text style={screenStyles.sectionTitle}>What is your current training goal?</Text>
       <FieldGroup label="Training goal">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ChipButton active={phaseOf(draft) === "build"} description="Improve your boxing, strength, and conditioning." label="Build phase" onPress={setBuild} />

@@ -1,6 +1,41 @@
-# Premium Dark-Glass Design QA
+# CornerIQ Design QA
 
 final result: passed
+
+## Championship Flow Onboarding Image-to-Code QA
+
+### Reference and capture
+
+- Selected source mock: `C:\Users\karll\.codex\generated_images\019f7419-db17-7ef3-a083-a4dced6bbae4\exec-9515fc2f-ed85-427f-a962-e35da8367459.png`
+- Generated, reusable header asset: `assets/backgrounds/onboarding-championship-ring.png`
+- Implementation capture: `qa-artifacts/design-qa/onboarding-championship-training-days-390x844.png`
+- Full-view side-by-side comparison: `qa-artifacts/design-qa/onboarding-championship-comparison.png`
+- Focused control comparison: `qa-artifacts/design-qa/onboarding-championship-comparison-controls.png`
+- Viewport: 390 x 844 CSS pixels
+- State: onboarding step 3 with dumbbells, heavy bag, Monday, Wednesday, Friday, and Saturday selected through the local E2E account path.
+
+### Comparison history
+
+- Pass 1 exposed a header crop that showed only the empty left side of the generated ring image.
+- Pass 2 rebuilt the reusable asset for its measured 430 x 340 slot and correctly placed the ring corner behind the header.
+- Pass 3 exposed scroll position carrying between steps and a local draft-resume notice that crowded the branded composition.
+- Final pass resets scroll position on every step, keeps routine resume text out of the visual hierarchy, compacts the controls, and fits the complete training-days task and actions into the 390 x 844 viewport.
+
+### Final visual findings
+
+- No P0, P1, or P2 mismatch remains in the full-view or focused comparison.
+- The warm photographic header, black diagonal seam, condensed uppercase typography, cyan progress and selection states, dark equipment grid, unified weekday rail, and bottom Back/Next flow match the selected direction.
+- The implementation deliberately shows step 3 of 6 rather than the mock's step 3 of 5 because CornerIQ's approved onboarding still contains six functional steps.
+- The implementation uses the app's real copy, equipment model, schedule data, validation, and engine-backed draft behavior rather than mock-only content.
+- Selected and unselected controls maintain clear contrast and 44px-or-larger interaction targets.
+
+### Functional QA
+
+- The local browser journey reached and rendered all six onboarding steps in order.
+- Equipment and weekday selections updated visibly, Back and Next remained operable, and every step reset to its top when opened.
+- Existing-training, cycle-support, and goal controls remained interactive with their prior draft and validation behavior.
+- The structured local browser audit passed all 11 scenarios, including the real-input six-step onboarding journey and mobile-size smoke coverage.
+- The final repository quality run passed 903 tests; the single live-database smoke test remains intentionally skipped.
 
 ## First-Login Welcome Screen Image-to-Code QA
 
