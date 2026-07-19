@@ -116,8 +116,9 @@ function OnboardingHeader({
           fontFamily: fontFamilies.display,
           fontSize: titleSize,
           fontWeight: "400",
+          includeFontPadding: true,
           letterSpacing: 0.2,
-          lineHeight: titleSize * 0.96,
+          lineHeight: titleSize * 1.06,
           marginTop: spacing.lg,
           maxWidth: 282,
           textTransform: "uppercase"
@@ -158,7 +159,7 @@ function NavigationButton({
         alignItems: "center",
         backgroundColor: primary ? (pressed ? onboardingColors.cyanPressed : onboardingColors.cyan) : pressed ? "rgba(241, 234, 223, 0.08)" : "transparent",
         borderColor: primary ? onboardingColors.cyan : onboardingColors.hairline,
-        borderRadius: 3,
+        borderRadius: 5,
         borderWidth: 1,
         flex: primary ? 1.65 : 1,
         flexDirection: icon === "arrow-back" ? "row" : "row-reverse",
@@ -179,9 +180,11 @@ function NavigationButton({
 
 function StatusMessage({ children, tone }: { children: string; tone: "error" | "info" | "warning" }) {
   const color = tone === "error" ? "#FF6A77" : tone === "warning" ? "#F5B66B" : onboardingColors.muted;
+  const icon = tone === "error" ? "alert-circle-outline" : tone === "warning" ? "warning-outline" : "information-circle-outline";
   return (
-    <View style={{ borderColor: tone === "info" ? onboardingColors.hairline : color, borderLeftWidth: 3, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
-      <Text style={[onboardingStyles.bodyCopy, { color }]}>{children}</Text>
+    <View style={{ alignItems: "flex-start", backgroundColor: onboardingColors.inkRaised, borderColor: tone === "info" ? onboardingColors.hairline : color, borderRadius: 5, borderWidth: 1, flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}>
+      <Ionicons color={color} name={icon} size={20} />
+      <Text style={[onboardingStyles.bodyCopy, { color, flex: 1 }]}>{children}</Text>
     </View>
   );
 }

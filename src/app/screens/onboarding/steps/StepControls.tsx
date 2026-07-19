@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React from "react";
 import { Pressable, Text, TextInput, View, type TextInputProps, type ViewStyle } from "react-native";
-import { radii, spacing } from "../../../../design/theme";
+import { spacing } from "../../../../design/theme";
 import { fontFamilies } from "../../../../design/typography";
 import { onboardingColors, onboardingStyles } from "../onboardingTheme";
 
@@ -9,9 +9,9 @@ type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 type OnboardingOptionVisualStyle = ViewStyle & { boxShadow?: string };
 
 const optionBaseStyle = {
-  backgroundColor: "transparent",
+  backgroundColor: onboardingColors.inkRaised,
   borderColor: onboardingColors.hairline,
-  borderRadius: 2,
+  borderRadius: 5,
   borderWidth: 1,
   flexBasis: 146,
   flexGrow: 1,
@@ -23,12 +23,12 @@ const optionBaseStyle = {
 } satisfies ViewStyle;
 
 const optionSelectedStyle = {
-  backgroundColor: onboardingColors.cyanDeep,
-  borderColor: "rgba(39, 206, 241, 0.46)"
+  backgroundColor: onboardingColors.inkSelected,
+  borderColor: "rgba(39, 206, 241, 0.78)"
 } satisfies ViewStyle;
 
 const optionInteractiveStyle = {
-  backgroundColor: "rgba(241, 234, 223, 0.06)",
+  backgroundColor: "rgba(241, 234, 223, 0.075)",
   borderColor: onboardingColors.hairlineStrong,
   boxShadow: "0 0 0 1px rgba(241, 234, 223, 0.1)"
 } satisfies OnboardingOptionVisualStyle;
@@ -96,7 +96,7 @@ export function ChipButton({
       onPress={onPress}
       style={({ pressed }) => onboardingOptionStyle({ active, description: Boolean(description), disabled, focused, hovered, pressed })}
     >
-      {active ? <View pointerEvents="none" style={{ backgroundColor: onboardingColors.cyan, bottom: 0, left: 0, position: "absolute", top: 0, width: 4 }} /> : null}
+      {active ? <View pointerEvents="none" style={{ backgroundColor: onboardingColors.cyan, bottom: 0, left: 0, position: "absolute", top: 0, width: 3 }} /> : null}
       <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, width: "100%" }}>
         {icon ? <Ionicons color={active ? onboardingColors.white : onboardingColors.muted} name={icon} size={22} /> : null}
         <Text
@@ -134,7 +134,7 @@ export function SegmentedChoiceRow<T extends string>({
   selected: readonly T[];
 }) {
   return (
-    <View style={{ borderColor: onboardingColors.hairline, borderRadius: 2, borderWidth: 1, flexDirection: "row", minHeight: 62, overflow: "hidden", width: "100%" }}>
+    <View style={{ backgroundColor: onboardingColors.inkRaised, borderColor: onboardingColors.hairline, borderRadius: 5, borderWidth: 1, flexDirection: "row", minHeight: 62, overflow: "hidden", width: "100%" }}>
       {options.map((option, index) => {
         const active = selected.includes(option.value);
         return (
@@ -196,6 +196,8 @@ export function LabeledTextInput({
   example,
   helper,
   label,
+  onBlur,
+  onFocus,
   style,
   ...inputProps
 }: TextInputProps & {
@@ -203,6 +205,8 @@ export function LabeledTextInput({
   helper?: string | undefined;
   label: string;
 }) {
+  const [focused, setFocused] = React.useState(false);
+
   return (
     <View style={{ gap: spacing.xs }}>
       <Text style={onboardingStyles.fieldLabel}>{label}</Text>
@@ -210,17 +214,25 @@ export function LabeledTextInput({
       {example ? <Text style={[onboardingStyles.bodyCopy, { color: onboardingColors.white, fontFamily: fontFamilies.semibold, fontSize: 13 }]}>{`Example: ${example}`}</Text> : null}
       <TextInput
         accessibilityLabel={label}
+        onBlur={(event) => {
+          setFocused(false);
+          onBlur?.(event);
+        }}
+        onFocus={(event) => {
+          setFocused(true);
+          onFocus?.(event);
+        }}
         placeholderTextColor={onboardingColors.canvasMuted}
         style={[
           {
-            backgroundColor: onboardingColors.inkRaised,
-            borderColor: onboardingColors.hairline,
-            borderRadius: 2,
+            backgroundColor: focused ? "#10171D" : onboardingColors.inkRaised,
+            borderColor: focused ? onboardingColors.cyan : onboardingColors.hairlineStrong,
+            borderRadius: 5,
             borderWidth: 1,
             color: onboardingColors.white,
             fontFamily: fontFamilies.semibold,
             fontSize: 16,
-            minHeight: 52,
+            minHeight: 54,
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.sm
           },
@@ -246,7 +258,7 @@ export function OnboardingInlineAction({
       style={({ pressed }) => ({
         alignItems: "center",
         backgroundColor: pressed ? onboardingColors.cyanPressed : onboardingColors.cyan,
-        borderRadius: radii.control,
+        borderRadius: 5,
         justifyContent: "center",
         minHeight: 52,
         paddingHorizontal: spacing.lg

@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ISODateString } from "../engine/core/types";
 import { stableHash } from "../engine/core/stableHash";
@@ -79,11 +80,8 @@ async function resolveDraftStorage(): Promise<DraftStorageResolution> {
   if (!asyncStoragePromise) {
     asyncStoragePromise = (async () => {
       try {
-        const importModule = new Function("moduleName", "return import(moduleName)") as (moduleName: string) => Promise<unknown>;
-        const imported = await importModule("@react-native-async-storage/async-storage");
-        const storage = imported && typeof imported === "object" && "default" in imported ? (imported as { default?: unknown }).default : imported;
-        if (isDraftStorage(storage) && (await draftStorageRoundTripSucceeds(storage))) {
-          return { storage, type: "async" as const };
+        if (isDraftStorage(AsyncStorage) && (await draftStorageRoundTripSucceeds(AsyncStorage))) {
+          return { storage: AsyncStorage, type: "async" as const };
         }
       } catch {
         // Test, web, and local QA shells may not expose the native module.

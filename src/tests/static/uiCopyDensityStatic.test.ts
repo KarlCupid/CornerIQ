@@ -203,12 +203,18 @@ describe("fatigue-first UI copy density static checks", () => {
   it("keeps the championship onboarding system shared across every setup step", () => {
     const screenSource = readFileSync("src/app/screens/onboarding/OnboardingScreen.tsx", "utf8");
     const controlsSource = readFileSync("src/app/screens/onboarding/steps/StepControls.tsx", "utf8");
+    const themeSource = readFileSync("src/app/screens/onboarding/onboardingTheme.ts", "utf8");
+    const draftSource = readFileSync("src/hooks/useOnboardingDraft.ts", "utf8");
 
     expect(screenSource).toContain("onboarding-championship-ring.png");
     expect(screenSource).toContain("fontFamilies.display");
     expect(screenSource).not.toContain("PremiumCard");
     expect(controlsSource).toContain("SegmentedChoiceRow");
-    expect(controlsSource).toContain("onboardingColors.cyanDeep");
+    expect(controlsSource).toContain("onboardingColors.inkSelected");
+    expect(themeSource).toContain("lineHeight: 34");
+    expect(themeSource).toContain("includeFontPadding: true");
+    expect(draftSource).toContain('import AsyncStorage from "@react-native-async-storage/async-storage"');
+    expect(draftSource).not.toContain('new Function("moduleName"');
   });
 
   it("keeps card pills free of accent rails and marker dots", () => {

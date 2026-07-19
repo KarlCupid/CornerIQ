@@ -119,7 +119,7 @@ export function ProtectedScheduleStep({ draft, setStepError, updateDraft }: Onbo
       {workouts.map((workout, index) => (
         <View
           key={workout.id ?? `existing:${index}`}
-          style={{ alignItems: "center", backgroundColor: onboardingColors.inkRaised, borderColor: onboardingColors.hairline, borderLeftColor: onboardingColors.cyan, borderLeftWidth: 4, borderWidth: 1, flexDirection: "row", gap: spacing.sm, minHeight: 70, padding: spacing.md }}
+          style={{ alignItems: "center", backgroundColor: onboardingColors.inkRaised, borderColor: onboardingColors.hairlineStrong, borderLeftColor: onboardingColors.cyan, borderLeftWidth: 3, borderRadius: 5, borderWidth: 1, flexDirection: "row", gap: spacing.sm, minHeight: 70, padding: spacing.md }}
         >
           <Pressable accessibilityRole="button" onPress={() => editWorkout(index)} style={{ flex: 1 }}>
             <Text style={onboardingStyles.fieldLabel}>{weekdayLabel(workout.weekday)} · {existingTrainingDraftTitle(workout)}</Text>

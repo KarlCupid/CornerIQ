@@ -2,6 +2,41 @@
 
 final result: passed
 
+## Real-Device Onboarding Cleanup QA
+
+### Reference and capture
+
+- Source visual truth: `C:\Users\karll\Desktop\WhatsApp Image 2026-07-18 at 11.49.45 PM.jpeg`
+- Refined implementation: `qa-artifacts/design-qa/onboarding-cleanup-basic-430x932.png`
+- Refined selection controls: `qa-artifacts/design-qa/onboarding-cleanup-training-days-430x932.png`
+- Full-view comparison: `qa-artifacts/design-qa/onboarding-cleanup-comparison.png`
+- Focused form comparison: `qa-artifacts/design-qa/onboarding-cleanup-controls-comparison.png`
+- Viewport: 430 x 932 CSS pixels, matching the source capture's aspect ratio.
+- State: onboarding step 1 with age 25 and `Prefer not to say` selected; training-days controls were reviewed separately on step 3.
+
+### Comparison history
+
+- The source capture exposed P2 clipping risk in condensed section headings, soft low-contrast control outlines, and an oversized native-storage warning that interrupted the form hierarchy.
+- The cleanup pass increased condensed-font line boxes and font padding, strengthened the shared outline tokens, gave inputs and options consistent 5px corners and raised surfaces, refined selected states, and added a cyan focus state for text inputs.
+- The native draft warning was traced to a runtime-computed import that Metro could not bundle reliably. The draft hook now imports the installed native storage package directly; the refined capture confirms the warning no longer appears.
+- The post-fix full and focused comparisons show complete heading glyphs, clearer grouping, sharper controls, and no lost onboarding functionality.
+
+### Required fidelity surfaces
+
+- Fonts and typography: Bebas Neue remains the display face; header and section line heights now preserve complete ascenders and descenders without clipping.
+- Spacing and layout rhythm: removing the false storage warning restores the intended step-to-form transition; control padding and 5px radii are consistent across the shared system.
+- Colors and tokens: neutral outlines are slightly brighter, selected cards use a deeper cyan-black surface, and cyan remains reserved for progress, focus, and selection.
+- Image quality: the existing generated ring-corner asset remains sharp and correctly cropped at the 430 x 932 viewport.
+- Copy and content: all approved onboarding questions and helper copy remain unchanged; only the false storage warning disappears when native persistence is available.
+
+### Final findings
+
+- No actionable P0, P1, or P2 visual issue remains in the reviewed basic-information and training-days states.
+- The form remains intentionally scrollable because step 1 contains the full basic-information and measurement set.
+- Remaining differences between the physical screenshot and browser capture are native status-bar chrome and platform font rasterization, not product layout drift.
+- The final structured browser audit passed all 11 scenarios after the local Playwright browser dependency was restored.
+- The final quality run passed 903 tests; the single live-database smoke test remains intentionally skipped.
+
 ## Championship Flow Onboarding Image-to-Code QA
 
 ### Reference and capture

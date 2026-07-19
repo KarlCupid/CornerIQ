@@ -109,8 +109,8 @@ describe("onboarding step controls", () => {
     });
     const focusedStyle = renderedStyle(firstPressable(renderer));
 
-    expect(hoveredStyle.borderColor).toBe("rgba(241, 234, 223, 0.36)");
-    expect(hoveredStyle.backgroundColor).toBe("rgba(241, 234, 223, 0.06)");
+    expect(hoveredStyle.borderColor).toBe("rgba(241, 234, 223, 0.44)");
+    expect(hoveredStyle.backgroundColor).toBe("rgba(241, 234, 223, 0.075)");
     expect(hoveredStyle.boxShadow).toContain("rgba(241, 234, 223");
     expect(hoveredStyle.borderColor).not.toBe(idleStyle.borderColor);
     expect(focusedStyle.borderColor).toBe(hoveredStyle.borderColor);
