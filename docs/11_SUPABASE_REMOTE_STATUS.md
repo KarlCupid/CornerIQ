@@ -6,6 +6,22 @@ Purpose: stable runbook and historical status for CornerIQ Supabase release evid
 
 This document must not be treated as proof that the linked remote database is aligned for a future commit.
 
+## 2026-07-18 Development Migration Verification
+
+The workspace was confirmed linked to the active `CornerIQ Development` project (`llsmdsraunsweqmvefhj`). The production `CornerIQ` project (`fohdypahnobcchfmcrrn`) was not targeted or modified.
+
+| Evidence | Development status |
+| --- | --- |
+| Pre-apply migration list | `20260718092403_remove_obsolete_medical_profile_data.sql` was the only local migration missing remotely. |
+| Pre-apply dry-run | Reported that only `20260718092403_remove_obsolete_medical_profile_data.sql` would be pushed. |
+| Development apply | Applied migration `20260718092403` successfully. |
+| Migration history query | Returned one applied history row for version `20260718092403`. |
+| Data/schema verification query | Returned `profiles_with_obsolete_fields = 0` and `obsolete_column_count = 0`. |
+| Linked schema lint | Passed with no errors in `extensions` or `public`. |
+| Post-apply dry-run | Reported `Remote database is up to date.` |
+
+This verifies the Phase 1 questionnaire cleanup against development Supabase without requiring Docker Desktop. Production remains pending explicit release-owner approval and fresh exact-candidate checks.
+
 ## Project Link
 
 - Supabase CLI local dev dependency: `supabase@2.100.1`.
