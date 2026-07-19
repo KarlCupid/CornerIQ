@@ -32,8 +32,8 @@ The onboarding wizard uses six grouped screens. Each screen keeps related inform
    - Any combination of Boxing, Sparring, Strength, and Conditioning
    - Weekday, total duration, and expected effort
    - No start-time field
-5. **Cycle support**
-   - Optional private cycle-aware support
+5. **Period support**
+   - Optional private support based only on period symptoms the boxer chooses to log
 6. **Training goal**
    - Build phase
    - Fight camp

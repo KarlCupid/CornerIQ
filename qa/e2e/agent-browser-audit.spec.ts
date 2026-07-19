@@ -1037,11 +1037,16 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Existing training schedule");
   await expectVisibleText(page, /Add the recurring workouts already set by you, your coach, or your gym\./);
   await expectVisibleText(page, "Workout includes");
+  await expectVisibleText(page, "A coached group boxing session.");
+  await expectVisibleText(page, "Technique practice without hard contact.");
   await page.getByRole("button", { name: "Strength" }).click();
   await expectVisibleText(page, "Main part");
+  await expectVisibleText(page, "Upper and lower body in one workout.");
+  await expectVisibleText(page, "Mostly legs and hips.");
   await page.getByRole("button", { name: "Boxing", exact: true }).last().click();
   await page.getByRole("button", { name: "Pads / mitts" }).click();
   await page.getByRole("button", { name: "Lower body" }).click();
+  await capture(page, testInfo, "Onboarding existing training subtype tips", "05a-onboarding-existing-training-tips.png");
   await page.getByRole("button", { name: "Tue" }).click();
   await page.getByLabel("Total duration (minutes)").fill("75");
   await page.getByRole("button", { name: "8", exact: true }).click();
@@ -1058,11 +1063,13 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await capture(page, testInfo, "Onboarding existing training", "05-onboarding-existing-training.png");
   await goNext(page);
 
-  await expectVisibleText(page, "Cycle support");
-  await expectVisibleText(page, /Optional, private, symptom-aware/);
+  await expectVisibleText(page, "Period support");
+  await expectVisibleText(page, "Should CornerIQ use period symptoms you log?");
+  await expectVisibleText(page, /cramps, low energy, or a missed period/);
+  await expectVisibleText(page, /optional, private/);
   await expectVisibleText(page, /not fertility tracking\./);
-  await page.getByRole("button", { name: "Do not use cycle context" }).click();
-  await capture(page, testInfo, "Onboarding cycle support", "06-onboarding-cycle-support.png");
+  await page.getByRole("button", { name: "No, do not use period symptoms" }).click();
+  await capture(page, testInfo, "Onboarding period support", "06-onboarding-cycle-support.png");
   await goNext(page);
 
   await expectVisibleText(page, "Training goal");

@@ -38,7 +38,7 @@ function stepWhy(stepIndex: number): string {
     case 3:
       return "Add the recurring workouts already set by you, your coach, or your gym. CornerIQ will plan around them.";
     case 4:
-      return "Optional, private support you can change at any time.";
+      return "Choose whether CornerIQ can use period symptoms you log when adjusting your training.";
     default:
       return "Choose what CornerIQ should plan for first.";
   }

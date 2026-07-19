@@ -9,7 +9,7 @@ export const ONBOARDING_STEPS = [
   "Boxing background",
   "Available training days",
   "Existing training schedule",
-  "Cycle support",
+  "Period support",
   "Training goal"
 ] as const;
 

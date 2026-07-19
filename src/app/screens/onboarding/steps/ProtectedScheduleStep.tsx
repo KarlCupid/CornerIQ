@@ -21,13 +21,24 @@ const componentOptions: readonly { label: string; value: ExistingTrainingCompone
 ];
 
 const boxingOptions = [
-  ["Boxing class", "boxing_class"], ["Technical work", "technical_work"], ["Pads / mitts", "pads_mitts"],
-  ["Bag work", "bag_work"], ["Footwork", "footwork"]
+  { description: "A coached group boxing session.", label: "Boxing class", value: "boxing_class" },
+  { description: "Technique practice without hard contact.", label: "Technical work", value: "technical_work" },
+  { description: "Rounds hitting pads with a coach or partner.", label: "Pads / mitts", value: "pads_mitts" },
+  { description: "Rounds on a heavy bag.", label: "Bag work", value: "bag_work" },
+  { description: "Movement, balance, and positioning drills.", label: "Footwork", value: "footwork" }
 ] as const;
-const strengthOptions = [["Full body", "full_body"], ["Lower body", "lower_body"], ["Upper body", "upper_body"], ["Core / trunk", "trunk"]] as const;
+const strengthOptions = [
+  { description: "Upper and lower body in one workout.", label: "Full body", value: "full_body" },
+  { description: "Mostly legs and hips.", label: "Lower body", value: "lower_body" },
+  { description: "Mostly chest, back, shoulders, and arms.", label: "Upper body", value: "upper_body" },
+  { description: "Mostly abs, sides, and lower back.", label: "Core / trunk", value: "trunk" }
+] as const;
 const conditioningOptions = [
-  ["Steady cardio", "steady_cardio"], ["Intervals", "intervals"], ["Short bursts", "short_bursts"],
-  ["Timed rounds", "timed_rounds"], ["Circuit", "circuit"]
+  { description: "Easy-to-moderate work at a steady pace.", label: "Steady cardio", value: "steady_cardio" },
+  { description: "Hard efforts with easier recovery between them.", label: "Intervals", value: "intervals" },
+  { description: "Very short, fast efforts with rest.", label: "Short bursts", value: "short_bursts" },
+  { description: "Work and rest set up like boxing rounds.", label: "Timed rounds", value: "timed_rounds" },
+  { description: "Several exercises repeated in sequence.", label: "Circuit", value: "circuit" }
 ] as const;
 
 function intensityForRpe(rpe: number): RecurringProtectedWorkoutAnchorDraft["intensity"] {
@@ -151,9 +162,9 @@ export function ProtectedScheduleStep({ draft, setStepError, updateDraft }: Onbo
         </FieldGroup>
       ) : null}
 
-      {components.includes("boxing") ? <FieldGroup label="Boxing work"><View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>{boxingOptions.map(([label, value]) => <ChipButton active={boxingFormat === value} key={value} label={label} onPress={() => setBoxingFormat(value)} />)}</View></FieldGroup> : null}
-      {components.includes("strength") ? <FieldGroup helper="What area does the strength work mainly train?" label="Strength area"><View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>{strengthOptions.map(([label, value]) => <ChipButton active={strengthArea === value} key={value} label={label} onPress={() => setStrengthArea(value)} />)}</View></FieldGroup> : null}
-      {components.includes("conditioning") ? <FieldGroup label="Conditioning format"><View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>{conditioningOptions.map(([label, value]) => <ChipButton active={conditioningFormat === value} key={value} label={label} onPress={() => setConditioningFormat(value)} />)}</View></FieldGroup> : null}
+      {components.includes("boxing") ? <FieldGroup label="Boxing work"><View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>{boxingOptions.map((option) => <ChipButton active={boxingFormat === option.value} description={option.description} key={option.value} label={option.label} onPress={() => setBoxingFormat(option.value)} />)}</View></FieldGroup> : null}
+      {components.includes("strength") ? <FieldGroup helper="What area does the strength work mainly train?" label="Strength area"><View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>{strengthOptions.map((option) => <ChipButton active={strengthArea === option.value} description={option.description} key={option.value} label={option.label} onPress={() => setStrengthArea(option.value)} />)}</View></FieldGroup> : null}
+      {components.includes("conditioning") ? <FieldGroup label="Conditioning format"><View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>{conditioningOptions.map((option) => <ChipButton active={conditioningFormat === option.value} description={option.description} key={option.value} label={option.label} onPress={() => setConditioningFormat(option.value)} />)}</View></FieldGroup> : null}
 
       <FieldGroup label="Day"><View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>{weekdays.map(([label, value]) => <ChipButton active={weekday === value} key={value} label={label.slice(0, 3)} onPress={() => setWeekday(value)} />)}</View></FieldGroup>
       <LabeledTextInput keyboardType="number-pad" label="Total duration (minutes)" onChangeText={setDuration} placeholder="60" value={duration} />

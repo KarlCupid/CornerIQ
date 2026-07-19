@@ -236,6 +236,41 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(draftSource).not.toContain('new Function("moduleName"');
   });
 
+  it("asks the period-support question directly and keeps its choices simple", () => {
+    const screenSource = readFileSync("src/app/screens/onboarding/OnboardingScreen.tsx", "utf8");
+    const stepSource = readFileSync("src/app/screens/onboarding/steps/CycleSupportStep.tsx", "utf8");
+    const draftSource = readFileSync("src/hooks/useOnboardingDraft.ts", "utf8");
+
+    expect(draftSource).toContain('"Period support"');
+    expect(screenSource).toContain("period symptoms you log");
+    expect(stepSource).toContain('label="Should CornerIQ use period symptoms you log?"');
+    expect(stepSource).toContain('label="Yes"');
+    expect(stepSource).toContain('label="No"');
+    expect(stepSource).toContain('label="Decide later"');
+    expect(stepSource).toContain("cramps, low energy, or a missed period");
+    expect(stepSource).not.toContain("Enable symptom-aware support");
+    expect(stepSource).not.toContain("Do not use cycle context");
+  });
+
+  it("keeps existing-training subtype tips short and concrete", () => {
+    const source = readFileSync("src/app/screens/onboarding/steps/ProtectedScheduleStep.tsx", "utf8");
+
+    for (const tip of [
+      "A coached group boxing session.",
+      "Technique practice without hard contact.",
+      "Rounds on a heavy bag.",
+      "Upper and lower body in one workout.",
+      "Mostly legs and hips.",
+      "Easy-to-moderate work at a steady pace.",
+      "Hard efforts with easier recovery between them.",
+      "Work and rest set up like boxing rounds."
+    ]) {
+      expect(source).toContain(tip);
+    }
+
+    expect(source).toContain("description={option.description}");
+  });
+
   it("keeps card pills free of accent rails and marker dots", () => {
     const pillBlocks: readonly { end: string; file: string; start: string }[] = [
       { file: "src/design/components/LuminousScreen.tsx", start: "export function AccentPill", end: "export function LuminousProgressBar" },

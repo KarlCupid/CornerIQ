@@ -190,7 +190,7 @@ describe("agent browser QA static checks", () => {
     expect(scenario).toContain("Boxing \\+ Strength");
     expect(scenario).toContain("Sparring");
     expect(scenario).toContain("Fight camp");
-    expect(scenario).toContain("Do not use cycle context");
+    expect(scenario).toContain("No, do not use period symptoms");
     expect(scenario).not.toContain("Wearable preference");
     expect(scenario).not.toContain("Safety screening");
   });

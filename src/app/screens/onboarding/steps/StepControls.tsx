@@ -66,6 +66,7 @@ function onboardingOptionStyle({
 }
 
 export function ChipButton({
+  accessibilityLabel,
   active,
   description,
   disabled = false,
@@ -73,6 +74,7 @@ export function ChipButton({
   label,
   onPress
 }: {
+  accessibilityLabel?: string | undefined;
   active: boolean;
   description?: string;
   disabled?: boolean;
@@ -85,7 +87,7 @@ export function ChipButton({
 
   return (
     <Pressable
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
       accessibilityState={{ disabled, selected: active }}
       disabled={disabled}

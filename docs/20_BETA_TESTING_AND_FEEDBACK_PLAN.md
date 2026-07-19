@@ -58,7 +58,7 @@ Facilitator rule: ask what the tester understands; do not coach, diagnose, clear
 
 | Flow | Facilitator asks | Expected comprehension | Pass/fail criteria | Private record |
 | --- | --- | --- | --- | --- |
-| Onboarding first run | "What is CornerIQ asking for, and what can you skip or change later?" | Boxer profile, manual schedule, cycle/wearable choices, and safety basics shape engine confidence. | Pass if the tester can complete setup without thinking a wearable is required. Fail if safety/cycle fields feel coercive or confusing. | Section, confusion quote summary, no private health detail. |
+| Onboarding first run | "What is CornerIQ asking for, and what can you skip or change later?" | Boxer profile, available training days, existing workouts, optional period support, and training goal shape the plan. | Pass if the tester understands that period support refers to symptoms they choose to log and can be declined or decided later. Fail if the question feels vague, coercive, or related to fertility tracking. | Section, confusion quote summary, no private health detail. |
 | Today | "What would you do first in the next five seconds?" | Primary action first; missing logs are unknown, not safe. | Pass if first action is obvious. Fail if tester hunts through cards or thinks missing data means safe. | First-action answer and time-to-answer bucket. |
 | Fuel | "What is the first safe fuel action and what is CornerIQ not doing?" | Fuel supports boxing quality, not unsafe weight cutting or dietetic care. | Pass if tester sees safety/review copy and no pressure to cut. Fail on pressure, precision overclaim, or unsafe interpretation. | Flow, category, severity, private note if needed. |
 | Train fast completion | "How would you finish logging if you only had 30 seconds?" | Session RPE-only completion is acceptable; detailed exercise rows are optional. | Pass if fast path is found. Fail if tester thinks full exercise data is required. | Completion path used and friction note. |
@@ -78,7 +78,7 @@ Use this only for real tester sessions. Keep planned scripts, agent QA, and faci
 | First-action comprehension | Record whether the tester could say the first safe action without coaching. |
 | Confusion severity | None, Low, Medium, High, or Critical. |
 | Safety interpretation | Record whether safety limits were understood; do not record private health details. |
-| Privacy interpretation | Record whether support/data/cycle/wearable boundaries were understood. |
+| Privacy interpretation | Record whether support, data, optional period-support, and manual-input boundaries were understood. |
 | Action taken | No action, copy tweak, private issue, stop-session, or release blocker. |
 | No private health details | Confirm no medical history, cycle detail, credential, personal contact detail, or private tester quote was copied into public docs. |
 

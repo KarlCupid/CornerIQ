@@ -47,9 +47,7 @@ The full onboarding audit covers the real first-time path before any shortcut:
 - Body mass with kg/cm labels, examples, and missing-data safety copy.
 - Training access with Monday-Sunday availability chips plus optional equipment and availability notes.
 - Protected weekly anchors for recurring Tuesday pads and Thursday protected sparring using RPE selection.
-- Cycle support disabled while confirming optional/private/non-fertility copy.
-- Manual-only wearable preference.
-- Safety screening with male sex-at-birth selection hiding pregnancy-specific choices, no medication collection, and constrained engine-relevant safety restrictions.
+- Period support set to No while confirming that the question explicitly refers to period symptoms and remains optional, private, and separate from fertility tracking.
 - Build phase goal selection with plain-English explanations.
 - Finish setup reaches Today.
 - Mobile-width Today after the real onboarding path.
