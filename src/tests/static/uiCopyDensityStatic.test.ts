@@ -208,9 +208,13 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(authShellSource).toContain("const bodyTopPadding =");
     expect(authShellSource).toContain("Math.min(318");
     expect(authShellSource).toContain("maxWidth: 382");
+    expect(authShellSource).toContain('testID="auth-hero-image"');
+    expect(authShellSource).toContain('testID="auth-hero-content"');
     expect(authShellSource).not.toContain("onboarding-welcome-ring-editorial-v2.png");
     expect(welcomeSource).toContain("onboarding-welcome-ring-editorial-v2.png");
     expect(welcomeSource).toContain("Math.min(326");
+    expect(welcomeSource).toContain('testID="welcome-hero-image"');
+    expect(welcomeSource).toContain('testID="welcome-hero-content"');
     expect(welcomeSource).toContain('numberOfLines={2}');
     expect(welcomeSource).toContain('justifyContent: "space-between"');
   });

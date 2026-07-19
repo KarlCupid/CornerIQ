@@ -1,5 +1,5 @@
 import React from "react";
-import { ImageBackground, Pressable, Text, useWindowDimensions, View } from "react-native";
+import { Image, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import onboardingWelcomeBackground from "../../../../assets/backgrounds/onboarding-welcome-ring-editorial-v2.png";
@@ -86,57 +86,76 @@ export function OnboardingWelcomeScreen({ busy, onSignOut, onStart }: Onboarding
     >
       <StatusBar style="dark" />
       <View style={{ flex: 1, maxWidth: 430, width: "100%" }}>
-        <ImageBackground
-          resizeMode="cover"
-          source={onboardingWelcomeBackground}
+        <View
           style={{
             backgroundColor: OPENING_BELL_IVORY,
             height: heroHeight,
-            paddingHorizontal: spacing.xl,
-            paddingTop: heroTopPadding,
             width: "100%"
           }}
         >
-          <CornerIQWordmark alignment="left" editorial tone="dark" />
-          <View
+          <Image
+            resizeMode="cover"
+            source={onboardingWelcomeBackground}
             style={{
-              gap: spacing.sm,
-              marginTop: veryCompactHeight ? 20 : compactHeight ? 24 : 30,
-              maxWidth: veryCompactHeight ? 222 : 246
+              bottom: 0,
+              height: "100%",
+              left: 0,
+              position: "absolute",
+              right: 0,
+              top: 0,
+              width: "100%"
+            }}
+            testID="welcome-hero-image"
+          />
+          <View
+            testID="welcome-hero-content"
+            style={{
+              flex: 1,
+              paddingHorizontal: spacing.xl,
+              paddingTop: heroTopPadding
             }}
           >
-            <Text
-              adjustsFontSizeToFit
-              minimumFontScale={0.84}
-              numberOfLines={2}
-              selectable={false}
+            <CornerIQWordmark alignment="left" editorial tone="dark" />
+            <View
               style={{
-                color: OPENING_BELL_BLACK,
-                fontFamily: fontFamilies.display,
-                fontSize: veryCompactHeight ? 42 : compactHeight ? 45 : 48,
-                fontWeight: "400",
-                includeFontPadding: true,
-                letterSpacing: 0.5,
-                lineHeight: veryCompactHeight ? 44 : compactHeight ? 47 : 50,
-                textTransform: "uppercase"
+                gap: spacing.sm,
+                marginTop: veryCompactHeight ? 20 : compactHeight ? 24 : 30,
+                maxWidth: veryCompactHeight ? 222 : 246
               }}
             >
-              Welcome to CornerIQ
-            </Text>
-            <Text
-              style={{
-                color: "#5E5C58",
-                fontFamily: fontFamilies.medium,
-                fontSize: veryCompactHeight ? 13 : compactHeight ? 14 : 15,
-                fontWeight: "500",
-                lineHeight: veryCompactHeight ? 18 : compactHeight ? 19 : 21,
-                maxWidth: 236
-              }}
-            >
-              CornerIQ builds around your needs, schedule and goals.
-            </Text>
+              <Text
+                adjustsFontSizeToFit
+                minimumFontScale={0.84}
+                numberOfLines={2}
+                selectable={false}
+                style={{
+                  color: OPENING_BELL_BLACK,
+                  fontFamily: fontFamilies.display,
+                  fontSize: veryCompactHeight ? 42 : compactHeight ? 45 : 48,
+                  fontWeight: "400",
+                  includeFontPadding: true,
+                  letterSpacing: 0.5,
+                  lineHeight: veryCompactHeight ? 44 : compactHeight ? 47 : 50,
+                  textTransform: "uppercase"
+                }}
+              >
+                Welcome to CornerIQ
+              </Text>
+              <Text
+                style={{
+                  color: "#5E5C58",
+                  fontFamily: fontFamilies.medium,
+                  fontSize: veryCompactHeight ? 13 : compactHeight ? 14 : 15,
+                  fontWeight: "500",
+                  lineHeight: veryCompactHeight ? 18 : compactHeight ? 19 : 21,
+                  maxWidth: 236
+                }}
+              >
+                CornerIQ builds around your needs, schedule and goals.
+              </Text>
+            </View>
           </View>
-        </ImageBackground>
+        </View>
 
         <View
           style={{

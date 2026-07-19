@@ -1,5 +1,5 @@
 import React, { type PropsWithChildren } from "react";
-import { ImageBackground, KeyboardAvoidingView, Platform, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { Image, KeyboardAvoidingView, Platform, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import authSignInBackground from "../../../assets/backgrounds/auth-sign-in-gloves-v2.png";
@@ -45,58 +45,77 @@ export function AuthBackgroundShell({
           showsVerticalScrollIndicator={false}
           style={{ backgroundColor: OPENING_BELL_BLACK, flex: 1 }}
         >
-          <ImageBackground
-            resizeMode="cover"
-            source={authSignInBackground}
+          <View
             style={{
               backgroundColor: OPENING_BELL_IVORY,
               height: heroHeight,
-              paddingHorizontal: spacing.xl,
-              paddingTop: heroTopPadding,
               width: "100%"
             }}
           >
-            <CornerIQWordmark alignment="left" editorial tone="dark" />
-            <View
+            <Image
+              resizeMode="cover"
+              source={authSignInBackground}
               style={{
-                gap: spacing.sm,
-                marginTop: veryCompactHeight ? 24 : compactHeight ? 30 : 38,
-                maxWidth: veryCompactHeight ? 205 : 224
+                bottom: 0,
+                height: "100%",
+                left: 0,
+                position: "absolute",
+                right: 0,
+                top: 0,
+                width: "100%"
+              }}
+              testID="auth-hero-image"
+            />
+            <View
+              testID="auth-hero-content"
+              style={{
+                flex: 1,
+                paddingHorizontal: spacing.xl,
+                paddingTop: heroTopPadding
               }}
             >
-              <Text
-                adjustsFontSizeToFit
-                minimumFontScale={0.82}
-                numberOfLines={2}
-                selectable={false}
+              <CornerIQWordmark alignment="left" editorial tone="dark" />
+              <View
                 style={{
-                  color: OPENING_BELL_BLACK,
-                  fontFamily: fontFamilies.display,
-                  fontSize: veryCompactHeight ? 46 : compactHeight ? 50 : 54,
-                  fontWeight: "400",
-                  includeFontPadding: true,
-                  letterSpacing: 0.5,
-                  lineHeight: veryCompactHeight ? 48 : compactHeight ? 52 : 56,
-                  textTransform: "uppercase"
+                  gap: spacing.sm,
+                  marginTop: veryCompactHeight ? 24 : compactHeight ? 30 : 38,
+                  maxWidth: veryCompactHeight ? 205 : 224
                 }}
               >
-                {heading}
-              </Text>
-              <Text
-                selectable={false}
-                style={{
-                  color: "#5E5C58",
-                  fontFamily: fontFamilies.medium,
-                  fontSize: veryCompactHeight ? 14 : 15,
-                  fontWeight: "500",
-                  lineHeight: veryCompactHeight ? 19 : 21,
-                  maxWidth: 220
-                }}
-              >
-                {subheading}
-              </Text>
+                <Text
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.82}
+                  numberOfLines={2}
+                  selectable={false}
+                  style={{
+                    color: OPENING_BELL_BLACK,
+                    fontFamily: fontFamilies.display,
+                    fontSize: veryCompactHeight ? 46 : compactHeight ? 50 : 54,
+                    fontWeight: "400",
+                    includeFontPadding: true,
+                    letterSpacing: 0.5,
+                    lineHeight: veryCompactHeight ? 48 : compactHeight ? 52 : 56,
+                    textTransform: "uppercase"
+                  }}
+                >
+                  {heading}
+                </Text>
+                <Text
+                  selectable={false}
+                  style={{
+                    color: "#5E5C58",
+                    fontFamily: fontFamilies.medium,
+                    fontSize: veryCompactHeight ? 14 : 15,
+                    fontWeight: "500",
+                    lineHeight: veryCompactHeight ? 19 : 21,
+                    maxWidth: 220
+                  }}
+                >
+                  {subheading}
+                </Text>
+              </View>
             </View>
-          </ImageBackground>
+          </View>
 
           <View
             style={{

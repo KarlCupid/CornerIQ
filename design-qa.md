@@ -2,6 +2,27 @@
 
 final result: passed
 
+## Opening Bell Full-Bleed Hero Correction
+
+### Reference and capture
+
+- Source device feedback - Sign In: `C:\Users\karll\Downloads\IMG_0151.PNG`
+- Source device feedback - Welcome: `C:\Users\karll\Downloads\IMG_0152.PNG`
+- Corrected Sign In capture: `qa-artifacts/design-qa/auth-full-bleed-fix-390x844.png`
+- Corrected Welcome capture: `qa-artifacts/design-qa/welcome-full-bleed-fix-390x844.png`
+- Combined comparison: `qa-artifacts/design-qa/auth-welcome-full-bleed-comparison.png`
+- Viewport: 390 x 844 CSS pixels. The orange banner and green notice are local-only test surfaces and are excluded from product-fidelity judgments.
+
+### Finding and correction
+
+- The supplied iPhone captures exposed a P2 layout issue: the photo layer stopped before the physical right edge while the rest of each screen remained full width.
+- The root cause was content padding applied directly to `ImageBackground`, which also constrained its native image layer.
+- Both heroes now use an explicit, absolutely positioned full-width image beneath a separately padded content overlay. The logo, headline, supporting copy, crop, and body spacing remain unchanged.
+- Browser geometry confirms each hero image spans from `left: 0` through the full 390-point viewport width on Sign In and Welcome, with no remaining right-edge strip.
+- Final confirmation of the platform-specific behavior remains a physical-iPhone review item; the implementation and responsive browser comparison have no remaining actionable P0, P1, or P2 issue.
+
+final result: passed
+
 ## Opening Bell Device Refinement QA
 
 ### Reference and capture
