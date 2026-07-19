@@ -2059,15 +2059,15 @@ describe("minimal app screens", () => {
 
     expect(output).toContain("CornerIQ");
     expect(output).toContain("Welcome back");
-    expect(output).toContain("Sign in to load your boxer prep state.");
+    expect(output).toContain("Sign in to continue to your training plan.");
     expect(output).toContain("you@example.com");
     expect(output).toContain("Password");
     expect(output).toContain("Sign in");
     expect(output).toContain("Forgot password?");
-    expect(output).toContain("New here? Create account");
-    expect(output).toContain("Readiness");
-    expect(output).toContain("Training");
-    expect(output).toContain("Fuel");
+    expect(output).toContain("New to CornerIQ? Create account");
+    expect(output).not.toContain("Readiness");
+    expect(output).not.toContain("Training");
+    expect(output).not.toContain("Fuel");
   });
 
   it("AuthScreen validates empty credentials before calling auth actions", async () => {
@@ -2098,21 +2098,18 @@ describe("minimal app screens", () => {
 
   it("AuthScreen renders the create-account flow and keeps sign-up behavior", async () => {
     const { AuthScreen } = await import("../../app/screens/AuthScreen");
-    const onSignUp = vi.fn();
+    const onSignUp = vi.fn(async () => true);
     const renderer = render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onRequestPasswordReset: vi.fn(), onSignIn: vi.fn(), onSignUp }));
 
-    await switchSection(renderer, "New here? Create account");
+    await switchSection(renderer, "New to CornerIQ? Create account");
     const output = JSON.stringify(renderer.toJSON());
 
     expect(output).toContain("Create your account");
-    expect(output).toContain("Start building your boxer prep state.");
-    expect(output).toContain("Account");
-    expect(output).toContain("Confirm email");
-    expect(output).toContain("Build profile");
+    expect(output).toContain("Create your account to begin setting up CornerIQ.");
     expect(output).toContain("Create account");
-    expect(output).toContain("After sign-up, check your email to confirm before signing in.");
-    expect(output).toContain("Already have an account? Sign in.");
-    expect(output).toContain("CornerIQ keeps training, readiness, and fuel context connected.");
+    expect(output).toContain("We’ll send a confirmation link to your email.");
+    expect(output).toContain("Already have an account? Sign in");
+    expect(output).not.toContain("Build profile");
 
     act(() => {
       changeInput(renderer, "you@example.com", "new@example.com");
@@ -2121,6 +2118,24 @@ describe("minimal app screens", () => {
     await switchSection(renderer, "Create account");
 
     expect(onSignUp).toHaveBeenCalledWith("new@example.com", "new-secret");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Welcome back");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Account created. Check your email to confirm it, then sign in.");
+  });
+
+  it("AuthScreen keeps the create-account form open when sign-up fails", async () => {
+    const { AuthScreen } = await import("../../app/screens/AuthScreen");
+    const onSignUp = vi.fn(async () => false);
+    const renderer = render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onRequestPasswordReset: vi.fn(), onSignIn: vi.fn(), onSignUp }));
+
+    await switchSection(renderer, "New to CornerIQ? Create account");
+    act(() => {
+      changeInput(renderer, "you@example.com", "new@example.com");
+      changeInput(renderer, "Password", "new-secret");
+    });
+    await switchSection(renderer, "Create account");
+
+    expect(JSON.stringify(renderer.toJSON())).toContain("Create your account");
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Account created.");
   });
 
   it("AuthScreen separates info messages from errors", async () => {
@@ -7613,7 +7628,7 @@ describe("minimal app screens", () => {
     expect(snapshot.current?.session).toBeNull();
 
     await act(async () => {
-      await snapshot.current?.signUp("boxer@example.com", "password");
+      expect(await snapshot.current?.signUp("boxer@example.com", "password")).toBe(true);
     });
     expect(fakeAuth.signUpWithPassword).toHaveBeenCalledWith("boxer@example.com", "password", ACCOUNT_CONFIRMATION_REDIRECT_URL);
     expect(snapshot.current?.authError).toBeNull();

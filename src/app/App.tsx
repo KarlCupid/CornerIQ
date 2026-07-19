@@ -455,8 +455,8 @@ function LocalE2EApp() {
             setMessage("Local E2E sign-in complete. Continue through demo onboarding.");
           }}
           onSignUp={async () => {
-            setSignedIn(true);
-            setMessage("Local E2E sign-up complete. Continue through demo onboarding.");
+            setMessage("Local E2E sign-up completed locally. Return to sign in.");
+            return true;
           }}
         />
       </LocalE2EFrame>

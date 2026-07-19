@@ -38,7 +38,7 @@ export interface SupabaseSessionState {
   session: Session | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<boolean>;
   startupError: string | null;
   status: SupabaseSessionStatus;
   updatePassword: (password: string) => Promise<void>;
@@ -431,12 +431,12 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       if (!credentials.email || !credentials.password) {
         setAuthError("Email and password are required.");
         setAuthMessage(null);
-        return;
+        return false;
       }
       if (!auth) {
         setAuthError("Supabase auth is not configured.");
         setAuthMessage(null);
-        return;
+        return false;
       }
 
       setAuthLoading(true);
@@ -448,9 +448,11 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
         const { error } = await auth.signUpWithPassword(credentials.email, credentials.password, ACCOUNT_CONFIRMATION_REDIRECT_URL);
         setAuthError(error?.message ?? null);
         setAuthMessage(error ? null : "Check your email to confirm the new account. After confirming, return to CornerIQ and sign in.");
+        return !error;
       } catch (error) {
         setAuthError(authErrorMessage(error, "Sign-up failed. Check the connection and try again."));
         setAuthMessage(null);
+        return false;
       } finally {
         setAuthLoading(false);
       }

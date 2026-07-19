@@ -1084,7 +1084,7 @@ test("full first-time onboarding uses real inputs before Today", async ({ page }
 
   await expect(page.getByTestId("local-e2e-banner")).toContainText("Local E2E mode");
   await expect(page.getByTestId("auth-screen")).toBeVisible();
-  await expect(page.getByTestId("auth-screen").getByText("CornerIQ")).toBeVisible();
+  await expect(page.getByTestId("auth-screen").getByText("CornerIQ", { exact: true })).toBeVisible();
   await capture(page, testInfo, "Auth screen", "01-auth-screen.png");
 
   await completeRealOnboarding(page, testInfo);
@@ -1129,7 +1129,7 @@ test("first launch reaches auth, local demo onboarding, Today, and quick logs", 
 
   await expect(page.getByTestId("local-e2e-banner")).toContainText("Local E2E mode");
   await expect(page.getByTestId("auth-screen")).toBeVisible();
-  await expect(page.getByTestId("auth-screen").getByText("CornerIQ")).toBeVisible();
+  await expect(page.getByTestId("auth-screen").getByText("CornerIQ", { exact: true })).toBeVisible();
   await capture(page, testInfo, "Smoke auth screen", "smoke-01-auth-screen.png");
 
   await localSignIn(page);

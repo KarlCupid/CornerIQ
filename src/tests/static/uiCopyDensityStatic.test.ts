@@ -202,9 +202,12 @@ describe("fatigue-first UI copy density static checks", () => {
       { file: "src/app/screens/TrainScreen.tsx", start: "function TrainTonePill", end: "function TrainPrimaryButton" },
       { file: "src/app/screens/FuelScreen.tsx", start: "function FuelTonePill", end: "function FuelActionButton" },
       { file: "src/app/screens/PlanScreen.tsx", start: "function PlanTonePill", end: "function PlanButton" },
-      { file: "src/app/screens/ProfileScreen.tsx", start: "function ProfileStatusPill", end: "export interface ProfileScreenProps" },
-      { file: "src/app/screens/AuthScreen.tsx", start: "function TrustPills", end: "export function AuthScreen" }
+      { file: "src/app/screens/ProfileScreen.tsx", start: "function ProfileStatusPill", end: "export interface ProfileScreenProps" }
     ];
+
+    const authSource = readFileSync("src/app/screens/AuthScreen.tsx", "utf8");
+    expect(authSource).not.toContain("function TrustPills");
+    expect(authSource).not.toContain("<TrustPills");
 
     for (const { end, file, start } of pillBlocks) {
       const source = readFileSync(file, "utf8");

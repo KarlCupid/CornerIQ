@@ -12,7 +12,7 @@ export interface AuthScreenProps {
   message?: string | null;
   onRequestPasswordReset: (email: string) => Promise<void>;
   onSignIn: (email: string, password: string) => Promise<void>;
-  onSignUp: (email: string, password: string) => Promise<void>;
+  onSignUp: (email: string, password: string) => Promise<boolean>;
   onUpdatePassword?: ((password: string) => Promise<void>) | undefined;
   passwordRecoveryReady?: boolean | undefined;
 }
@@ -26,11 +26,11 @@ const authModeCopy: Record<AuthMode, { heading: string; subheading: string }> = 
   },
   sign_in: {
     heading: "Welcome back",
-    subheading: "Sign in to load your boxer prep state."
+    subheading: "Sign in to continue to your training plan."
   },
   sign_up: {
     heading: "Create your account",
-    subheading: "Start building your boxer prep state."
+    subheading: "Create your account to begin setting up CornerIQ."
   },
   update_password: {
     heading: "Set new password",
@@ -43,13 +43,14 @@ function AuthCard({ children }: React.PropsWithChildren) {
     <View
       style={{
         ...glassStyles.cardDeep,
-        backgroundColor: "rgba(5, 10, 18, 0.84)",
-        borderColor: "rgba(232, 240, 255, 0.13)",
+        backgroundColor: "rgba(3, 10, 22, 0.9)",
+        borderColor: "rgba(39, 206, 241, 0.34)",
         borderRadius: radii.card,
         boxShadow: "0 20px 44px rgba(0, 0, 0, 0.4), 0 0 20px rgba(39, 206, 241, 0.14)",
-        gap: spacing.lg,
+        gap: 18,
         overflow: "hidden",
-        padding: spacing.xl,
+        paddingHorizontal: spacing.xl,
+        paddingVertical: spacing.lg,
         width: "100%"
       }}
     >
@@ -265,42 +266,6 @@ function LinkButton({
   );
 }
 
-function QuietAuthButton({
-  disabled,
-  label,
-  onPress
-}: {
-  disabled: boolean;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityLabel={label}
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={{
-        ...glassStyles.control,
-        alignItems: "center",
-        backgroundColor: "rgba(255, 255, 255, 0.035)",
-        borderColor: "rgba(217, 228, 244, 0.22)",
-        borderRadius: radii.control,
-        justifyContent: "center",
-        minHeight: 50,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.md,
-        width: "100%"
-      }}
-    >
-      <Text style={{ color: "rgba(183, 196, 217, 0.96)", fontSize: 16, fontWeight: "600", lineHeight: 22, textAlign: "center" }}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 function NoticeText({ children, tone }: React.PropsWithChildren<{ tone: "error" | "message" }>) {
   const color = tone === "error" ? colors.redCorner : colors.readyGreen;
   return (
@@ -322,130 +287,40 @@ function NoticeText({ children, tone }: React.PropsWithChildren<{ tone: "error" 
   );
 }
 
-function SignUpStepper() {
-  return (
-    <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center", width: "100%" }}>
-      <View
-        style={{
-          alignItems: "center",
-          backgroundColor: "rgba(39, 206, 241, 0.09)",
-          borderColor: "rgba(39, 206, 241, 0.52)",
-          borderCurve: "continuous",
-          borderRadius: radii.control,
-          borderWidth: 1,
-          flexDirection: "row",
-          gap: spacing.sm,
-          minHeight: 42,
-          paddingHorizontal: spacing.md
-        }}
-      >
-        <View style={{ backgroundColor: colors.blueIQ, borderRadius: radii.pill, height: 16, width: 16 }} />
-        <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "700", lineHeight: 20 }}>Account</Text>
-      </View>
-      <View style={{ backgroundColor: colors.blueIQ, height: 1, width: 32 }} />
-      <StepDot label="Confirm email" />
-      <View style={{ backgroundColor: "rgba(139, 163, 198, 0.58)", height: 1, width: 32 }} />
-      <StepDot label="Build profile" />
-    </View>
-  );
-}
-
-function StepDot({ label }: { label: string }) {
-  return (
-    <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, minHeight: 42 }}>
-      <View style={{ borderColor: "rgba(139, 163, 198, 0.76)", borderRadius: radii.pill, borderWidth: 2, height: 24, width: 24 }} />
-      <Text style={{ color: "rgba(183, 196, 217, 0.74)", fontSize: 15, fontWeight: "600", lineHeight: 20 }}>{label}</Text>
-    </View>
-  );
-}
-
-function SignUpInfoNote() {
-  return (
-    <View
-      style={{
-        alignItems: "center",
-        backgroundColor: "rgba(255, 255, 255, 0.035)",
-        borderColor: "rgba(217, 228, 244, 0.26)",
-        borderCurve: "continuous",
-        borderRadius: radii.control,
-        borderWidth: 1,
-        flexDirection: "row",
-        gap: spacing.md,
-        padding: spacing.md
-      }}
-    >
-      <Ionicons color={colors.blueIQ} name="information-circle-outline" size={30} />
-      <Text style={{ color: "rgba(183, 196, 217, 0.94)", flex: 1, fontSize: 15, fontWeight: "600", lineHeight: 21 }}>
-        After sign-up, check your email to confirm before signing in.
-      </Text>
-    </View>
-  );
-}
-
-function TrustPills() {
-  const items = ["Readiness", "Training", "Fuel"];
-  return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "center", width: "100%" }}>
-      {items.map((label) => (
-        <View
-          key={label}
-          style={{
-            alignItems: "center",
-            backgroundColor: "rgba(255, 255, 255, 0.06)",
-            borderColor: "rgba(217, 228, 244, 0.16)",
-            borderCurve: "continuous",
-            borderRadius: radii.pill,
-            borderWidth: 1,
-            justifyContent: "center",
-            minHeight: 44,
-            minWidth: 112,
-            paddingHorizontal: spacing.md
-          }}
-        >
-          <Text style={{ color: "rgba(217, 228, 244, 0.86)", fontSize: 15, fontWeight: "600", lineHeight: 20 }}>{label}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function SignUpFooter() {
-  return (
-    <Text
-      style={{
-        color: "rgba(183, 196, 217, 0.82)",
-        fontSize: 16,
-        fontWeight: "500",
-        lineHeight: 23,
-        maxWidth: 360,
-        textAlign: "center"
-      }}
-    >
-      CornerIQ keeps training, readiness, and fuel context connected.
-    </Text>
-  );
-}
-
 export function AuthScreen({ loading, error, message, onRequestPasswordReset, onSignIn, onSignUp, onUpdatePassword, passwordRecoveryReady = false }: AuthScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<AuthMode>("sign_in");
+  const [localMessage, setLocalMessage] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const effectiveMode: AuthMode = passwordRecoveryReady ? "update_password" : mode;
 
   const switchMode = (nextMode: AuthMode) => {
+    setLocalMessage(null);
     setValidationError(null);
     setMode(nextMode);
   };
 
-  const submit = async (action: (email: string, password: string) => Promise<void>) => {
+  const submit = async (action: (email: string, password: string) => Promise<boolean | void>): Promise<boolean> => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
       setValidationError("Email and password are required.");
+      return false;
+    }
+    setLocalMessage(null);
+    setValidationError(null);
+    return (await action(trimmedEmail, password)) !== false;
+  };
+
+  const submitSignUp = async () => {
+    const succeeded = await submit(onSignUp);
+    if (!succeeded) {
       return;
     }
+    setMode("sign_in");
+    setPassword("");
     setValidationError(null);
-    await action(trimmedEmail, password);
+    setLocalMessage("Account created. Check your email to confirm it, then sign in.");
   };
 
   const submitRecovery = async () => {
@@ -478,21 +353,16 @@ export function AuthScreen({ loading, error, message, onRequestPasswordReset, on
   const copy = authModeCopy[effectiveMode];
 
   const primaryLabel = updatingPassword ? "Update password" : recovering ? "Send reset email" : signingUp ? "Create account" : "Sign in";
-  const primaryAction = updatingPassword ? submitPasswordUpdate : recovering ? submitRecovery : () => void submit(signingUp ? onSignUp : onSignIn);
+  const primaryAction = updatingPassword
+    ? submitPasswordUpdate
+    : recovering
+      ? submitRecovery
+      : signingUp
+        ? () => void submitSignUp()
+        : () => void submit(onSignIn);
 
   return (
-    <AuthBackgroundShell
-      footer={
-        signingUp ? (
-          <SignUpFooter />
-        ) : effectiveMode === "sign_in" ? (
-          <TrustPills />
-        ) : null
-      }
-      heading={copy.heading}
-      subheading={copy.subheading}
-    >
-      {signingUp ? <SignUpStepper /> : null}
+    <AuthBackgroundShell heading={copy.heading} subheading={copy.subheading}>
       <AuthCard>
         {!updatingPassword ? <EmailField email={email} setEmail={setEmail} /> : null}
         {!recovering ? (
@@ -504,19 +374,23 @@ export function AuthScreen({ loading, error, message, onRequestPasswordReset, on
           />
         ) : null}
         {visibleError ? <NoticeText tone="error">{visibleError}</NoticeText> : null}
-        {!visibleError && message ? <NoticeText tone="message">{message}</NoticeText> : null}
+        {!visibleError && (localMessage ?? message) ? <NoticeText tone="message">{localMessage ?? message}</NoticeText> : null}
         <PrimaryAuthButton disabled={loading} label={primaryLabel} loading={loading} onPress={primaryAction} />
-        {signingUp ? <SignUpInfoNote /> : null}
+        {signingUp ? (
+          <Text style={{ color: "rgba(183, 196, 217, 0.9)", fontSize: 14, fontWeight: "500", lineHeight: 20, textAlign: "center" }}>
+            We’ll send a confirmation link to your email.
+          </Text>
+        ) : null}
         {effectiveMode === "sign_in" ? (
           <>
             <LinkButton disabled={loading} label="Forgot password?" onPress={() => switchMode("recovery")} />
-            <QuietAuthButton disabled={loading} label="New here? Create account" onPress={() => switchMode("sign_up")} />
+            <LinkButton disabled={loading} label="New to CornerIQ? Create account" onPress={() => switchMode("sign_up")} />
           </>
         ) : null}
-        {recovering ? <QuietAuthButton disabled={loading} label="Back to sign in" onPress={() => switchMode("sign_in")} /> : null}
+        {recovering ? <LinkButton disabled={loading} label="Back to sign in" onPress={() => switchMode("sign_in")} /> : null}
       </AuthCard>
       {signingUp ? (
-        <LinkButton disabled={loading} label="Already have an account? Sign in." onPress={() => switchMode("sign_in")} />
+        <LinkButton disabled={loading} label="Already have an account? Sign in" onPress={() => switchMode("sign_in")} />
       ) : null}
     </AuthBackgroundShell>
   );
