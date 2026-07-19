@@ -1,5 +1,5 @@
 import React from "react";
-import { ImageBackground, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { ImageBackground, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import onboardingWelcomeBackground from "../../../../assets/backgrounds/onboarding-welcome-ring.png";
 import { CornerIQWordmark } from "../../components/CornerIQWordmark";
@@ -66,8 +66,13 @@ export function OnboardingWelcomeScreen({ busy, onSignOut, onStart }: Onboarding
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const compactHeight = height < 760;
+  const veryCompactHeight = height < 700;
   const contentWidth = Math.min(width, 430);
-  const heroSpace = compactHeight ? 200 : Math.min(250, Math.max(220, contentWidth * 0.64));
+  const heroSpace = veryCompactHeight
+    ? Math.max(56, Math.min(96, height - 570))
+    : compactHeight
+      ? 150
+      : Math.min(250, Math.max(220, contentWidth * 0.64));
 
   return (
     <View style={{ backgroundColor: colors.cornerBlack, flex: 1, overflow: "hidden" }} testID="onboarding-welcome-screen">
@@ -77,23 +82,22 @@ export function OnboardingWelcomeScreen({ busy, onSignOut, onStart }: Onboarding
         source={onboardingWelcomeBackground}
         style={{ backgroundColor: colors.cornerBlack, flex: 1, width: "100%" }}
       >
-      <ScrollView
+      <View
         accessibilityLabel="CornerIQ welcome screen"
-        bounces={false}
-        contentContainerStyle={{
+        style={{
           alignSelf: "center",
-          flexGrow: 1,
+          flex: 1,
           maxWidth: 430,
-          minHeight: height,
-          paddingBottom: Math.max(insets.bottom, spacing.sm) + spacing.sm,
-          paddingHorizontal: 22,
-          paddingTop: Math.max(insets.top + spacing.lg, compactHeight ? spacing.xl : 54),
+          paddingBottom: veryCompactHeight ? Math.max(insets.bottom, spacing.sm) : Math.max(insets.bottom, spacing.sm) + spacing.sm,
+          paddingHorizontal: width < 360 ? spacing.lg : 22,
+          paddingTop: veryCompactHeight
+            ? Math.max(insets.top + spacing.sm, spacing.lg)
+            : Math.max(insets.top + spacing.lg, compactHeight ? spacing.xl : 54),
           width: "100%"
         }}
-        showsVerticalScrollIndicator={false}
       >
         <CornerIQWordmark />
-        <View style={{ height: heroSpace, pointerEvents: "none" }} />
+        <View style={{ flexGrow: 1, flexShrink: 1, minHeight: heroSpace, pointerEvents: "none" }} />
         <View style={{ alignItems: "center", gap: spacing.sm }}>
           <Text
             adjustsFontSizeToFit
@@ -102,10 +106,10 @@ export function OnboardingWelcomeScreen({ busy, onSignOut, onStart }: Onboarding
             style={{
               color: colors.canvas,
               fontFamily: fontFamilies.black,
-              fontSize: compactHeight ? 29 : 30,
+              fontSize: veryCompactHeight ? 27 : compactHeight ? 29 : 30,
               fontWeight: "900",
               letterSpacing: 0,
-              lineHeight: compactHeight ? 35 : 36,
+              lineHeight: veryCompactHeight ? 32 : compactHeight ? 35 : 36,
               textAlign: "center"
             }}
           >
@@ -115,9 +119,9 @@ export function OnboardingWelcomeScreen({ busy, onSignOut, onStart }: Onboarding
             style={{
               color: colors.mutedText,
               fontFamily: fontFamilies.regular,
-              fontSize: 16,
+              fontSize: veryCompactHeight ? 14 : 16,
               fontWeight: "400",
-              lineHeight: 22,
+              lineHeight: veryCompactHeight ? 20 : 22,
               maxWidth: 300,
               textAlign: "center"
             }}
@@ -134,11 +138,11 @@ export function OnboardingWelcomeScreen({ busy, onSignOut, onStart }: Onboarding
             borderRadius: radii.card,
             borderWidth: 1,
             boxShadow: "0 20px 44px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 24px rgba(39, 206, 241, 0.16)",
-            gap: compactHeight ? spacing.md : 18,
-            marginTop: compactHeight ? spacing.lg : spacing.xl,
+            gap: veryCompactHeight ? spacing.sm + 4 : compactHeight ? spacing.md : 18,
+            marginTop: veryCompactHeight ? spacing.sm + 4 : compactHeight ? spacing.lg : spacing.xl,
             overflow: "hidden",
-            paddingHorizontal: compactHeight ? spacing.lg : spacing.xxl,
-            paddingVertical: spacing.lg
+            paddingHorizontal: veryCompactHeight ? 14 : compactHeight ? spacing.lg : spacing.xxl,
+            paddingVertical: veryCompactHeight ? spacing.sm + 4 : spacing.lg
           }}
           testID="onboarding-welcome-card"
         >
@@ -153,14 +157,14 @@ export function OnboardingWelcomeScreen({ busy, onSignOut, onStart }: Onboarding
               top: 0
             }}
           />
-          <View style={{ gap: compactHeight ? spacing.md : 18 }}>
+          <View style={{ gap: veryCompactHeight ? spacing.sm + 4 : compactHeight ? spacing.md : 18 }}>
             <Text
               style={{
                 color: colors.wrap,
                 fontFamily: fontFamilies.regular,
-                fontSize: compactHeight ? 14 : 15,
+                fontSize: veryCompactHeight ? 13 : compactHeight ? 14 : 15,
                 fontWeight: "400",
-                lineHeight: compactHeight ? 20 : 22
+                lineHeight: veryCompactHeight ? 18 : compactHeight ? 20 : 22
               }}
             >
               We’ll ask a few simple questions about you, your boxing experience, when and how you can train, and the workouts already in your week.
@@ -169,9 +173,9 @@ export function OnboardingWelcomeScreen({ busy, onSignOut, onStart }: Onboarding
               style={{
                 color: colors.wrap,
                 fontFamily: fontFamilies.regular,
-                fontSize: compactHeight ? 14 : 15,
+                fontSize: veryCompactHeight ? 13 : compactHeight ? 14 : 15,
                 fontWeight: "400",
-                lineHeight: compactHeight ? 20 : 22
+                lineHeight: veryCompactHeight ? 18 : compactHeight ? 20 : 22
               }}
             >
               You’ll finish by choosing what you’re training toward. Anything optional will be clearly marked, and you can update your answers later.
@@ -182,7 +186,7 @@ export function OnboardingWelcomeScreen({ busy, onSignOut, onStart }: Onboarding
             <WelcomeAction disabled={busy} label="Sign out" onPress={() => void onSignOut()} />
           </View>
         </View>
-      </ScrollView>
+      </View>
       </ImageBackground>
     </View>
   );

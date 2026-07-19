@@ -192,6 +192,14 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(workoutSource).not.toContain("screenStyles.heroTitle");
   });
 
+  it("keeps the post-sign-in welcome fixed to the viewport without a scroll container", () => {
+    const source = readFileSync("src/app/screens/onboarding/OnboardingWelcomeScreen.tsx", "utf8");
+
+    expect(source).not.toContain("ScrollView");
+    expect(source).toContain('overflow: "hidden"');
+    expect(source).toContain('accessibilityLabel="CornerIQ welcome screen"');
+  });
+
   it("keeps card pills free of accent rails and marker dots", () => {
     const pillBlocks: readonly { end: string; file: string; start: string }[] = [
       { file: "src/design/components/LuminousScreen.tsx", start: "export function AccentPill", end: "export function LuminousProgressBar" },
