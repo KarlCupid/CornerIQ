@@ -2,6 +2,42 @@
 
 final result: passed
 
+## Opening Bell Auth And Welcome Image-to-Code QA
+
+### Reference and capture
+
+- Source visual truth: `C:\Users\karll\.codex\generated_images\019f7419-db17-7ef3-a083-a4dced6bbae4\exec-c69cc44b-000c-40d2-9fdc-91429283fb53.png`
+- Sign In implementation: `qa-artifacts/design-qa/auth-opening-bell-390x844-pass1.png`
+- Welcome implementation: `qa-artifacts/design-qa/welcome-opening-bell-390x844-pass1.png`
+- Full-view comparison: `qa-artifacts/design-qa/auth-welcome-comparison-pass1.png`
+- Viewport: 390 x 844 CSS pixels.
+- States: local-only E2E Sign In with its test notice, followed by the first-login Welcome screen.
+- The individual phone captures retain readable text and control detail, so they also serve as the focused comparison evidence; a separate crop was not needed.
+
+### Comparison history
+
+- Pass 1 found no P0, P1, or P2 visual mismatches.
+- The implementation intentionally gives the Sign In form more breathing room and scales both photographs below the source board proportions, matching the request that the graphics remain restrained.
+- The wider source-board compositions were adapted to a real phone aspect ratio without changing the intended hierarchy.
+- Local E2E banners and notices are test-only surfaces and are excluded from product-fidelity judgments; the Sign In view remains scrollable when those test surfaces reduce its available height.
+
+### Required fidelity surfaces
+
+- Typography: dark editorial wordmarks and Bebas Neue display headings match the selected onboarding language, with Inter Tight retained for supporting copy and controls.
+- Spacing: the form begins after a deliberate dark-space buffer, and the welcome actions fit within the phone viewport without scrolling.
+- Colors: warm ivory photography, near-black body surfaces, cyan rules and primary actions, and restrained graphite borders carry the established onboarding palette through both screens.
+- Imagery: Sign In uses hanging boxing gloves; Welcome uses an empty ring and stool. Both are distinct from each other and from the onboarding ring-post image.
+- Copy: Sign In reads `SIGN IN` with `Access your training plan.`; Welcome reads `WELCOME TO CORNERIQ` without the conflicting repeated welcome language.
+
+### Functional QA
+
+- Entered local test credentials and confirmed Sign In transitions to the first-login Welcome screen.
+- Confirmed `Start setup` transitions from Welcome to `Basic information`.
+- Confirmed the browser console remained free of errors through the target flow.
+- Verified controls preserve at least 44px touch targets and the primary actions use the selected sharp 5px corner treatment.
+
+final result: passed
+
 ## Real-Device Onboarding Cleanup QA
 
 ### Reference and capture

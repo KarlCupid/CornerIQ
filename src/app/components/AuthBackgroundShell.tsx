@@ -2,9 +2,9 @@ import React, { type PropsWithChildren } from "react";
 import { ImageBackground, KeyboardAvoidingView, Platform, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import onboardingWelcomeBackground from "../../../assets/backgrounds/onboarding-welcome-ring.png";
+import authSignInBackground from "../../../assets/backgrounds/auth-sign-in-gloves.png";
 import { colors, spacing } from "../../design/theme";
-import { typography } from "../../design/typography";
+import { fontFamilies } from "../../design/typography";
 import { CornerIQWordmark } from "./CornerIQWordmark";
 
 export function AuthBackgroundShell({
@@ -18,83 +18,97 @@ export function AuthBackgroundShell({
   testID?: string | undefined;
 }>) {
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
   const compactHeight = height < 760;
-  const heroSpace = compactHeight ? 92 : Math.min(150, Math.max(124, height * 0.17));
-  const topPadding = Math.max(insets.top + spacing.lg, compactHeight ? spacing.xl : 48);
-  const bottomPadding = Math.max(insets.bottom + spacing.xxl, spacing.xxl);
+  const veryCompactHeight = height < 700;
+  const contentWidth = Math.min(width, 430);
+  const heroHeight = veryCompactHeight ? 242 : compactHeight ? 275 : Math.min(320, Math.max(294, contentWidth * 0.78));
+  const heroTopPadding = Math.max(insets.top + spacing.sm, compactHeight ? spacing.md : spacing.lg);
+  const bodyTopPadding = veryCompactHeight ? 34 : compactHeight ? 38 : 46;
+  const bottomPadding = Math.max(insets.bottom + spacing.xl, spacing.xxl);
 
   return (
-    <View style={{ backgroundColor: colors.cornerBlack, flex: 1, overflow: "hidden" }}>
-      <ImageBackground
-        imageStyle={{ height: "100%", width: "100%" }}
-        resizeMode="cover"
-        source={onboardingWelcomeBackground}
-        style={{ backgroundColor: colors.cornerBlack, flex: 1, width: "100%" }}
+    <View style={{ alignItems: "center", backgroundColor: colors.cornerBlack, flex: 1, overflow: "hidden" }}>
+      <StatusBar style="dark" />
+      <KeyboardAvoidingView
+        accessibilityLabel="Authentication screen"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1, maxWidth: 430, width: "100%" }}
+        testID={testID}
       >
-        <View
-          style={{
-            backgroundColor: "rgba(2, 6, 17, 0.38)",
-            bottom: 0,
-            left: 0,
-            pointerEvents: "none",
-            position: "absolute",
-            right: 0,
-            top: 0
-          }}
-        />
-        <StatusBar style="light" />
-        <KeyboardAvoidingView
-          accessibilityLabel="Authentication screen"
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ flex: 1 }}
-          testID={testID}
+        <ScrollView
+          contentContainerStyle={{ backgroundColor: "#080B0E", flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          style={{ backgroundColor: "#080B0E", flex: 1 }}
         >
-          <ScrollView
-            contentContainerStyle={{
-              alignItems: "center",
-              flexGrow: 1,
-              justifyContent: "flex-start",
-              paddingBottom: bottomPadding,
-              paddingHorizontal: spacing.lg,
-              paddingTop: topPadding
-            }}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            style={{ flex: 1 }}
+          <ImageBackground
+            imageStyle={{ height: "100%", width: "100%" }}
+            resizeMode="cover"
+            source={authSignInBackground}
+            style={{ backgroundColor: "#F1EADF", height: heroHeight, paddingHorizontal: 22, paddingTop: heroTopPadding, width: "100%" }}
           >
-            <View style={{ alignItems: "center", gap: spacing.lg, maxWidth: 430, width: "100%" }}>
-              <CornerIQWordmark />
-              <View style={{ height: heroSpace, pointerEvents: "none" }} />
-              <View style={{ alignItems: "center", gap: spacing.xs, width: "100%" }}>
-                <Text
-                  selectable={false}
-                  style={{
-                    color: colors.canvas,
-                    fontSize: compactHeight ? 31 : 34,
-                    fontWeight: "800",
-                    lineHeight: compactHeight ? 37 : 40,
-                    textAlign: "center"
-                  }}
-                >
-                  {heading}
-                </Text>
-                <Text
-                  selectable={false}
-                  style={{
-                    ...typography.body,
-                    color: "rgba(183, 196, 217, 0.9)",
-                    textAlign: "center"
-                  }}
-                >
-                  {subheading}
-                </Text>
-              </View>
-              {children}
+            <CornerIQWordmark alignment="left" editorial tone="dark" />
+            <View style={{ gap: spacing.sm, marginTop: veryCompactHeight ? 26 : compactHeight ? 34 : 48, maxWidth: 226 }}>
+              <Text
+                adjustsFontSizeToFit
+                minimumFontScale={0.76}
+                numberOfLines={3}
+                selectable={false}
+                style={{
+                  color: "#080B0E",
+                  fontFamily: fontFamilies.display,
+                  fontSize: veryCompactHeight ? 43 : compactHeight ? 48 : 54,
+                  fontWeight: "400",
+                  includeFontPadding: true,
+                  letterSpacing: 0.2,
+                  lineHeight: veryCompactHeight ? 45 : compactHeight ? 50 : 56,
+                  textTransform: "uppercase"
+                }}
+              >
+                {heading}
+              </Text>
+              <Text
+                selectable={false}
+                style={{
+                  color: "#696763",
+                  fontFamily: fontFamilies.regular,
+                  fontSize: veryCompactHeight ? 14 : 16,
+                  fontWeight: "400",
+                  lineHeight: veryCompactHeight ? 19 : 22,
+                  maxWidth: 215
+                }}
+              >
+                {subheading}
+              </Text>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </ImageBackground>
+          </ImageBackground>
+          <View
+            style={{
+              backgroundColor: "#080B0E",
+              flexGrow: 1,
+              paddingBottom: bottomPadding,
+              paddingHorizontal: 22,
+              paddingTop: bodyTopPadding,
+              width: "100%"
+            }}
+          >
+            <View
+              pointerEvents="none"
+              style={{
+                backgroundColor: "#080B0E",
+                height: 34,
+                left: -8,
+                position: "absolute",
+                right: -8,
+                top: -17,
+                transform: [{ rotate: "-2deg" }]
+              }}
+            />
+            <View style={{ alignSelf: "center", maxWidth: 430, width: "100%" }}>{children}</View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

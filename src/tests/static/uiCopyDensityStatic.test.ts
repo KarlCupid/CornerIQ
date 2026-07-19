@@ -200,6 +200,18 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(source).toContain('accessibilityLabel="CornerIQ welcome screen"');
   });
 
+  it("keeps auth and welcome photography distinct, restrained, and clear of the form", () => {
+    const authShellSource = readFileSync("src/app/components/AuthBackgroundShell.tsx", "utf8");
+    const welcomeSource = readFileSync("src/app/screens/onboarding/OnboardingWelcomeScreen.tsx", "utf8");
+
+    expect(authShellSource).toContain("auth-sign-in-gloves.png");
+    expect(authShellSource).toContain("const bodyTopPadding =");
+    expect(authShellSource).toContain("Math.min(320");
+    expect(authShellSource).not.toContain("onboarding-welcome-ring-editorial.png");
+    expect(welcomeSource).toContain("onboarding-welcome-ring-editorial.png");
+    expect(welcomeSource).toContain("Math.min(325");
+  });
+
   it("keeps the championship onboarding system shared across every setup step", () => {
     const screenSource = readFileSync("src/app/screens/onboarding/OnboardingScreen.tsx", "utf8");
     const controlsSource = readFileSync("src/app/screens/onboarding/steps/StepControls.tsx", "utf8");

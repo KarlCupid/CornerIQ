@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { AuthBackgroundShell } from "../components/AuthBackgroundShell";
-import { glassStyles } from "../../design/glass";
 import { colors, radii, spacing } from "../../design/theme";
 import { typography } from "../../design/typography";
 
@@ -25,8 +24,8 @@ const authModeCopy: Record<AuthMode, { heading: string; subheading: string }> = 
     subheading: "Enter your email and we'll send a reset link if the account exists."
   },
   sign_in: {
-    heading: "Welcome back",
-    subheading: "Sign in to continue to your training plan."
+    heading: "Sign in",
+    subheading: "Access your training plan."
   },
   sign_up: {
     heading: "Create your account",
@@ -40,23 +39,7 @@ const authModeCopy: Record<AuthMode, { heading: string; subheading: string }> = 
 
 function AuthCard({ children }: React.PropsWithChildren) {
   return (
-    <View
-      style={{
-        ...glassStyles.cardDeep,
-        backgroundColor: "rgba(3, 10, 22, 0.9)",
-        borderColor: "rgba(39, 206, 241, 0.34)",
-        borderRadius: radii.card,
-        boxShadow: "0 20px 44px rgba(0, 0, 0, 0.4), 0 0 20px rgba(39, 206, 241, 0.14)",
-        gap: 18,
-        overflow: "hidden",
-        paddingHorizontal: spacing.xl,
-        paddingVertical: spacing.lg,
-        width: "100%"
-      }}
-    >
-      <View style={{ backgroundColor: "rgba(39, 206, 241, 0.24)", height: 1, left: 0, position: "absolute", right: 0, top: 0 }} />
-      {children}
-    </View>
+    <View style={{ gap: 18, width: "100%" }}>{children}</View>
   );
 }
 
@@ -94,13 +77,13 @@ function AuthTextInput({
       keyboardType={keyboardType}
       onChangeText={onChangeText}
       placeholder={placeholder}
-      placeholderTextColor="rgba(139, 163, 198, 0.9)"
+      placeholderTextColor="rgba(174, 185, 201, 0.72)"
       secureTextEntry={secureTextEntry}
       style={{
-        backgroundColor: "rgba(39, 206, 241, 0.085)",
-        borderColor: "rgba(39, 206, 241, 0.24)",
+        backgroundColor: "#0B1016",
+        borderColor: "rgba(247, 251, 255, 0.24)",
         borderCurve: "continuous",
-        borderRadius: radii.control,
+        borderRadius: 5,
         borderWidth: 1,
         color: colors.canvas,
         fontSize: 16,
@@ -155,10 +138,10 @@ function PasswordField({
       <View
         style={{
           alignItems: "center",
-          backgroundColor: "rgba(39, 206, 241, 0.085)",
-          borderColor: "rgba(39, 206, 241, 0.24)",
+          backgroundColor: "#0B1016",
+          borderColor: "rgba(247, 251, 255, 0.24)",
           borderCurve: "continuous",
-          borderRadius: radii.control,
+          borderRadius: 5,
           borderWidth: 1,
           flexDirection: "row",
           minHeight: 54,
@@ -170,7 +153,7 @@ function PasswordField({
           accessibilityLabel="Password"
           onChangeText={setPassword}
           placeholder="Password"
-          placeholderTextColor="rgba(139, 163, 198, 0.9)"
+          placeholderTextColor="rgba(174, 185, 201, 0.72)"
           secureTextEntry={!visible}
           style={{
             color: colors.canvas,
@@ -224,11 +207,11 @@ function PrimaryAuthButton({
         backgroundColor: disabled ? "rgba(39, 206, 241, 0.28)" : colors.blueIQ,
         borderColor: "rgba(255, 255, 255, 0.32)",
         borderCurve: "continuous",
-        borderRadius: radii.pill,
+        borderRadius: 5,
         borderWidth: 1,
-        boxShadow: disabled ? "none" : "0 10px 26px rgba(39, 206, 241, 0.22)",
+        boxShadow: disabled ? "none" : "0 8px 18px rgba(39, 206, 241, 0.14)",
         justifyContent: "center",
-        minHeight: 54,
+        minHeight: 56,
         opacity: disabled ? 0.78 : 1,
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.md,

@@ -2058,8 +2058,7 @@ describe("minimal app screens", () => {
     const output = JSON.stringify(render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onRequestPasswordReset: vi.fn(), onSignIn: vi.fn(), onSignUp: vi.fn() })).toJSON());
 
     expect(output).toContain("CornerIQ");
-    expect(output).toContain("Welcome back");
-    expect(output).toContain("Sign in to continue to your training plan.");
+    expect(output).toContain("Access your training plan.");
     expect(output).toContain("you@example.com");
     expect(output).toContain("Password");
     expect(output).toContain("Sign in");
@@ -2118,7 +2117,7 @@ describe("minimal app screens", () => {
     await switchSection(renderer, "Create account");
 
     expect(onSignUp).toHaveBeenCalledWith("new@example.com", "new-secret");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Welcome back");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Access your training plan.");
     expect(JSON.stringify(renderer.toJSON())).toContain("Account created. Check your email to confirm it, then sign in.");
   });
 
@@ -2170,7 +2169,7 @@ describe("minimal app screens", () => {
     expect(onRequestPasswordReset).toHaveBeenCalledWith("reset@example.com");
 
     await switchSection(renderer, "Back to sign in");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Welcome back");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Access your training plan.");
   });
 
   it("AuthScreen handles password recovery update without asking for email", async () => {
