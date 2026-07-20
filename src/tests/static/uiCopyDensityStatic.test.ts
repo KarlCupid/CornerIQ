@@ -90,7 +90,7 @@ describe("fatigue-first UI copy density static checks", () => {
     const tabsSource = readFileSync("src/app/navigation/AppTabs.tsx", "utf8");
 
     for (const asset of [
-      "tab-today-hero.png",
+      "tab-today-hero-v3.png",
       "tab-train-hero.png",
       "tab-fuel-hero.png",
       "tab-plan-hero.png",
@@ -142,9 +142,17 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(screenShellSource).toContain("CornerIQWordmark");
     expect(screenShellSource).toContain("heroSeam");
     expect(screenShellSource).toContain("backgroundColor: OPENING_BELL_BLACK");
+    expect(screenShellSource).toContain('height: "100%" as const');
+    expect(screenShellSource).toContain('width: "100%" as const');
+    expect(heroSource).toContain('heroImageTreatment: "natural"');
+    const todaySource = readFileSync("src/app/screens/TodayScreen.tsx", "utf8");
+    expect(todaySource).not.toContain('accessibilityLabel="Open account"');
+    expect(todaySource).toContain("immersiveHeader");
+    expect(todaySource).toContain("TodayEditorialSection");
+    expect(todaySource).toContain('style="dark"');
 
     for (const asset of [
-      "tab-today-hero.png",
+      "tab-today-hero-v3.png",
       "tab-train-hero.png",
       "tab-fuel-hero.png",
       "tab-plan-hero.png",

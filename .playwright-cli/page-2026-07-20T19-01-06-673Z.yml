@@ -1,0 +1,22 @@
+- generic "Authentication screen" [ref=e6]:
+  - generic [ref=e8]:
+    - generic [ref=e12]:
+      - generic "CornerIQ" [ref=e13]
+      - generic [ref=e15]:
+        - generic [ref=e16]: Sign in
+        - generic [ref=e17]: Access your training plan.
+    - generic [ref=e20]:
+      - generic [ref=e21]:
+        - generic [ref=e22]: Email
+        - textbox "Email" [ref=e23]:
+          - /placeholder: you@example.com
+      - generic [ref=e24]:
+        - generic [ref=e25]: Password
+        - generic [ref=e26]:
+          - textbox "Password" [ref=e27]
+          - button "Show secure text" [ref=e28] [cursor=pointer]
+        - generic [ref=e29]: Use the password for your existing account.
+      - button "Sign in" [ref=e30] [cursor=pointer]
+      - generic [ref=e32]:
+        - button "Forgot password?" [ref=e33] [cursor=pointer]
+        - button "New to CornerIQ? Create account" [ref=e35] [cursor=pointer]

@@ -50,7 +50,12 @@ const luminousStyles = {
   },
   heroImage: {
     borderRadius: 0,
-    opacity: 0.42
+    height: "100%" as const,
+    opacity: 0.42,
+    width: "100%" as const
+  },
+  heroImageNatural: {
+    opacity: 1
   },
   heroOverlay: {
     backgroundColor: "rgba(242, 235, 224, 0.34)",
@@ -117,11 +122,15 @@ export function LuminousScreen({
   backgroundImage: _backgroundImage,
   bottomInset = "tabs",
   children,
+  contentGap = spacing.md,
+  immersiveHeader = false,
   testID
 }: PropsWithChildren<{
   accent?: LuminousAccent | undefined;
   backgroundImage?: ImageSourcePropType | undefined;
   bottomInset?: "none" | "tabs" | undefined;
+  contentGap?: number | undefined;
+  immersiveHeader?: boolean | undefined;
   testID: string;
 }>) {
   const insets = useSafeAreaInsets();
@@ -139,7 +148,14 @@ export function LuminousScreen({
         </View>
         <ScrollView
           accessibilityLabel={`${testID.replace(/-/g, " ")} screen`}
-          contentContainerStyle={[luminousStyles.content, { paddingBottom: bottomPadding, paddingTop: Math.max(insets.top + spacing.sm, spacing.lg) }]}
+          contentContainerStyle={[
+            luminousStyles.content,
+            {
+              gap: contentGap,
+              paddingBottom: bottomPadding,
+              paddingTop: immersiveHeader ? 0 : Math.max(insets.top + spacing.sm, spacing.lg)
+            }
+          ]}
           showsVerticalScrollIndicator={false}
           style={luminousStyles.scrollFill}
           testID={testID}
@@ -157,8 +173,11 @@ export interface ScreenHeaderProps {
   heroHeight?: number | undefined;
   heroMeta?: React.ReactNode | undefined;
   heroImage?: ImageSourcePropType | undefined;
+  heroImageTreatment?: "muted" | "natural" | undefined;
+  immersive?: boolean | undefined;
   subtitle?: string | undefined;
   title: string;
+  topInset?: number | undefined;
 }
 
 export function ScreenHeader({
@@ -166,34 +185,39 @@ export function ScreenHeader({
   eyebrow,
   heroHeight,
   heroImage,
+  heroImageTreatment = "muted",
   heroMeta,
+  immersive = false,
   subtitle,
-  title
+  title,
+  topInset = 0
 }: ScreenHeaderProps) {
   const { width } = useWindowDimensions();
   const compact = width < 520;
   const compactHeight = heroHeight ?? (heroMeta ? 330 : 298);
   const regularHeight = heroHeight ? heroHeight + 34 : heroMeta ? 382 : 348;
+  const safeHeroInset = immersive ? topInset : 0;
+  const resolvedHeight = (compact ? compactHeight : regularHeight) + safeHeroInset;
   if (heroImage) {
     const heroShadow: ViewStyle = Platform.OS === "web" ? ({ boxShadow: "none" } as ViewStyle) : { elevation: 0 };
 
     return (
       <ImageBackground
         accessibilityLabel={`${title} screen header`}
-        imageStyle={luminousStyles.heroImage}
+        imageStyle={[luminousStyles.heroImage, heroImageTreatment === "natural" ? luminousStyles.heroImageNatural : undefined]}
         resizeMode="cover"
         source={heroImage}
-        style={[luminousStyles.heroFrame, heroShadow, { minHeight: compact ? compactHeight : regularHeight }]}
+        style={[luminousStyles.heroFrame, heroShadow, { marginTop: immersive ? 0 : luminousStyles.heroFrame.marginTop, minHeight: resolvedHeight }]}
       >
-        <View style={luminousStyles.heroOverlay} />
+        {heroImageTreatment === "muted" ? <View style={luminousStyles.heroOverlay} /> : null}
         <View style={luminousStyles.heroBaseShadow} />
         <View
           style={[
             luminousStyles.heroContent,
             {
-              minHeight: compact ? compactHeight : regularHeight,
+              minHeight: resolvedHeight,
               paddingBottom: compact ? spacing.xl : spacing.xxl,
-              paddingTop: compact ? spacing.md : spacing.xl
+              paddingTop: safeHeroInset + (compact ? spacing.md : spacing.xl)
             }
           ]}
         >

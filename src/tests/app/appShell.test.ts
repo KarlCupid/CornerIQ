@@ -2403,8 +2403,9 @@ describe("minimal app screens", () => {
       throw new Error("Today key status row did not render the training tile.");
     }
     const trainingStatusStyle = flattenStyle((trainingStatusTile.props as { style?: unknown }).style);
-    expect(trainingStatusStyle.borderLeftWidth).toBe(0);
-    expect(trainingStatusStyle.borderColor).toBe("rgba(171, 209, 216, 0.15)");
+    expect(trainingStatusStyle.borderWidth).toBe(1);
+    expect(trainingStatusStyle.borderRadius).toBe(4);
+    expect(trainingStatusStyle.borderColor).toBe("rgba(205, 239, 247, 0.14)");
     expect(detailsOutput).toContain("today-status-row");
     expect(detailsOutput).toContain("today-next-action-card");
     expect(detailsOutput).toContain("Training Today");

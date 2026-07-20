@@ -1,0 +1,16 @@
+- generic [ref=f1e4]:
+  - generic "Local E2E mode banner" [ref=f1e5]: "Local E2E mode: no Supabase connection, demo data only. Scenario: default. Date: 2026-05-19. Disable EXPO_PUBLIC_CORNERIQ_E2E_LOCAL for normal app use."
+  - generic "CornerIQ welcome screen" [ref=f1e42]:
+    - generic [ref=f1e43]:
+      - generic [ref=f1e47]:
+        - generic "CornerIQ" [ref=f1e48]
+        - generic [ref=f1e50]:
+          - generic [ref=f1e51]: Welcome to CornerIQ
+          - generic [ref=f1e52]: CornerIQ builds around your needs, schedule and goals.
+      - generic [ref=f1e54]:
+        - generic [ref=f1e59]:
+          - generic [ref=f1e60]: We’ll ask a few simple questions about you, your boxing experience, when and how you can train, and the workouts already in your week.
+          - generic [ref=f1e61]: You’ll finish by choosing what you’re training toward. Anything optional will be clearly marked, and you can update your answers later.
+        - generic [ref=f1e62]:
+          - button "Start setup" [ref=f1e63] [cursor=pointer]
+          - button "Sign out" [ref=f1e65] [cursor=pointer]

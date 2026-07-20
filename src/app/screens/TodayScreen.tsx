@@ -1,14 +1,15 @@
 import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { StatusBar } from "expo-status-bar";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, CycleViewModel, FuelViewModel, PlanViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
 import { TrendLineChart, WeeklyLoadBars, WorkoutLogContributionGrid } from "../../design/components/PerformanceVisuals";
-import { GroupedMetricTiles, PremiumCard } from "../../design/components/PremiumPrimitives";
 import { glassStyles } from "../../design/glass";
 import { colors, radii, spacing } from "../../design/theme";
+import { fontFamilies } from "../../design/typography";
 import { buildTodayDashboardVisual, type TodayActionVisual, type TodayDashboardVisual, type TodayQuickCheckFocus, type VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { plainWorkoutTitle } from "../../engine/presentation/trainingCopy";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
@@ -37,7 +38,6 @@ export interface TodayScreenProps {
   onOpenFuelLog?: (() => void) | undefined;
   onOpenFuelSafety?: (() => void) | undefined;
   onOpenPlan?: (() => void) | undefined;
-  onOpenProfile?: (() => void) | undefined;
   onOpenTrain?: (() => void) | undefined;
   onOpenTrainWorkout?: (() => void) | undefined;
 }
@@ -396,6 +396,33 @@ function TodayTonePill({ label, tone: _tone = "blue" }: { label: string; tone?: 
   );
 }
 
+function TodayEditorialSection({
+  children,
+  featured = false,
+  testID
+}: React.PropsWithChildren<{
+  featured?: boolean | undefined;
+  testID?: string | undefined;
+}>) {
+  return (
+    <View
+      style={{
+        backgroundColor: featured ? "rgba(39, 206, 241, 0.035)" : "transparent",
+        borderBottomColor: todayPalette.cardLine,
+        borderBottomWidth: 1,
+        gap: spacing.md,
+        marginHorizontal: featured ? -spacing.sm : 0,
+        paddingBottom: spacing.xl,
+        paddingHorizontal: featured ? spacing.sm : 0,
+        paddingTop: spacing.xl
+      }}
+      testID={testID}
+    >
+      {children}
+    </View>
+  );
+}
+
 function actionIcon(action: TodayActionVisual): keyof typeof Ionicons.glyphMap {
   return action.icon as keyof typeof Ionicons.glyphMap;
 }
@@ -411,7 +438,8 @@ function TodayButton({
   onPress,
   primary = false,
   testID,
-  tone = "blue"
+  tone = "blue",
+  wide = false
 }: {
   disabled?: boolean | undefined;
   icon: keyof typeof Ionicons.glyphMap;
@@ -420,8 +448,8 @@ function TodayButton({
   primary?: boolean | undefined;
   testID?: string | undefined;
   tone?: VisualTone | undefined;
+  wide?: boolean | undefined;
 }) {
-  const theme = useLuminousScreenTheme();
   const toneColor = colorForTone(tone);
   return (
     <Pressable
@@ -434,15 +462,15 @@ function TodayButton({
         {
           alignItems: "center",
           borderCurve: "continuous",
-          borderRadius: primary ? radii.control : radii.pill,
+          borderRadius: 5,
           borderWidth: 1,
-          alignSelf: primary ? "stretch" : "flex-start",
+          alignSelf: primary || wide ? "stretch" : "flex-start",
           flexDirection: "row",
           flexShrink: 1,
           gap: spacing.sm,
           justifyContent: "center",
           minWidth: primary ? 108 : 92,
-          minHeight: primary ? 48 : 40,
+          minHeight: primary ? 52 : 44,
           opacity: disabled ? 0.56 : 1,
           paddingHorizontal: primary ? spacing.md : spacing.sm,
           paddingVertical: spacing.xs
@@ -455,12 +483,12 @@ function TodayButton({
                   ? pressed ? todayPalette.actionFillPressed : todayPalette.actionFill
                   : pressed ? todayTint(tone, "44") : todayTint(tone, "34"),
               borderColor: disabled ? todayPalette.controlLine : tone === "blue" ? todayPalette.actionBorder : todayTint(tone, "66"),
-              boxShadow: disabled ? "none" : `0 10px 24px ${tone === "blue" ? todayPalette.actionShadow : `${toneColor}26`}`
+              boxShadow: "none"
             }
           : {
-              backgroundColor: pressed ? todayPalette.controlFillPressed : todayPalette.controlFill,
-              borderColor: todayPalette.controlLine,
-              boxShadow: `0 6px 16px ${theme.strongGlow}`
+              backgroundColor: pressed ? todayTint(tone, "14") : "transparent",
+              borderColor: disabled ? todayPalette.controlLine : todayTint(tone, "66"),
+              boxShadow: "none"
             }
       ]}
       testID={testID}
@@ -470,7 +498,7 @@ function TodayButton({
         adjustsFontSizeToFit
         minimumFontScale={0.78}
         numberOfLines={2}
-        style={{ color: disabled ? todayPalette.textMuted : primary && tone !== "red" ? colors.cornerBlack : todayPalette.textBody, flexShrink: 1, fontSize: 14, fontWeight: "900", lineHeight: 18, textAlign: "center" }}
+        style={{ color: disabled ? todayPalette.textMuted : primary && tone !== "red" ? colors.cornerBlack : toneColor, flexShrink: 1, fontFamily: fontFamilies.black, fontSize: 14, fontWeight: "900", lineHeight: 18, textAlign: "center" }}
       >
         {label}
       </Text>
@@ -497,9 +525,10 @@ function TodayStatusTile({
     <View
       accessibilityLabel={`${label}: ${value}`}
       style={{
-        ...glassStyles.tile,
-        backgroundColor: todayPalette.controlFill,
+        backgroundColor: "transparent",
         borderColor: todayPalette.cardLine,
+        borderRadius: 4,
+        borderWidth: 1,
         flexBasis: compact ? compactTileBasis : 132,
         flexGrow: 1,
         gap: spacing.xs,
@@ -542,7 +571,7 @@ function TodayDetailRow({
   }, [defaultOpen]);
   const color = colorForTone(tone);
   return (
-    <EngineCard>
+    <TodayEditorialSection>
       <View style={{ gap: open ? spacing.md : 0 }} testID={testID}>
         <Pressable
           accessibilityLabel={title}
@@ -556,7 +585,7 @@ function TodayDetailRow({
               alignItems: "center",
               backgroundColor: theme.control,
               borderColor: theme.controlBorder,
-              borderRadius: radii.pill,
+              borderRadius: 4,
               borderWidth: 1,
               height: 38,
               justifyContent: "center",
@@ -573,7 +602,7 @@ function TodayDetailRow({
         </Pressable>
         {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
       </View>
-    </EngineCard>
+    </TodayEditorialSection>
   );
 }
 
@@ -688,7 +717,7 @@ function TodayCheckInCard({
   const { width } = useWindowDimensions();
   const compact = width < 390;
   return (
-    <PremiumCard accent={checkIn.tone} density="regular">
+    <TodayEditorialSection featured testID="today-check-in-section">
       <View style={{ gap: spacing.md }} testID="today-hero-card">
         <View testID="today-check-in-card">
           <View style={{ gap: spacing.md }}>
@@ -699,7 +728,7 @@ function TodayCheckInCard({
                     alignItems: "center",
                     backgroundColor: todayTint(checkIn.tone, "16"),
                     borderColor: todayTint(checkIn.tone, "55"),
-                    borderRadius: radii.pill,
+                    borderRadius: 4,
                     borderWidth: 1,
                     height: compact ? 46 : 50,
                     justifyContent: "center",
@@ -731,7 +760,7 @@ function TodayCheckInCard({
           </View>
         ) : null}
       </View>
-    </PremiumCard>
+    </TodayEditorialSection>
   );
 }
 
@@ -742,15 +771,12 @@ function KeyStatusRow({
 }) {
   return (
     <View testID="today-status-row">
-      <GroupedMetricTiles
-        items={[
-          { icon: "barbell-outline", label: "Training", tone: statuses.training.tone, value: statuses.training.value },
-          { icon: "restaurant-outline", label: "Fuel", tone: statuses.fuel.tone, value: statuses.fuel.value },
-          { icon: "scale-outline", label: "Weight", tone: statuses.weight.tone, value: statuses.weight.value },
-          { icon: "shield-checkmark-outline", label: "Readiness", tone: statuses.readiness.tone, value: statuses.readiness.value }
-        ]}
-        testID="today-key-status-row"
-      />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="today-key-status-row">
+        <TodayStatusTile label="Training" tone={statuses.training.tone} value={statuses.training.value} />
+        <TodayStatusTile label="Fuel" tone={statuses.fuel.tone} value={statuses.fuel.value} />
+        <TodayStatusTile label="Weight" tone={statuses.weight.tone} value={statuses.weight.value} />
+        <TodayStatusTile label="Readiness" tone={statuses.readiness.tone} value={statuses.readiness.value} />
+      </View>
     </View>
   );
 }
@@ -766,7 +792,7 @@ function TodayNextActionCard({
 }) {
   const handler = resolveAction(nextAction.action);
   return (
-    <EngineCard>
+    <TodayEditorialSection testID="today-next-action-section">
       <View style={{ gap: spacing.md }} testID="today-next-action-card">
         <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
           <View style={{ flexBasis: 250, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
@@ -777,7 +803,7 @@ function TodayNextActionCard({
         </View>
         <TodayButton disabled={busy || nextAction.action.disabled || !handler} icon={actionIcon(nextAction.action)} label={nextAction.action.label} onPress={handler} primary tone={todayActionTone(nextAction.action)} />
       </View>
-    </EngineCard>
+    </TodayEditorialSection>
   );
 }
 
@@ -792,7 +818,7 @@ function TrainingTodayCard({
 }) {
   const handler = resolveAction(model.action);
   return (
-    <PremiumCard accent={model.tone} density="spacious" testID="today-training-card">
+    <TodayEditorialSection testID="today-training-card">
       <View style={{ gap: spacing.md }}>
         <View style={{ gap: spacing.xs }}>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
@@ -809,10 +835,10 @@ function TrainingTodayCard({
           </Text>
         </View>
         <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "space-between" }}>
-          <TodayButton disabled={busy || !handler || model.disabled || model.action.disabled} icon={actionIcon(model.action)} label={model.action.label} onPress={handler} tone={todayActionTone(model.action)} />
+          <TodayButton disabled={busy || !handler || model.disabled || model.action.disabled} icon={actionIcon(model.action)} label={model.action.label} onPress={handler} tone={todayActionTone(model.action)} wide />
         </View>
       </View>
-    </PremiumCard>
+    </TodayEditorialSection>
   );
 }
 
@@ -831,7 +857,7 @@ function FuelTodayCard({
       : model.action;
   const handler = resolveAction(cardAction);
   return (
-    <PremiumCard accent={model.tone} density="regular" testID="today-fuel-card">
+    <TodayEditorialSection testID="today-fuel-card">
       <View style={{ gap: spacing.md }}>
         <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md }}>
           <View
@@ -839,7 +865,7 @@ function FuelTodayCard({
               alignItems: "center",
               backgroundColor: todayTint(model.tone, "14"),
               borderColor: todayTint(model.tone, "42"),
-              borderRadius: radii.pill,
+              borderRadius: 4,
               borderWidth: 1,
               height: 46,
               justifyContent: "center",
@@ -859,10 +885,10 @@ function FuelTodayCard({
         <View style={{ backgroundColor: todayPalette.cardLine, height: 1 }} />
         <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
           <Text numberOfLines={3} style={[screenStyles.subtle, { flex: 1, minWidth: 180 }]}>{model.why}</Text>
-          <TodayButton disabled={busy || cardAction.disabled || !handler} icon={actionIcon(cardAction)} label={cardAction.label} onPress={handler} tone={cardAction.tone} />
+          <TodayButton disabled={busy || cardAction.disabled || !handler} icon={actionIcon(cardAction)} label={cardAction.label} onPress={handler} tone={cardAction.tone} wide />
         </View>
       </View>
-    </PremiumCard>
+    </TodayEditorialSection>
   );
 }
 
@@ -878,7 +904,7 @@ function TodayDailyWeightCard({
   recentLogs: RecentLogsViewModel;
 }) {
   return (
-    <EngineCard>
+    <TodayEditorialSection testID="today-daily-weight-section">
       <View style={{ gap: spacing.md }} testID="today-daily-weight-log">
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>Daily weight (optional)</Text>
@@ -894,7 +920,7 @@ function TodayDailyWeightCard({
           title="Body weight"
         />
       </View>
-    </EngineCard>
+    </TodayEditorialSection>
   );
 }
 
@@ -908,7 +934,7 @@ function ThisWeekCard({
   onOpenPlan?: (() => void) | undefined;
 }) {
   return (
-    <PremiumCard accent="green" density="regular" testID="today-week-card">
+    <TodayEditorialSection testID="today-week-card">
       <View style={{ gap: spacing.md }}>
         <View style={{ gap: spacing.xs }}>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
@@ -940,20 +966,20 @@ function ThisWeekCard({
           <Text style={screenStyles.subtle}>No next session is pinned here. Open Plan when the week changes.</Text>
         )}
         </View>
-        <TodayButton disabled={busy || !onOpenPlan} icon="calendar-outline" label="View Plan" onPress={onOpenPlan} tone="green" />
+        <TodayButton disabled={busy || !onOpenPlan} icon="calendar-outline" label="View Plan" onPress={onOpenPlan} tone="green" wide />
       </View>
-    </PremiumCard>
+    </TodayEditorialSection>
   );
 }
 
 function TodayLoadGraphCard({ dashboard }: { dashboard: TodayDashboardVisual }) {
   return (
-    <PremiumCard accent="blue" density="regular" testID="today-load-graph-card">
+    <TodayEditorialSection testID="today-load-graph-card">
       <View style={{ gap: spacing.md }}>
         <WorkoutLogContributionGrid testID="today-workout-log-graph" visual={dashboard.workoutLog} />
         <Text style={screenStyles.subtle}>Only completed workout logs fill the grid. Missing days stay unknown until you log them.</Text>
       </View>
-    </PremiumCard>
+    </TodayEditorialSection>
   );
 }
 
@@ -967,7 +993,7 @@ function QuickLogsCard({
   onOpenQuickCheck: (focus: TodayQuickCheckFocus, placement: TodayQuickCheckPlacement) => void;
 }) {
   return (
-    <EngineCard>
+    <TodayEditorialSection testID="today-quick-logs-section">
       <View style={{ gap: spacing.md }} testID="today-quick-logs">
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>Quick Logs</Text>
@@ -981,7 +1007,7 @@ function QuickLogsCard({
           <TodayButton disabled={busy || !onLogFood} icon="restaurant-outline" label="Food" onPress={onLogFood} tone="orange" />
         </View>
       </View>
-    </EngineCard>
+    </TodayEditorialSection>
   );
 }
 
@@ -1074,8 +1100,8 @@ function TodayDetailsDisclosure({
 }>) {
   const [open, setOpen] = React.useState(false);
   return (
-    <View style={{ gap: spacing.sm }}>
-      <EngineCard>
+    <View style={{ gap: 0 }}>
+      <TodayEditorialSection testID="today-more-section">
         <View style={{ gap: spacing.md }}>
           <Pressable
             accessibilityLabel={open ? "Hide More today" : "More today"}
@@ -1090,7 +1116,7 @@ function TodayDetailsDisclosure({
                 alignItems: "center",
                 backgroundColor: todayTint("blue", "16"),
                 borderColor: todayTint("blue", "42"),
-                borderRadius: radii.pill,
+                borderRadius: 4,
                 borderWidth: 1,
                 height: 38,
                 justifyContent: "center",
@@ -1108,9 +1134,9 @@ function TodayDetailsDisclosure({
             <Ionicons color={colors.wrap} name={open ? "chevron-up" : "chevron-down"} size={18} />
           </Pressable>
         </View>
-      </EngineCard>
+      </TodayEditorialSection>
       {open ? (
-        <View style={{ gap: spacing.sm }} testID="today-details-section">
+        <View style={{ gap: 0 }} testID="today-details-section">
           <KeyStatusRow statuses={keyStatuses} />
           <TodayNextActionCard
             busy={busy}
@@ -1145,10 +1171,10 @@ export function TodayScreen({
   onOpenFuelLog,
   onOpenFuelSafety,
   onOpenPlan,
-  onOpenProfile,
   onOpenTrain,
   onOpenTrainWorkout
 }: TodayScreenProps) {
+  const insets = useSafeAreaInsets();
   const [quickCheck, setQuickCheck] = React.useState<{ focus: TodayQuickCheckFocus; placement: TodayQuickCheckPlacement } | null>(null);
   const cycleText = [
     viewModel.cycleContext ?? "",
@@ -1201,14 +1227,9 @@ export function TodayScreen({
   };
   return (
     <>
-      <LuminousScreen accent="blue" testID="today-screen">
-        <ScreenHeader {...tabHeroHeaders.today} />
-        {onOpenProfile ? (
-          <Pressable accessibilityLabel="Open account" accessibilityRole="button" onPress={onOpenProfile} style={[screenStyles.quietButton, { alignSelf: "flex-end", flexDirection: "row", gap: spacing.xs }]}>
-            <Ionicons color={todayPalette.textBody} name="person-outline" size={18} />
-            <Text style={screenStyles.quietButtonText}>Account</Text>
-          </Pressable>
-        ) : null}
+      <StatusBar backgroundColor="transparent" style="dark" translucent />
+      <LuminousScreen accent="blue" contentGap={0} immersiveHeader testID="today-screen">
+        <ScreenHeader {...tabHeroHeaders.today} immersive topInset={insets.top} />
         <TodayCheckInCard
           busy={busy}
           checkIn={checkIn}

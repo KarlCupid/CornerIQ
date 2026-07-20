@@ -1,4 +1,4 @@
-import todayHero from "../../../assets/backgrounds/tab-today-hero.png";
+import todayHero from "../../../assets/backgrounds/tab-today-hero-v3.png";
 import trainHero from "../../../assets/backgrounds/tab-train-hero.png";
 import fuelHero from "../../../assets/backgrounds/tab-fuel-hero.png";
 import planHero from "../../../assets/backgrounds/tab-plan-hero.png";
@@ -31,6 +31,7 @@ export const tabHeroHeaders = {
     accent: "blue",
     eyebrow: "Today",
     heroImage: todayHero,
+    heroImageTreatment: "natural",
     subtitle: "A quick check-in before it points you into the day.",
     title: "Corner Brief"
   },

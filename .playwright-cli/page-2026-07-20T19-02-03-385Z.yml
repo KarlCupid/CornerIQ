@@ -1,0 +1,25 @@
+- generic [ref=f1e4]:
+  - generic "Local E2E mode banner" [ref=f1e5]: "Local E2E mode: no Supabase connection, demo data only. Scenario: default. Date: 2026-05-19. Disable EXPO_PUBLIC_CORNERIQ_E2E_LOCAL for normal app use."
+  - generic "Authentication screen" [ref=f1e8]:
+    - generic [ref=f1e10]:
+      - generic [ref=f1e14]:
+        - generic "CornerIQ" [ref=f1e15]
+        - generic [ref=f1e17]:
+          - generic [ref=f1e18]: Sign in
+          - generic [ref=f1e19]: Access your training plan.
+      - generic [ref=f1e22]:
+        - generic [ref=f1e23]:
+          - generic [ref=f1e24]: Email
+          - textbox "Email" [ref=f1e25]:
+            - /placeholder: you@example.com
+        - generic [ref=f1e26]:
+          - generic [ref=f1e27]: Password
+          - generic [ref=f1e28]:
+            - textbox "Password" [ref=f1e29]
+            - button "Show secure text" [ref=f1e30] [cursor=pointer]
+          - generic [ref=f1e31]: Use the password for your existing account.
+        - generic [ref=f1e32]: Local E2E sign-in accepts any non-empty email and password.
+        - button "Sign in" [ref=f1e34] [cursor=pointer]
+        - generic [ref=f1e36]:
+          - button "Forgot password?" [ref=f1e37] [cursor=pointer]
+          - button "New to CornerIQ? Create account" [ref=f1e39] [cursor=pointer]

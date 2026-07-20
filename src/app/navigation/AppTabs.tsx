@@ -312,7 +312,6 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
                 navigation.navigate("Fuel");
               }}
               onOpenPlan={() => navigation.navigate("Plan")}
-              onOpenProfile={() => navigation.navigate("Profile")}
               onOpenTrain={() => navigation.navigate("Train")}
               onOpenTrainWorkout={() => {
                 setTrainInitialSection("workout");
