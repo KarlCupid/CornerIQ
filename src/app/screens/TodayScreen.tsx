@@ -1,7 +1,7 @@
 import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { StatusBar } from "expo-status-bar";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text as NativeText, useWindowDimensions, View, type TextProps, type TextStyle, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, CycleViewModel, FuelViewModel, PlanViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
@@ -71,13 +71,48 @@ const todayPalette = {
   textMuted: "#A9BDD0",
   textPrimary: "#F6FBFF",
   toneBlue: "#27CEF1",
-  toneGold: "#FFD861",
-  toneGreen: "#38E28A",
+  toneGold: "#78DFF3",
+  toneGreen: "#6FE5F6",
   toneMuted: "#A9BDD0",
-  toneOrange: "#FF9448",
-  tonePurple: "#9657F5",
-  toneRed: "#FF5265"
+  toneOrange: "#86E7F7",
+  tonePurple: "#A5EFFA",
+  toneRed: "#F6FBFF"
 } as const;
+
+function editorialFontForStyle(style: TextStyle): string {
+  const weight = Number.parseInt(String(style.fontWeight ?? "400"), 10);
+  if (weight >= 900) return fontFamilies.black;
+  if (weight >= 800) return fontFamilies.extraBold;
+  if (weight >= 700) return fontFamilies.bold;
+  if (weight >= 600) return fontFamilies.semibold;
+  if (weight >= 500) return fontFamilies.medium;
+  return fontFamilies.regular;
+}
+
+function editorialColor(color: TextStyle["color"]): TextStyle["color"] {
+  if (color === colors.canvas) return todayPalette.textPrimary;
+  if (color === colors.wrap) return todayPalette.textBody;
+  if (color === colors.mutedText) return todayPalette.textMuted;
+  if (color === colors.readyGreen || color === colors.gold || color === colors.amberCaution || color === colors.powerPurple) return todayPalette.toneBlue;
+  return color;
+}
+
+function flattenEditorialStyle(style: unknown): TextStyle {
+  if (Array.isArray(style)) {
+    return Object.assign({}, ...style.map((item) => flattenEditorialStyle(item)));
+  }
+  return style && typeof style === "object" ? style as TextStyle : {};
+}
+
+function Text({ style, ...props }: TextProps) {
+  const flattened = flattenEditorialStyle(style);
+  return (
+    <NativeText
+      {...props}
+      style={[style, { color: editorialColor(flattened.color), fontFamily: editorialFontForStyle(flattened) }]}
+    />
+  );
+}
 
 function plainTodayCopy(value: string): string {
   return value
@@ -100,10 +135,6 @@ function plainTodayCopy(value: string): string {
     .replace(/\bbody check\b/gi, "body status")
     .replace(/\bdashboard\b/gi, "overview")
     .replace(/\bACWR\b/g, "load trend");
-}
-
-function accentForTone(tone: VisualTone): "blue" | "green" | "orange" | "purple" | "gold" | "red" {
-  return tone === "muted" ? "blue" : tone;
 }
 
 function colorForTone(tone: VisualTone): string {
@@ -197,9 +228,9 @@ function TodayQuickCheckSection({
         : "Water first";
   const focusedLogSuccess = includeOtherLogs ? undefined : onClose;
   const logCards = {
-    body_mass: <BodyMassLogCard actions={quickLogs} busy={busy} compact={compact} forceOpen={focus === "body_mass"} framed={false} onLogged={focus === "body_mass" ? focusedLogSuccess : undefined} preferredUnits={preferredUnits} status={recentLogs.bodyMassToday} />,
-    hydration: <HydrationLogCard actions={quickLogs} busy={busy} compact={compact} framed={false} onLogged={focus === "hydration" ? focusedLogSuccess : undefined} status={recentLogs.hydrationToday} />,
-    readiness: <ReadinessCheckInCard actions={quickLogs} busy={busy} compact={compact} forceOpen={focus === "readiness"} framed={false} onLogged={focus === "readiness" ? focusedLogSuccess : undefined} status={recentLogs.readinessToday} />
+    body_mass: <BodyMassLogCard actions={quickLogs} busy={busy} compact={compact} forceOpen={focus === "body_mass"} framed={false} onLogged={focus === "body_mass" ? focusedLogSuccess : undefined} preferredUnits={preferredUnits} status={recentLogs.bodyMassToday} surface="today" />,
+    hydration: <HydrationLogCard actions={quickLogs} busy={busy} compact={compact} framed={false} onLogged={focus === "hydration" ? focusedLogSuccess : undefined} status={recentLogs.hydrationToday} surface="today" />,
+    readiness: <ReadinessCheckInCard actions={quickLogs} busy={busy} compact={compact} forceOpen={focus === "readiness"} framed={false} onLogged={focus === "readiness" ? focusedLogSuccess : undefined} status={recentLogs.readinessToday} surface="today" />
   } satisfies Record<TodayQuickCheckFocus, React.ReactNode>;
   const bodyMassNeeded = recentLogs.bodyMassToday.status === "needed_for_cut" || recentLogs.bodyMassToday.status === "unknown_cut_context";
   const orderedFocuses: readonly TodayQuickCheckFocus[] =
@@ -227,7 +258,7 @@ function TodayQuickCheckSection({
             accessibilityLabel="Close quick check"
             accessibilityRole="button"
             onPress={onClose}
-            style={[screenStyles.quietButton, { minHeight: 44, minWidth: 76, paddingHorizontal: spacing.md }]}
+            style={[screenStyles.quietButton, { backgroundColor: "transparent", borderColor: todayPalette.controlLine, borderRadius: 5, minHeight: 44, minWidth: 76, paddingHorizontal: spacing.md }]}
           >
             <Text style={screenStyles.quietButtonText}>Close</Text>
           </Pressable>
@@ -334,9 +365,9 @@ function TodayQuickCheckModal({
           style={[
             {
               ...glassStyles.cardDeep,
-              backgroundColor: "rgba(12, 18, 35, 0.98)",
-              borderColor: "rgba(255, 255, 255, 0.22)",
-              borderRadius: compact ? 28 : radii.card,
+              backgroundColor: "rgba(5, 24, 30, 0.99)",
+              borderColor: todayPalette.controlLine,
+              borderRadius: radii.card,
               maxHeight: maxPanelHeight,
               maxWidth: 640,
               overflow: "hidden",
@@ -438,7 +469,7 @@ function TodayButton({
   onPress,
   primary = false,
   testID,
-  tone = "blue",
+  tone: _tone = "blue",
   wide = false
 }: {
   disabled?: boolean | undefined;
@@ -450,7 +481,7 @@ function TodayButton({
   tone?: VisualTone | undefined;
   wide?: boolean | undefined;
 }) {
-  const toneColor = colorForTone(tone);
+  const toneColor = todayPalette.toneBlue;
   return (
     <Pressable
       accessibilityLabel={label}
@@ -479,26 +510,24 @@ function TodayButton({
           ? {
               backgroundColor: disabled
                 ? todayPalette.controlFill
-                : tone === "blue"
-                  ? pressed ? todayPalette.actionFillPressed : todayPalette.actionFill
-                  : pressed ? todayTint(tone, "44") : todayTint(tone, "34"),
-              borderColor: disabled ? todayPalette.controlLine : tone === "blue" ? todayPalette.actionBorder : todayTint(tone, "66"),
+                : pressed ? todayPalette.actionFillPressed : todayPalette.actionFill,
+              borderColor: disabled ? todayPalette.controlLine : todayPalette.actionBorder,
               boxShadow: "none"
             }
           : {
-              backgroundColor: pressed ? todayTint(tone, "14") : "transparent",
-              borderColor: disabled ? todayPalette.controlLine : todayTint(tone, "66"),
+              backgroundColor: pressed ? todayPalette.controlFillPressed : "transparent",
+              borderColor: disabled ? todayPalette.controlLine : todayPalette.actionBorder,
               boxShadow: "none"
             }
       ]}
       testID={testID}
     >
-      <Ionicons color={disabled ? todayPalette.textMuted : primary && tone !== "red" ? colors.cornerBlack : toneColor} name={icon} size={16} />
+      <Ionicons color={disabled ? todayPalette.textMuted : primary ? colors.cornerBlack : toneColor} name={icon} size={16} />
       <Text
         adjustsFontSizeToFit
         minimumFontScale={0.78}
         numberOfLines={2}
-        style={{ color: disabled ? todayPalette.textMuted : primary && tone !== "red" ? colors.cornerBlack : toneColor, flexShrink: 1, fontFamily: fontFamilies.black, fontSize: 14, fontWeight: "900", lineHeight: 18, textAlign: "center" }}
+        style={{ color: disabled ? todayPalette.textMuted : primary ? colors.cornerBlack : toneColor, flexShrink: 1, fontFamily: fontFamilies.black, fontSize: 14, fontWeight: "900", lineHeight: 18, textAlign: "center" }}
       >
         {label}
       </Text>
@@ -719,40 +748,43 @@ function TodayCheckInCard({
   return (
     <TodayEditorialSection featured testID="today-check-in-section">
       <View style={{ gap: spacing.md }} testID="today-hero-card">
-        <View testID="today-check-in-card">
-          <View style={{ gap: spacing.md }}>
-            <View style={{ alignItems: "center", flexDirection: "row", gap: compact ? spacing.sm : spacing.md }}>
-              <View style={{ alignItems: "center", width: compact ? 48 : 54 }}>
-                <View
-                  style={{
-                    alignItems: "center",
-                    backgroundColor: todayTint(checkIn.tone, "16"),
-                    borderColor: todayTint(checkIn.tone, "55"),
-                    borderRadius: 4,
-                    borderWidth: 1,
-                    height: compact ? 46 : 50,
-                    justifyContent: "center",
-                    width: compact ? 46 : 50
-                  }}
-                >
-                  <Ionicons color={colorForTone(checkIn.tone)} name="shield-outline" size={compact ? 23 : 25} />
-                </View>
-              </View>
-              <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
-                <Text style={{ color: colorForTone(checkIn.tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
-                  Readiness
-                </Text>
-                <Text numberOfLines={2} style={{ color: colors.canvas, fontSize: compact ? 18 : 20, fontWeight: "900", lineHeight: compact ? 23 : 25 }}>
-                  Readiness: <Text style={{ color: colorForTone(checkIn.tone) }}>{checkIn.status}</Text>
-                </Text>
-                <Text numberOfLines={3} style={{ color: colors.wrap, fontSize: compact ? 13 : 14, fontWeight: "600", lineHeight: compact ? 18 : 20 }}>{checkIn.sentence}</Text>
-              </View>
-              {!compact ? <Ionicons color={colors.wrap} name="chevron-forward" size={20} /> : null}
-            </View>
-            <View>
-              <TodayButton disabled={busy || primaryAction.disabled || !primaryHandler} icon={actionIcon(primaryAction)} label={primaryAction.label} onPress={primaryHandler} primary testID="today-primary-check-in-action" tone="blue" />
+        <View style={{ gap: spacing.md }} testID="today-check-in-card">
+          <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
+            <Text style={{ color: todayPalette.toneBlue, fontSize: 12, fontWeight: "900", letterSpacing: 0.7, lineHeight: 16, textTransform: "uppercase" }}>
+              01 / Readiness
+            </Text>
+            <View style={{ borderColor: todayPalette.actionBorder, borderRadius: 4, borderWidth: 1, paddingHorizontal: spacing.sm, paddingVertical: 3 }}>
+              <Text style={{ color: todayPalette.toneBlue, fontSize: 10, fontWeight: "900", letterSpacing: 0.6, lineHeight: 14, textTransform: "uppercase" }}>
+                Today
+              </Text>
             </View>
           </View>
+          <View style={{ alignItems: "flex-start", flexDirection: "row", gap: compact ? spacing.md : spacing.lg }}>
+            <View
+              style={{
+                alignItems: "center",
+                backgroundColor: todayPalette.controlFill,
+                borderColor: todayPalette.actionBorder,
+                borderRadius: 4,
+                borderWidth: 1,
+                height: compact ? 48 : 54,
+                justifyContent: "center",
+                width: compact ? 48 : 54
+              }}
+            >
+              <Ionicons color={todayPalette.toneBlue} name="shield-outline" size={compact ? 24 : 27} />
+            </View>
+            <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+              <Text style={{ color: todayPalette.textMuted, fontSize: 10, fontWeight: "800", letterSpacing: 0.8, lineHeight: 14, textTransform: "uppercase" }}>
+                Current status
+              </Text>
+              <Text numberOfLines={1} style={{ color: colorForTone(checkIn.tone), fontSize: compact ? 28 : 32, fontWeight: "900", letterSpacing: -0.7, lineHeight: compact ? 32 : 36 }} testID="today-readiness-status">
+                {checkIn.status}
+              </Text>
+              <Text numberOfLines={3} style={{ color: todayPalette.textBody, fontSize: compact ? 13 : 14, fontWeight: "500", lineHeight: compact ? 19 : 20 }}>{checkIn.sentence}</Text>
+            </View>
+          </View>
+          <TodayButton disabled={busy || primaryAction.disabled || !primaryHandler} icon={actionIcon(primaryAction)} label={primaryAction.label} onPress={primaryHandler} primary testID="today-primary-check-in-action" tone="blue" />
         </View>
         {compactCheckInAction ? (
           <View style={{ marginTop: spacing.xs }}>
@@ -917,6 +949,7 @@ function TodayDailyWeightCard({
           framed={false}
           preferredUnits={preferredUnits}
           status={recentLogs.bodyMassToday}
+          surface="today"
           title="Body weight"
         />
       </View>
@@ -1050,13 +1083,13 @@ function TodayDetails({
       </TodayDetailRow>
 
       <TodayDetailRow icon="bar-chart-outline" summary={`Load trend: ${dashboard.loadStateLabel}`} testID="today-training-load-details" title="Training load" tone={dashboard.loadStateLabel === "High" ? "red" : dashboard.loadStateLabel === "Watch" ? "orange" : "blue"}>
-        <WeeklyLoadBars bars={dashboard.weeklyLoad} />
+        <WeeklyLoadBars bars={dashboard.weeklyLoad.map((bar) => ({ ...bar, tone: "blue" as const }))} />
         <Text style={screenStyles.subtle}>Use this only when you want the weekly context behind today's call.</Text>
       </TodayDetailRow>
 
       <TodayDetailRow icon="scale-outline" summary={`${bodyMassCurrentLabel} - ${bodyMassDeltaLabel}`} testID="today-weight-trend-details" title="Weight trend" tone={dashboard.bodyMass.tone}>
         {hasBodyMassLine ? (
-          <TrendLineChart accent={accentForTone(dashboard.bodyMass.tone)} height={82} points={bodyMassTrendPoints} />
+          <TrendLineChart accent="blue" height={82} points={bodyMassTrendPoints} />
         ) : (
           <Text style={screenStyles.subtle}>{plainTodayCopy(dashboard.bodyMass.emptyLabel)}</Text>
         )}
@@ -1144,7 +1177,7 @@ function TodayDetailsDisclosure({
             resolveAction={resolveAction}
           />
           <QuickLogsCard busy={busy} onLogFood={onLogFood} onOpenQuickCheck={onOpenQuickCheck} />
-          {cycleQuickLogEnabled ? <CycleLogCard actions={quickLogs} busy={busy} cycleSymptomOptions={cycleSymptomOptions} /> : null}
+          {cycleQuickLogEnabled ? <CycleLogCard actions={quickLogs} busy={busy} cycleSymptomOptions={cycleSymptomOptions} surface="today" /> : null}
           {children}
         </View>
       ) : null}
@@ -1263,7 +1296,7 @@ export function TodayScreen({
             showCycleImpact={showCycleImpact}
           />
         </TodayDetailsDisclosure>
-        {message ? <Text style={[screenStyles.subtle, { color: todayPalette.toneOrange }]} testID="today-app-note">App note: {message}. Existing plan stays visible.</Text> : null}
+        {message ? <Text style={[screenStyles.subtle, { color: todayPalette.toneBlue }]} testID="today-app-note">App note: {message}. Existing plan stays visible.</Text> : null}
       </LuminousScreen>
       <TodayQuickCheckModal
         busy={busy}

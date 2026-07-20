@@ -121,6 +121,21 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(heroSource).not.toContain("Ready to Own Your Day");
   });
 
+  it("keeps every Today action and quick-log control on the teal editorial surface", () => {
+    const todaySource = readFileSync("src/app/screens/TodayScreen.tsx", "utf8");
+    const logCardSource = readFileSync("src/app/screens/logging/LogCards.tsx", "utf8");
+
+    expect(todaySource).toContain('surface="today"');
+    expect(todaySource).toContain("editorialFontForStyle");
+    expect(todaySource).toContain('borderRadius: 5');
+    expect(todaySource).toContain('testID="today-readiness-status"');
+    expect(todaySource).toContain("01 / Readiness");
+    expect(logCardSource).toContain('const todayLogSurface =');
+    expect(logCardSource).toContain('surface?: "default" | "fuel" | "today"');
+    expect(logCardSource).toContain('surface === "today" ? todayActionStyle()');
+    expect(logCardSource).toContain("todayActionTextStyle");
+  });
+
   it("keeps tab screens ivory-first and deep-teal below while retaining local hero assets", () => {
     const heroSource = readFileSync("src/app/screens/tabHeroConfig.ts", "utf8");
     const screenShellSource = readFileSync("src/design/components/LuminousScreen.tsx", "utf8");

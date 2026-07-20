@@ -1,5 +1,5 @@
 ﻿import React, { useState } from "react";
-import { Pressable, Text, TextInput, View, type ViewStyle } from "react-native";
+import { Pressable, Text as NativeText, TextInput, View, type TextProps, type TextStyle, type ViewStyle } from "react-native";
 import { useFormMessage } from "../../forms/useFormMessage";
 import {
   parseOptionalNonNegativeNumber,
@@ -12,6 +12,7 @@ import {
 } from "../../forms/validation";
 import { EngineCard } from "../../../design/components/EngineCard";
 import { colors, radii, spacing } from "../../../design/theme";
+import { fontFamilies } from "../../../design/typography";
 import type { QuickLogActions } from "../../../hooks/useQuickLogs";
 import type { CycleSymptom, RecentLogsViewModel, SessionIntensity } from "../../../engine/core/types";
 import { screenStyles } from "../screenStyles";
@@ -27,8 +28,10 @@ interface QuickLogCardProps extends LogCardProps {
   actions: QuickLogActions;
   framed?: boolean | undefined;
   onLogged?: (() => void) | undefined;
-  surface?: "default" | "fuel" | undefined;
+  surface?: "default" | "fuel" | "today" | undefined;
 }
+
+type QuickLogSurface = NonNullable<QuickLogCardProps["surface"]>;
 
 type DailyLogStatus = RecentLogsViewModel["readinessToday"];
 type BodyMassTodayStatus = RecentLogsViewModel["bodyMassToday"];
@@ -50,7 +53,85 @@ const fuelLogSurface = {
   textPrimary: "#F4EFE8"
 } as const;
 
+const todayLogSurface = {
+  actionBorder: "rgba(39, 206, 241, 0.58)",
+  actionFill: "#27CEF1",
+  controlFill: "rgba(224, 244, 252, 0.055)",
+  controlFillPressed: "rgba(39, 206, 241, 0.13)",
+  controlLine: "rgba(205, 239, 247, 0.18)",
+  textBody: "#D7E7F4",
+  textMuted: "#A9BDD0",
+  textPrimary: "#F6FBFF"
+} as const;
+
+const QuickLogSurfaceContext = React.createContext<QuickLogSurface>("default");
+
+function editorialFontForStyle(style: TextStyle): string {
+  const weight = Number.parseInt(String(style.fontWeight ?? "400"), 10);
+  if (weight >= 900) return fontFamilies.black;
+  if (weight >= 800) return fontFamilies.extraBold;
+  if (weight >= 700) return fontFamilies.bold;
+  if (weight >= 600) return fontFamilies.semibold;
+  if (weight >= 500) return fontFamilies.medium;
+  return fontFamilies.regular;
+}
+
+function flattenEditorialStyle(style: unknown): TextStyle {
+  if (Array.isArray(style)) {
+    return Object.assign({}, ...style.map((item) => flattenEditorialStyle(item)));
+  }
+  return style && typeof style === "object" ? style as TextStyle : {};
+}
+
+function Text({ style, ...props }: TextProps) {
+  const surface = React.useContext(QuickLogSurfaceContext);
+  const flattened = flattenEditorialStyle(style);
+  const todayColor =
+    flattened.color === colors.canvas || flattened.color === colors.readyGreen
+      ? todayLogSurface.textPrimary
+      : flattened.color === colors.wrap
+        ? todayLogSurface.textBody
+        : flattened.color === colors.mutedText || flattened.color === colors.redCorner
+          ? todayLogSurface.textMuted
+          : flattened.color;
+  return (
+    <NativeText
+      {...props}
+      style={surface === "today" ? [style, { color: todayColor, fontFamily: editorialFontForStyle(flattened) }] : style}
+    />
+  );
+}
+
+function todayActionStyle(secondary = false): ViewStyle {
+  return {
+    backgroundColor: secondary ? "transparent" : todayLogSurface.actionFill,
+    borderColor: secondary ? todayLogSurface.controlLine : todayLogSurface.actionBorder,
+    borderRadius: 5,
+    borderWidth: 1,
+    boxShadow: "none",
+    minHeight: secondary ? 44 : 52
+  };
+}
+
+const todayActionTextStyle: TextStyle = {
+  color: colors.cornerBlack,
+  fontFamily: fontFamilies.black,
+  fontSize: 14,
+  fontWeight: "900",
+  lineHeight: 18
+};
+
+const todayQuietTextStyle: TextStyle = {
+  color: todayLogSurface.textPrimary,
+  fontFamily: fontFamilies.bold,
+  fontSize: 14,
+  fontWeight: "700",
+  lineHeight: 18
+};
+
 function ToggleButton({ active, busy, compact = false, label, onPress }: { active: boolean; busy: boolean; compact?: boolean | undefined; label: string; onPress: () => void }) {
+  const surface = React.useContext(QuickLogSurfaceContext);
+  const todaySurface = surface === "today";
   return (
     <Pressable
       accessibilityLabel={label}
@@ -58,9 +139,9 @@ function ToggleButton({ active, busy, compact = false, label, onPress }: { activ
       accessibilityState={{ disabled: busy, selected: active }}
       disabled={busy}
       onPress={onPress}
-      style={[screenStyles.chip, compact ? { minHeight: 36, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs } : null, active ? screenStyles.chipSelected : null]}
+      style={[screenStyles.chip, compact ? { minHeight: 44, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs } : null, todaySurface ? todayActionStyle(true) : null, todaySurface && active ? { backgroundColor: todayLogSurface.controlFillPressed, borderColor: todayLogSurface.actionBorder } : active ? screenStyles.chipSelected : null]}
     >
-      <Text style={[screenStyles.chipText, active ? screenStyles.chipTextSelected : null]}>{label}</Text>
+      <Text style={[screenStyles.chipText, todaySurface ? todayQuietTextStyle : null, active ? screenStyles.chipTextSelected : null]}>{label}</Text>
     </Pressable>
   );
 }
@@ -84,6 +165,7 @@ function DailyLogFrame({
   displayCopy = (value: string) => value,
   forceOpen = false,
   framed = true,
+  surface = "default",
   status,
   title
 }: React.PropsWithChildren<{
@@ -91,6 +173,7 @@ function DailyLogFrame({
   displayCopy?: ((value: string) => string) | undefined;
   forceOpen?: boolean | undefined;
   framed?: boolean | undefined;
+  surface?: QuickLogSurface | undefined;
   status?: DailyLogStatus | undefined;
   title: string;
 }>) {
@@ -127,12 +210,16 @@ function DailyLogFrame({
     </View>
   );
 
-  return framed ? <EngineCard>{content}</EngineCard> : content;
+  return (
+    <QuickLogSurfaceContext.Provider value={surface}>
+      {framed ? <EngineCard>{content}</EngineCard> : content}
+    </QuickLogSurfaceContext.Provider>
+  );
 }
 
-function FrameOrPlain({ children, framed = true }: React.PropsWithChildren<{ framed?: boolean | undefined }>) {
+function FrameOrPlain({ children, framed = true, surface = "default" }: React.PropsWithChildren<{ framed?: boolean | undefined; surface?: QuickLogSurface | undefined }>) {
   const content = <View style={{ gap: spacing.sm }}>{children}</View>;
-  return framed ? <EngineCard>{content}</EngineCard> : content;
+  return <QuickLogSurfaceContext.Provider value={surface}>{framed ? <EngineCard>{content}</EngineCard> : content}</QuickLogSurfaceContext.Provider>;
 }
 
 function InputLabel({ children }: { children: React.ReactNode }) {
@@ -154,6 +241,8 @@ function CompactField({
   placeholder: string;
   value: string;
 }) {
+  const surface = React.useContext(QuickLogSurfaceContext);
+  const todaySurface = surface === "today";
   return (
     <View style={{ flexBasis: compact ? 132 : 148, flexGrow: 1, gap: spacing.xs, minWidth: compact ? 118 : 132 }}>
       <InputLabel>{label}</InputLabel>
@@ -162,8 +251,8 @@ function CompactField({
         keyboardType={keyboardType}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={colors.wrap}
-        style={[screenStyles.input, compact ? { fontSize: 15, minHeight: 44, paddingVertical: spacing.xs } : null]}
+        placeholderTextColor={todaySurface ? todayLogSurface.textMuted : colors.wrap}
+        style={[screenStyles.input, compact ? { fontSize: 15, minHeight: 44, paddingVertical: spacing.xs } : null, todaySurface ? { backgroundColor: todayLogSurface.controlFill, borderColor: todayLogSurface.controlLine, borderRadius: 5, color: todayLogSurface.textPrimary, fontFamily: fontFamilies.medium } : null]}
         value={value}
       />
     </View>
@@ -194,6 +283,8 @@ function ScaleSegmentedControl({
   style?: ViewStyle | undefined;
   value: string;
 }) {
+  const surface = React.useContext(QuickLogSurfaceContext);
+  const todaySurface = surface === "today";
   return (
     <View style={[{ gap: spacing.xs }, style]}>
       <InputLabel>{label}</InputLabel>
@@ -208,9 +299,9 @@ function ScaleSegmentedControl({
               disabled={busy}
               key={`scale-option:${option}`}
               onPress={() => onChange(option)}
-              style={[screenStyles.chip, { borderRadius: 16, minHeight: compact ? 34 : 36, minWidth: compact ? 38 : 42, paddingHorizontal: spacing.sm }, selected ? screenStyles.chipSelected : null]}
+              style={[screenStyles.chip, { borderRadius: todaySurface ? 5 : 16, minHeight: todaySurface ? 44 : compact ? 34 : 36, minWidth: compact ? 38 : 42, paddingHorizontal: spacing.sm }, todaySurface ? todayActionStyle(true) : null, todaySurface && selected ? { backgroundColor: todayLogSurface.controlFillPressed, borderColor: todayLogSurface.actionBorder } : selected ? screenStyles.chipSelected : null]}
             >
-              <Text style={[screenStyles.chipText, selected ? screenStyles.chipTextSelected : null]}>{option}</Text>
+              <Text style={[screenStyles.chipText, todaySurface ? todayQuietTextStyle : null, selected ? screenStyles.chipTextSelected : null]}>{option}</Text>
             </Pressable>
           );
         })}
@@ -286,6 +377,7 @@ export function BodyMassLogCard({
   onLogged,
   preferredUnits = "metric",
   status,
+  surface = "default",
   title = "Body weight"
 }: QuickLogCardProps & { preferredUnits?: "metric" | "imperial" | undefined; status?: BodyMassTodayStatus | undefined; title?: string | undefined }) {
   const [bodyMassValue, setBodyMassValue] = useState("");
@@ -295,7 +387,7 @@ export function BodyMassLogCard({
   const unitLabel = usesImperial ? "lb" : "kg";
   const bodyMassExample = usesImperial ? "146" : "66.4";
   return (
-    <DailyLogFrame busy={busy} displayCopy={(value) => convertMassCopy(value, preferredUnits)} forceOpen={forceOpen} framed={framed} status={status} title={title}>
+    <DailyLogFrame busy={busy} displayCopy={(value) => convertMassCopy(value, preferredUnits)} forceOpen={forceOpen} framed={framed} status={status} surface={surface} title={title}>
         {compact ? null : <QuickLogHelp />}
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
@@ -315,15 +407,15 @@ export function BodyMassLogCard({
               onLogged?.();
             })
           }
-          style={screenStyles.button}
+          style={[screenStyles.button, surface === "today" ? todayActionStyle() : null]}
         >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving body weight..." : status?.loggedToday ? "Update body weight" : "Log body weight"}</Text>
+          <Text style={[screenStyles.buttonText, surface === "today" ? todayActionTextStyle : null]}>{busy ? "Saving body weight..." : status?.loggedToday ? "Update body weight" : "Log body weight"}</Text>
         </Pressable>
     </DailyLogFrame>
   );
 }
 
-export function ReadinessCheckInCard({ actions, busy, compact = false, forceOpen, framed, onLogged, status }: QuickLogCardProps & { status?: DailyLogStatus | undefined }) {
+export function ReadinessCheckInCard({ actions, busy, compact = false, forceOpen, framed, onLogged, status, surface = "default" }: QuickLogCardProps & { status?: DailyLogStatus | undefined }) {
   const [sleepHours, setSleepHours] = useState("");
   const [sleepQuality, setSleepQuality] = useState("");
   const [energy, setEnergy] = useState("");
@@ -353,7 +445,7 @@ export function ReadinessCheckInCard({ actions, busy, compact = false, forceOpen
   };
 
   return (
-    <DailyLogFrame busy={busy} forceOpen={forceOpen} framed={framed} status={status} title={status?.loggedToday ? "Readiness summary" : "Readiness check due"}>
+    <DailyLogFrame busy={busy} forceOpen={forceOpen} framed={framed} status={status} surface={surface} title={status?.loggedToday ? "Readiness summary" : "Readiness check due"}>
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
         {compactLayout ? null : <QuickLogHelp />}
@@ -367,7 +459,7 @@ export function ReadinessCheckInCard({ actions, busy, compact = false, forceOpen
           <ScaleSegmentedControl busy={busy} compact={compactLayout} label="Mood (1-5)" onChange={setMood} style={requiredScaleStyle} value={mood} />
         </View>
         <InputLabel>Pain notes (optional)</InputLabel>
-        <TextInput accessibilityLabel="Pain notes" onChangeText={setPainNotes} placeholder="Pain notes optional" placeholderTextColor={colors.wrap} style={[screenStyles.input, compactLayout ? { fontSize: 15, minHeight: 44, paddingVertical: spacing.xs } : null]} value={painNotes} />
+        <TextInput accessibilityLabel="Pain notes" onChangeText={setPainNotes} placeholder="Pain notes optional" placeholderTextColor={surface === "today" ? todayLogSurface.textMuted : colors.wrap} style={[screenStyles.input, compactLayout ? { fontSize: 15, minHeight: 44, paddingVertical: spacing.xs } : null, surface === "today" ? { backgroundColor: todayLogSurface.controlFill, borderColor: todayLogSurface.controlLine, borderRadius: 5, color: todayLogSurface.textPrimary, fontFamily: fontFamilies.medium } : null]} value={painNotes} />
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ToggleButton active={illness} busy={busy} compact={compactLayout} label="Illness" onPress={() => setIllness((value) => !value)} />
           <ToggleButton active={dizziness} busy={busy} compact={compactLayout} label="Dizziness" onPress={() => setDizziness((value) => !value)} />
@@ -401,9 +493,9 @@ export function ReadinessCheckInCard({ actions, busy, compact = false, forceOpen
               onLogged?.();
             })
           }
-          style={screenStyles.button}
+          style={[screenStyles.button, surface === "today" ? todayActionStyle() : null]}
         >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving readiness..." : status?.loggedToday ? "Update readiness" : "Log readiness"}</Text>
+          <Text style={[screenStyles.buttonText, surface === "today" ? todayActionTextStyle : null]}>{busy ? "Saving readiness..." : status?.loggedToday ? "Update readiness" : "Log readiness"}</Text>
         </Pressable>
     </DailyLogFrame>
   );
@@ -418,7 +510,7 @@ export function HydrationLogCard({ actions, busy, compact = false, framed, onLog
   const actionLabel = (status?.actionLabel ?? "Add water").replace(/log\s+water/i, "Add water");
   const fuelSurface = surface === "fuel";
   return (
-    <FrameOrPlain framed={framed}>
+    <FrameOrPlain framed={framed} surface={surface}>
         <Text style={[screenStyles.sectionTitle, fuelSurface ? { color: fuelLogSurface.textPrimary, fontWeight: "800" } : null]}>Add water</Text>
         <Text style={[screenStyles.callout, fuelSurface ? { color: fuelLogSurface.textPrimary, fontWeight: "700" } : null]}>{status?.totalLabel ?? "Today's hydration total: add water when you have a true amount."}</Text>
         <Text style={[screenStyles.subtle, fuelSurface ? { color: fuelLogSurface.textMuted } : null]}>{status?.addToTodayCopy ?? "Add hydration to today. Each save adds another water/sodium entry; it does not replace or set a daily total."}</Text>
@@ -458,10 +550,10 @@ export function HydrationLogCard({ actions, busy, compact = false, framed, onLog
                     borderRadius: radii.pill,
                     boxShadow: `0 12px 28px ${fuelLogSurface.actionShadow}`
                   }
-                : null
+                : surface === "today" ? todayActionStyle() : null
             ]}
           >
-            <Text style={[screenStyles.buttonText, fuelSurface ? { color: fuelLogSurface.textPrimary } : null]}>{busy ? "Saving water..." : actionLabel}</Text>
+            <Text style={[screenStyles.buttonText, fuelSurface ? { color: fuelLogSurface.textPrimary } : surface === "today" ? todayActionTextStyle : null]}>{busy ? "Saving water..." : actionLabel}</Text>
           </Pressable>
           <Pressable
             accessibilityLabel={moreFieldsOpen ? "Hide more hydration fields" : "Show more hydration fields"}
@@ -472,17 +564,17 @@ export function HydrationLogCard({ actions, busy, compact = false, framed, onLog
             style={[
               screenStyles.quietButton,
               { flexBasis: 132, flexGrow: 1 },
-              fuelSurface ? { backgroundColor: fuelLogSurface.controlFill, borderColor: fuelLogSurface.controlLine } : null
+              fuelSurface ? { backgroundColor: fuelLogSurface.controlFill, borderColor: fuelLogSurface.controlLine } : surface === "today" ? todayActionStyle(true) : null
             ]}
           >
-            <Text style={[screenStyles.quietButtonText, fuelSurface ? { color: fuelLogSurface.textBody } : null]}>{moreFieldsOpen ? "Hide more fields" : "More fields"}</Text>
+            <Text style={[screenStyles.quietButtonText, fuelSurface ? { color: fuelLogSurface.textBody } : surface === "today" ? todayQuietTextStyle : null]}>{moreFieldsOpen ? "Hide more fields" : "More fields"}</Text>
           </Pressable>
         </View>
     </FrameOrPlain>
   );
 }
 
-export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCardProps & { cycleSymptomOptions: readonly CycleSymptom[] }) {
+export function CycleLogCard({ actions, busy, cycleSymptomOptions, surface = "default" }: QuickLogCardProps & { cycleSymptomOptions: readonly CycleSymptom[] }) {
   const [flowLevel, setFlowLevel] = useState<"none" | "spotting" | "light" | "moderate" | "heavy" | "very_heavy" | "unknown">("unknown");
   const [symptoms, setSymptoms] = useState<CycleSymptom[]>([]);
   const [bleedStart, setBleedStart] = useState(false);
@@ -496,6 +588,7 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
   };
 
   return (
+    <QuickLogSurfaceContext.Provider value={surface}>
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Cycle</Text>
@@ -541,12 +634,13 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
               setSuccess("Cycle log saved. Symptom context stays private and can improve today's confidence when relevant.");
             })
           }
-          style={screenStyles.button}
+          style={[screenStyles.button, surface === "today" ? todayActionStyle() : null]}
         >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving cycle..." : "Log cycle"}</Text>
+          <Text style={[screenStyles.buttonText, surface === "today" ? todayActionTextStyle : null]}>{busy ? "Saving cycle..." : "Log cycle"}</Text>
         </Pressable>
       </View>
     </EngineCard>
+    </QuickLogSurfaceContext.Provider>
   );
 }
 
@@ -563,6 +657,7 @@ export function FoodQuickLogCard({ actions, busy, status, surface = "default" }:
   const macroPreview = foodEnergyPreview({ calories, protein, carbs, fat }, actions.validateFoodEnergy);
   const fuelSurface = surface === "fuel";
   return (
+    <QuickLogSurfaceContext.Provider value={surface}>
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={[screenStyles.sectionTitle, fuelSurface ? { color: fuelLogSurface.textPrimary, fontWeight: "800" } : null]}>Log food</Text>
@@ -654,6 +749,7 @@ export function FoodQuickLogCard({ actions, busy, status, surface = "default" }:
         </View>
       </View>
     </EngineCard>
+    </QuickLogSurfaceContext.Provider>
   );
 }
 
