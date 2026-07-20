@@ -29,20 +29,20 @@ import { screenStyles } from "./screenStyles";
 import { tabHeroHeaders } from "./tabHeroConfig";
 
 const profilePalette = {
-  actionBorder: "rgba(198, 213, 231, 0.5)",
-  actionFill: "rgba(198, 213, 231, 0.18)",
-  actionFillPressed: "rgba(198, 213, 231, 0.26)",
-  cardLine: "rgba(205, 217, 233, 0.14)",
-  controlFill: "rgba(230, 239, 251, 0.06)",
-  controlFillPressed: "rgba(230, 239, 251, 0.1)",
-  controlLine: "rgba(205, 217, 233, 0.18)",
-  textBody: "#D7E1EE",
-  textMuted: "#A8B5C8",
-  textPrimary: "#F5F8FC",
-  toneBlue: "#A9C3D8",
+  actionBorder: "rgba(39, 206, 241, 0.58)",
+  actionFill: "#27CEF1",
+  actionFillPressed: "#20B9D9",
+  cardLine: "rgba(216, 228, 230, 0.14)",
+  controlFill: "rgba(216, 228, 230, 0.055)",
+  controlFillPressed: "rgba(216, 228, 230, 0.095)",
+  controlLine: "rgba(216, 228, 230, 0.16)",
+  textBody: "#D8E4E6",
+  textMuted: "#9FAFB4",
+  textPrimary: "#F2EBE0",
+  toneBlue: "#27CEF1",
   toneGold: "#FFD861",
   toneGreen: "#38E28A",
-  toneMuted: "#A8B5C8",
+  toneMuted: "#9FAFB4",
   toneOrange: "#FF9448",
   tonePurple: "#9657F5",
   toneRed: "#FF5265"
@@ -148,8 +148,7 @@ function ProfileIconButton({
   tone?: ProfileVisualTone | undefined;
   variant?: "primary" | "quiet" | undefined;
 }) {
-  const theme = useLuminousScreenTheme();
-  const iconColor = variant === "primary" ? profilePalette.textPrimary : profileColorForTone(tone);
+  const iconColor = variant === "primary" ? colors.cornerBlack : profileColorForTone(tone);
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel ?? label}
@@ -164,7 +163,7 @@ function ProfileIconButton({
           ? pressed ? profilePalette.actionFillPressed : profilePalette.actionFill
           : pressed ? profilePalette.controlFillPressed : profilePalette.controlFill,
         borderColor: variant === "primary" ? profilePalette.actionBorder : profileTint(tone, "33"),
-        boxShadow: variant === "primary" ? `0 10px 22px ${profileTint(tone, "1F")}` : `0 6px 16px ${theme.strongGlow}`,
+        boxShadow: "none",
         flexDirection: "row",
         gap: spacing.sm,
         justifyContent: "center",
@@ -175,7 +174,7 @@ function ProfileIconButton({
       })}
     >
       <Ionicons color={iconColor} name={icon} size={17} style={{ flexShrink: 0 }} />
-      <Text style={{ color: variant === "primary" ? profilePalette.textPrimary : profilePalette.textBody, flexShrink: 1, fontSize: 14, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>
+      <Text style={{ color: variant === "primary" ? colors.cornerBlack : profilePalette.textBody, flexShrink: 1, fontSize: 14, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>
         {label}
       </Text>
     </Pressable>
@@ -503,7 +502,7 @@ export function ProfileScreen({
     : "Health notes, support path, and saved safety history.";
 
   return (
-    <LuminousScreen accent="neutral" testID="profile-screen">
+    <LuminousScreen accent="blue" testID="profile-screen">
       <ScreenHeader {...tabHeroHeaders.profile} />
 
       <View testID="profile-hero-card">

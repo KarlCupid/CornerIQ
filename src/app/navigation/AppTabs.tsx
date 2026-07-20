@@ -1,13 +1,11 @@
 import React from "react";
 import { NavigationContainer, type NavigationContainerRef } from "@react-navigation/native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createBottomTabNavigator, type BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { StatusBar } from "expo-status-bar";
-import { Animated, useWindowDimensions, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, DetailedTrainingSession, ISODateString, PerformanceState } from "../../engine/core/types";
-import { alphaHex, glassStyles } from "../../design/glass";
-import { luminousScreenThemes } from "../../design/luminousTheme";
 import { colors, spacing } from "../../design/theme";
 import type { RootTabParamList } from "./rootNavigator";
 import { FuelScreen, type FuelFocusIntent } from "../screens/FuelScreen";
@@ -26,21 +24,17 @@ import type { EngineGenerationStatus } from "../components/EngineGeneratingCard"
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-const inactiveTabColor = "rgba(183, 196, 217, 0.7)";
-const floatingTabBarHeight = 64;
-const floatingTabBarRadius = floatingTabBarHeight / 2;
-const floatingTabTouchTarget = 50;
-const floatingTabPuckSize = 46;
-const floatingTabIconSize = 20;
-const floatingTabBarMaxWidth = 368;
-const floatingTabBarMinWidth = floatingTabTouchTarget * 4 + spacing.md * 2;
+const inactiveTabColor = "rgba(216, 228, 230, 0.58)";
+const tabBarHeight = 72;
+const tabTouchTarget = 48;
+const tabIconSize = 20;
 
 const tabAccents: Record<keyof RootTabParamList, string> = {
-  Fuel: colors.amberCaution,
-  Plan: colors.readyGreen,
-  Profile: colors.wrap,
+  Fuel: colors.blueIQ,
+  Plan: colors.blueIQ,
+  Profile: colors.blueIQ,
   Today: colors.blueIQ,
-  Train: colors.powerPurple
+  Train: colors.blueIQ
 };
 
 const tabIcons: Record<keyof RootTabParamList, keyof typeof Ionicons.glyphMap> = {
@@ -59,15 +53,7 @@ const activeTabIcons: Record<keyof RootTabParamList, keyof typeof Ionicons.glyph
   Train: "barbell"
 };
 
-const tabChromeThemes: Record<keyof RootTabParamList, (typeof luminousScreenThemes)[keyof typeof luminousScreenThemes]> = {
-  Fuel: luminousScreenThemes.orange,
-  Plan: luminousScreenThemes.green,
-  Profile: luminousScreenThemes.neutral,
-  Today: luminousScreenThemes.blue,
-  Train: luminousScreenThemes.purple
-};
-
-function FloatingTabIcon({
+function EditorialTabIcon({
   color,
   focused,
   routeName
@@ -76,83 +62,68 @@ function FloatingTabIcon({
   focused: boolean;
   routeName: keyof RootTabParamList;
 }) {
-  const progress = React.useRef(new Animated.Value(focused ? 1 : 0)).current;
   const accent = tabAccents[routeName];
 
-  React.useEffect(() => {
-    Animated.spring(progress, {
-      damping: 16,
-      mass: 0.9,
-      stiffness: 220,
-      toValue: focused ? 1 : 0,
-      useNativeDriver: true
-    }).start();
-  }, [focused, progress]);
-
-  const scale = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.96, 1]
-  });
-  const translateY = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -6]
-  });
-  const glowOpacity = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1]
-  });
-  const glowScale = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.76, 1]
-  });
-
   return (
-    <Animated.View
+    <View
       style={{
         alignItems: "center",
-        height: floatingTabTouchTarget,
+        height: 36,
         justifyContent: "center",
-        transform: [{ translateY }, { scale }],
-        width: floatingTabTouchTarget
+        position: "relative",
+        width: tabTouchTarget
       }}
     >
       <View
+        pointerEvents="none"
         style={{
-          alignItems: "center",
-          backgroundColor: focused ? alphaHex(accent, "24") : "transparent",
-          borderColor: focused ? alphaHex(accent, "70") : "transparent",
-          borderRadius: floatingTabPuckSize / 2,
-          borderWidth: focused ? 1 : 0,
-          boxShadow: focused ? `0 0 20px ${alphaHex(accent, "42")}, 0 10px 20px rgba(0, 0, 0, 0.34)` : undefined,
-          height: floatingTabPuckSize,
-          justifyContent: "center",
-          overflow: "hidden",
-          width: floatingTabPuckSize
+          backgroundColor: focused ? accent : "transparent",
+          borderRadius: 999,
+          height: 2,
+          left: 8,
+          position: "absolute",
+          right: 8,
+          top: 0
         }}
-      >
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            backgroundColor: alphaHex(accent, "24"),
-            borderRadius: (floatingTabPuckSize - 10) / 2,
-            bottom: 5,
-            left: 5,
-            opacity: glowOpacity,
-            position: "absolute",
-            right: 5,
-            top: 5,
-            transform: [{ scale: glowScale }]
-          }}
-        />
-        <Ionicons
-          accessibilityElementsHidden
-          color={focused ? accent : color}
-          importantForAccessibility="no-hide-descendants"
-          name={focused ? activeTabIcons[routeName] : tabIcons[routeName]}
-          size={floatingTabIconSize}
-        />
-      </View>
-    </Animated.View>
+      />
+      <Ionicons
+        accessibilityElementsHidden
+        color={focused ? accent : color}
+        importantForAccessibility="no-hide-descendants"
+        name={focused ? activeTabIcons[routeName] : tabIcons[routeName]}
+        size={tabIconSize}
+      />
+    </View>
+  );
+}
+
+function EditorialTabButton({
+  children,
+  href: _href,
+  hoverEffect: _hoverEffect,
+  onPress,
+  pressColor: _pressColor,
+  pressOpacity: _pressOpacity,
+  ref: _ref,
+  style,
+  ...props
+}: BottomTabBarButtonProps) {
+  return (
+    <Pressable
+      {...props}
+      onPress={(event) => onPress?.(event)}
+      style={({ pressed }) => [
+        style,
+        {
+          opacity: pressed ? 0.84 : 1,
+          outlineColor: "transparent",
+          outlineStyle: "solid",
+          outlineWidth: 0
+        }
+      ]}
+    >
+      {children}
+    </Pressable>
   );
 }
 
@@ -187,13 +158,6 @@ export interface AppTabsProps {
 
 export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus = "idle", message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onDeleteRecurringProtectedAnchor, onDeleteProtectedSession, onSaveBuildGoal, onSaveFightSetup, onSaveProtectedSession, onSaveRecurringProtectedAnchor, onSaveRecoveryGoal, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
-  const floatingTabBarWidth = Math.max(
-    floatingTabBarMinWidth,
-    Math.min(windowWidth - spacing.xxl * 2, floatingTabBarMaxWidth)
-  );
-  const floatingTabBarSideInset = Math.max(spacing.sm, (windowWidth - floatingTabBarWidth) / 2);
-  const floatingTabReservedBottom = floatingTabBarHeight + Math.max(insets.bottom, spacing.sm) + spacing.sm;
   const navigationRef = React.useRef<NavigationContainerRef<RootTabParamList>>(null);
   const [fuelFocusIntent, setFuelFocusIntent] = React.useState<FuelFocusIntent | undefined>();
   const [trainInitialSection, setTrainInitialSection] = React.useState<TrainSection | undefined>();
@@ -257,54 +221,32 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
   return (
     <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }}>
       <NavigationContainer ref={navigationRef}>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,
             tabBarAccessibilityLabel: `${route.name} tab`,
             tabBarActiveTintColor: tabAccents[route.name],
+            tabBarButton: (props) => <EditorialTabButton {...props} />,
             tabBarBackground: () => (
               <View
                 pointerEvents="none"
                 style={{
-                  bottom: -Math.max(insets.bottom, spacing.sm),
-                  height: floatingTabReservedBottom + spacing.xxl,
-                  left: -floatingTabBarSideInset,
+                  backgroundColor: colors.cornerBlack,
+                  borderTopColor: "rgba(39, 206, 241, 0.22)",
+                  borderTopWidth: 1,
+                  bottom: 0,
+                  left: 0,
                   position: "absolute",
-                  right: -floatingTabBarSideInset
+                  right: 0,
+                  top: 0
                 }}
-              >
-                <View
-                  style={{
-                    backgroundColor: colors.cornerBlack,
-                    bottom: 0,
-                    boxShadow: "0 -18px 34px rgba(1, 4, 10, 0.92)",
-                    left: 0,
-                    position: "absolute",
-                    right: 0,
-                    top: 0
-                  }}
-                />
-                <View
-                  style={{
-                    backgroundColor: "rgba(4, 8, 15, 0.84)",
-                    borderColor: alphaHex(tabAccents[route.name], "30"),
-                    borderRadius: floatingTabBarRadius,
-                    borderWidth: 1,
-                    bottom: Math.max(insets.bottom, spacing.sm),
-                    boxShadow: `0 14px 34px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 18px ${tabChromeThemes[route.name].strongGlow}`,
-                    left: floatingTabBarSideInset,
-                    position: "absolute",
-                    right: floatingTabBarSideInset,
-                    top: spacing.xxl
-                  }}
-                />
-              </View>
+              />
             ),
             tabBarHideOnKeyboard: true,
             tabBarInactiveTintColor: inactiveTabColor,
             tabBarIcon: ({ color, focused }) => (
-              <FloatingTabIcon color={color} focused={focused} routeName={route.name} />
+              <EditorialTabIcon color={color} focused={focused} routeName={route.name} />
             ),
             tabBarShowLabel: true,
             tabBarLabelPosition: "below-icon",
@@ -313,49 +255,36 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
             },
             tabBarIconStyle: {
               alignItems: "center",
-              height: 34,
-              overflow: "visible",
+              height: 36,
               justifyContent: "center",
               marginBottom: 0,
-              marginTop: -1,
-              width: floatingTabTouchTarget
+              marginTop: 0,
+              width: tabTouchTarget
             },
             tabBarItemStyle: {
               alignItems: "center",
-              height: floatingTabBarHeight,
+              height: tabBarHeight,
               justifyContent: "center",
+              outlineWidth: 0,
               paddingBottom: 0,
-              paddingTop: 3
+              paddingTop: spacing.xs
             },
             tabBarLabelStyle: {
               fontSize: 10,
               fontWeight: "800",
               lineHeight: 12,
-              marginBottom: 6,
-              marginTop: -6
+              marginBottom: 4,
+              marginTop: -3
             },
             tabBarStyle: {
-              ...glassStyles.tabBar,
-              backgroundColor: "rgba(4, 8, 15, 0.82)",
-              borderColor: alphaHex(tabAccents[route.name], "28"),
-              borderBottomLeftRadius: floatingTabBarRadius,
-              borderBottomRightRadius: floatingTabBarRadius,
-              borderBottomWidth: 1,
-              borderLeftWidth: 1,
-              borderRightWidth: 1,
-              borderTopLeftRadius: floatingTabBarRadius,
-              borderTopRightRadius: floatingTabBarRadius,
-              bottom: Math.max(insets.bottom, spacing.sm),
-              boxShadow: `0 14px 34px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 18px ${tabChromeThemes[route.name].strongGlow}`,
-              end: floatingTabBarSideInset,
-              height: floatingTabBarHeight,
-              overflow: "visible",
-              paddingBottom: 0,
+              backgroundColor: colors.cornerBlack,
+              borderTopColor: "rgba(39, 206, 241, 0.22)",
+              borderTopWidth: 1,
+              boxShadow: "none",
+              height: tabBarHeight + insets.bottom,
+              paddingBottom: Math.max(insets.bottom, spacing.xs),
               paddingHorizontal: spacing.xs,
-              paddingTop: 0,
-              position: "absolute",
-              start: floatingTabBarSideInset,
-              zIndex: 18
+              paddingTop: spacing.xs
             }
           })}
       >
@@ -462,7 +391,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
             />
           )}
         </Tab.Screen>
-        <Tab.Screen name="Profile" options={{ tabBarButton: () => null }}>
+        <Tab.Screen name="Profile">
           {({ navigation }) => (
             <ProfileScreen
               asOfDate={asOfDate}

@@ -2,6 +2,7 @@ import React from "react";
 import type { PropsWithChildren } from "react";
 import { ImageBackground, Platform, ScrollView, Text, useWindowDimensions, View, type ImageSourcePropType, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CornerIQWordmark } from "../../app/components/CornerIQWordmark";
 import { glassStyles } from "../glass";
 import { accentColor, LuminousScreenThemeContext, luminousScreenThemes, type LuminousAccent, useLuminousScreenTheme } from "../luminousTheme";
 import { colors, radii, spacing } from "../theme";
@@ -9,7 +10,9 @@ import { fontFamilies, typography } from "../typography";
 
 export { accentColor, accentWash, luminousScreenThemes, useLuminousScreenTheme, type LuminousAccent } from "../luminousTheme";
 
-const TAB_SCREEN_BOTTOM_PADDING = 104;
+const TAB_SCREEN_BOTTOM_PADDING = 24;
+const OPENING_BELL_BLACK = "#061318";
+const OPENING_BELL_IVORY = "#F2EBE0";
 
 const luminousStyles = {
   content: {
@@ -33,22 +36,24 @@ const luminousStyles = {
     maxWidth: 680
   },
   heroFrame: {
-    borderBottomColor: "rgba(255, 255, 255, 0.13)",
+    backgroundColor: OPENING_BELL_IVORY,
+    borderBottomColor: "transparent",
     borderCurve: "continuous" as const,
     borderRadius: 0,
     borderWidth: 0,
     borderBottomWidth: 1,
     marginHorizontal: -spacing.lg,
-    marginBottom: -spacing.lg,
+    marginBottom: 0,
     marginTop: -spacing.sm,
-    minHeight: 132,
+    minHeight: 298,
     overflow: "hidden" as const
   },
   heroImage: {
-    borderRadius: 0
+    borderRadius: 0,
+    opacity: 0.42
   },
   heroOverlay: {
-    backgroundColor: "rgba(2, 5, 12, 0.2)",
+    backgroundColor: "rgba(242, 235, 224, 0.34)",
     bottom: 0,
     left: 0,
     position: "absolute" as const,
@@ -56,43 +61,54 @@ const luminousStyles = {
     top: 0
   },
   heroBaseShadow: {
-    backgroundColor: "rgba(0, 0, 0, 0.28)",
+    backgroundColor: "transparent",
     bottom: 0,
-    height: "54%" as const,
+    height: 0,
     left: 0,
     position: "absolute" as const,
     right: 0
   },
   heroContent: {
-    gap: spacing.xl,
-    justifyContent: "flex-start" as const,
-    minHeight: 132,
+    gap: spacing.lg,
+    justifyContent: "space-between" as const,
+    minHeight: 298,
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xl,
-    paddingTop: 58
+    paddingTop: spacing.lg
   },
   heroCopy: {
     gap: spacing.xs,
-    maxWidth: 430,
+    maxWidth: 216,
     minWidth: 0
   },
   heroTitle: {
-    color: colors.canvas,
-    fontFamily: fontFamilies.black,
-    fontSize: 40,
-    fontWeight: "900" as const,
-    letterSpacing: 0,
-    lineHeight: 46,
-    maxWidth: 420
+    color: "#080B0E",
+    fontFamily: fontFamilies.display,
+    fontSize: 50,
+    fontWeight: "400" as const,
+    includeFontPadding: true,
+    letterSpacing: 0.5,
+    lineHeight: 52,
+    maxWidth: 220,
+    textTransform: "uppercase" as const
   },
   heroSubtitle: {
-    color: colors.wrap,
+    color: "#5E5C58",
     fontFamily: fontFamilies.medium,
     fontSize: 15,
     fontWeight: "500" as const,
     letterSpacing: 0,
     lineHeight: 21,
-    maxWidth: 340
+    maxWidth: 230
+  },
+  heroSeam: {
+    backgroundColor: OPENING_BELL_BLACK,
+    bottom: -14,
+    height: 28,
+    left: -8,
+    position: "absolute" as const,
+    right: -8,
+    transform: [{ rotate: "-1.6deg" }]
   }
 };
 
@@ -117,13 +133,14 @@ export function LuminousScreen({
 
   return (
     <LuminousScreenThemeContext.Provider value={theme}>
-      <View style={[luminousStyles.screen, { backgroundColor: colors.cornerBlack }]}>
+      <View style={[luminousStyles.screen, { backgroundColor: OPENING_BELL_BLACK }]}>
         <View pointerEvents="none" style={{ bottom: 0, left: 0, overflow: "hidden", position: "absolute", right: 0, top: 0 }}>
           <View style={{ backgroundColor: theme.hairline, height: 1, left: spacing.lg, opacity: 0.42, position: "absolute", right: spacing.lg, top: 0 }} />
         </View>
         <ScrollView
           accessibilityLabel={`${testID.replace(/-/g, " ")} screen`}
           contentContainerStyle={[luminousStyles.content, { paddingBottom: bottomPadding, paddingTop: Math.max(insets.top + spacing.sm, spacing.lg) }]}
+          showsVerticalScrollIndicator={false}
           style={luminousStyles.scrollFill}
           testID={testID}
         >
@@ -145,7 +162,7 @@ export interface ScreenHeaderProps {
 }
 
 export function ScreenHeader({
-  accent = "blue",
+  accent: _accent = "blue",
   eyebrow,
   heroHeight,
   heroImage,
@@ -154,21 +171,11 @@ export function ScreenHeader({
   title
 }: ScreenHeaderProps) {
   const { width } = useWindowDimensions();
-  const theme = useLuminousScreenTheme();
   const compact = width < 520;
-  const compactHeight = heroHeight ?? (heroMeta ? 282 : 132);
-  const regularHeight = heroHeight ? heroHeight + 34 : heroMeta ? 354 : 336;
+  const compactHeight = heroHeight ?? (heroMeta ? 330 : 298);
+  const regularHeight = heroHeight ? heroHeight + 34 : heroMeta ? 382 : 348;
   if (heroImage) {
-    const heroShadow: ViewStyle =
-      Platform.OS === "web"
-        ? ({ boxShadow: `0 18px 42px rgba(0, 0, 0, 0.36), 0 0 22px ${theme.strongGlow}` } as ViewStyle)
-        : {
-            elevation: 10,
-            shadowColor: accentColor[accent],
-            shadowOffset: { height: 14, width: 0 },
-            shadowOpacity: 0.2,
-            shadowRadius: 24
-          };
+    const heroShadow: ViewStyle = Platform.OS === "web" ? ({ boxShadow: "none" } as ViewStyle) : { elevation: 0 };
 
     return (
       <ImageBackground
@@ -176,34 +183,36 @@ export function ScreenHeader({
         imageStyle={luminousStyles.heroImage}
         resizeMode="cover"
         source={heroImage}
-        style={[luminousStyles.heroFrame, heroShadow, { borderBottomColor: theme.cardBorder, marginBottom: compact ? -spacing.md : 0, minHeight: compact ? compactHeight : regularHeight }]}
+        style={[luminousStyles.heroFrame, heroShadow, { minHeight: compact ? compactHeight : regularHeight }]}
       >
-        <View style={[luminousStyles.heroOverlay, { backgroundColor: `${theme.background}33` }]} />
-        <View style={[luminousStyles.heroBaseShadow, { backgroundColor: `${theme.background}A8` }]} />
+        <View style={luminousStyles.heroOverlay} />
+        <View style={luminousStyles.heroBaseShadow} />
         <View
           style={[
             luminousStyles.heroContent,
             {
               minHeight: compact ? compactHeight : regularHeight,
-              paddingBottom: compact ? spacing.md : spacing.xxl,
-              paddingTop: compact ? 34 : 72
+              paddingBottom: compact ? spacing.xl : spacing.xxl,
+              paddingTop: compact ? spacing.md : spacing.xl
             }
           ]}
         >
+          <CornerIQWordmark alignment="left" editorial tone="dark" />
           <View style={luminousStyles.heroCopy}>
             {eyebrow ? (
-              <Text style={{ color: accentColor[accent], fontSize: 13, fontWeight: "900", letterSpacing: 0, lineHeight: 17, textTransform: "uppercase" }}>
+              <Text style={{ color: colors.blueIQ, fontFamily: fontFamilies.black, fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 16, textTransform: "uppercase" }}>
                 {eyebrow}
               </Text>
             ) : null}
-            <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={2} style={[luminousStyles.heroTitle, { fontSize: compact ? 41 : 44, lineHeight: compact ? 47 : 50 }]}>
+            <Text adjustsFontSizeToFit minimumFontScale={0.76} numberOfLines={2} style={[luminousStyles.heroTitle, { fontSize: compact ? 50 : 56, lineHeight: compact ? 52 : 58 }]}>
               {title}
             </Text>
             {subtitle ? <Text numberOfLines={2} style={luminousStyles.heroSubtitle}>{subtitle}</Text> : null}
-            {heroMeta ? null : <View style={{ backgroundColor: accentColor[accent], borderRadius: radii.pill, height: 3, marginTop: spacing.sm, width: 54 }} />}
+            {heroMeta ? null : <View style={{ backgroundColor: colors.blueIQ, borderRadius: radii.pill, height: 3, marginTop: spacing.sm, width: 42 }} />}
           </View>
           {heroMeta ? <View style={{ maxWidth: 720, width: "100%" }}>{heroMeta}</View> : null}
         </View>
+        <View pointerEvents="none" style={luminousStyles.heroSeam} />
       </ImageBackground>
     );
   }

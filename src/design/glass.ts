@@ -8,28 +8,28 @@ export type GlassViewStyle = ViewStyle & {
 
 export const glassStyles = {
   card: {
-    backgroundColor: "rgba(8, 13, 23, 0.68)",
-    borderColor: "rgba(232, 240, 255, 0.12)",
+    backgroundColor: "rgba(8, 25, 31, 0.94)",
+    borderColor: "rgba(171, 209, 216, 0.16)",
     borderCurve: "continuous",
     borderRadius: radii.card,
     borderWidth: 1,
-    boxShadow: "0 18px 38px rgba(0, 0, 0, 0.34)"
+    boxShadow: "none"
   } satisfies GlassViewStyle,
   cardDeep: {
-    backgroundColor: "rgba(5, 10, 18, 0.78)",
-    borderColor: "rgba(232, 240, 255, 0.12)",
+    backgroundColor: "rgba(5, 18, 23, 0.98)",
+    borderColor: "rgba(171, 209, 216, 0.16)",
     borderCurve: "continuous",
     borderRadius: radii.card,
     borderWidth: 1,
-    boxShadow: "0 20px 44px rgba(0, 0, 0, 0.38)"
+    boxShadow: "none"
   } satisfies GlassViewStyle,
   control: {
-    backgroundColor: "rgba(255, 255, 255, 0.055)",
-    borderColor: "rgba(232, 240, 255, 0.13)",
+    backgroundColor: "rgba(39, 206, 241, 0.05)",
+    borderColor: "rgba(171, 209, 216, 0.18)",
     borderCurve: "continuous",
     borderRadius: radii.control,
     borderWidth: 1,
-    boxShadow: "0 8px 22px rgba(0, 0, 0, 0.18)"
+    boxShadow: "none"
   } satisfies GlassViewStyle,
   disabledPrimaryControl: {
     backgroundColor: "rgba(255, 255, 255, 0.105)",
@@ -51,16 +51,16 @@ export const glassStyles = {
     borderCurve: "continuous",
     borderRadius: radii.pill,
     borderWidth: 1,
-    boxShadow: "0 10px 26px rgba(39, 206, 241, 0.22)"
+    boxShadow: "none"
   } satisfies GlassViewStyle,
   tabBar: {
-    backgroundColor: "rgba(4, 8, 15, 0.88)",
-    borderColor: "rgba(232, 240, 255, 0.14)",
+    backgroundColor: "#061318",
+    borderColor: "rgba(39, 206, 241, 0.24)",
     borderCurve: "continuous",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderTopWidth: 1,
-    boxShadow: "0 -12px 30px rgba(0, 0, 0, 0.32)"
+    boxShadow: "none"
   } satisfies GlassViewStyle,
   tile: {
     backgroundColor: "rgba(255, 255, 255, 0.046)",

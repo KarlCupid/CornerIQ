@@ -80,8 +80,8 @@ export function PremiumCard({
       style={{
         ...glassStyles.cardDeep,
         backgroundColor: theme.card,
-        borderColor: accent ? `${premiumToneColor(tone)}2E` : "rgba(232, 240, 255, 0.1)",
-        boxShadow: `0 16px 34px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.052), 0 0 14px ${accent ? premiumToneWash(tone) : theme.strongGlow}`,
+        borderColor: theme.cardBorder,
+        boxShadow: "none",
         gap: density === "compact" ? spacing.sm : spacing.md,
         overflow: "hidden",
         padding,
@@ -93,10 +93,10 @@ export function PremiumCard({
       <View
         pointerEvents="none"
         style={{
-          backgroundColor: "rgba(255, 255, 255, 0.065)",
+          backgroundColor: "rgba(39, 206, 241, 0.13)",
           height: 1,
           left: rail ? padding + spacing.md : padding,
-          opacity: 0.58,
+          opacity: 0.34,
           position: "absolute",
           right: padding,
           top: 0
@@ -184,7 +184,7 @@ export function PremiumButton({
         ...glassStyles.primaryControl,
         backgroundColor: disabled ? "rgba(255, 255, 255, 0.1)" : color,
         borderColor: disabled ? "rgba(255, 255, 255, 0.16)" : `${color}99`,
-        boxShadow: disabled ? undefined : `0 14px 34px ${premiumToneWash(tone ?? theme.accent)}`
+        boxShadow: "none"
       }
     : quiet
       ? {

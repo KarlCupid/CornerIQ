@@ -912,14 +912,14 @@ function PlanObjectiveCard({
   viewModel: PlanViewModel;
 }) {
   return (
-    <PremiumCard accent="green" density="regular" testID="plan-objective-card">
+    <PremiumCard accent="blue" density="regular" testID="plan-objective-card">
       <View style={{ gap: spacing.md }}>
         <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
           <View
             style={{
               alignItems: "center",
-              backgroundColor: planTint("green", "18"),
-              borderColor: planTint("green", "42"),
+              backgroundColor: planTint("blue", "18"),
+              borderColor: planTint("blue", "42"),
               borderRadius: radii.pill,
               borderWidth: 1,
               height: 48,
@@ -927,10 +927,10 @@ function PlanObjectiveCard({
               width: 48
             }}
           >
-            <DecorativeIcon color={planPalette.toneGreen} name="locate-outline" size={24} />
+            <DecorativeIcon color={planPalette.toneBlue} name="locate-outline" size={24} />
           </View>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={{ color: planPalette.toneGreen, fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
+            <Text style={{ color: planPalette.toneBlue, fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
               Objective
             </Text>
             <Text style={{ color: planPalette.textPrimary, fontSize: 19, fontWeight: "800", lineHeight: 25 }}>
@@ -989,11 +989,11 @@ function PlanActionLink({
         width: 132
       })}
     >
-      <DecorativeIcon color={planPalette.toneGreen} name="options-outline" size={20} />
-      <Text numberOfLines={1} style={{ color: planPalette.toneGreen, flexShrink: 1, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>
+      <DecorativeIcon color={planPalette.toneBlue} name="options-outline" size={20} />
+      <Text numberOfLines={1} style={{ color: planPalette.toneBlue, flexShrink: 1, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>
         {label}
       </Text>
-      <DecorativeIcon color={planPalette.toneGreen} name="chevron-forward" size={20} />
+      <DecorativeIcon color={planPalette.toneBlue} name="chevron-forward" size={20} />
     </Pressable>
   );
 }
@@ -1011,11 +1011,11 @@ function PlanWeekSummaryCard({
     ? plainPlanCopy(viewModel.fightOrTournamentNote ?? viewModel.athleteFacingWeekSummary)
     : null;
   return (
-    <PremiumCard accent="green" density="regular">
+    <PremiumCard accent="blue" density="regular">
       <View style={{ gap: spacing.md }} testID="plan-hero-card">
         <View style={{ alignItems: "center", flexDirection: "row", gap: 10 }}>
           <View style={{ flex: 1, gap: 2, minWidth: 120 }}>
-            <Text numberOfLines={2} style={{ color: planPalette.toneGreen, fontSize: 13, fontWeight: "900", lineHeight: 16 }}>
+            <Text numberOfLines={2} style={{ color: planPalette.toneBlue, fontSize: 13, fontWeight: "900", lineHeight: 16 }}>
               {viewModel.modeLabel}
             </Text>
             <Text numberOfLines={1} style={{ color: planPalette.textPrimary, fontSize: 23, fontWeight: "900", lineHeight: 28 }}>
@@ -1041,7 +1041,7 @@ function PlanWeekSummaryCard({
 function PlanUpcomingSessionsCard({ viewModel }: { viewModel: PlanViewModel }) {
   const rows = planUpcomingRows(viewModel);
   return (
-    <PremiumCard accent="green" density="compact" testID="plan-upcoming-sessions-card">
+    <PremiumCard accent="blue" density="compact" testID="plan-upcoming-sessions-card">
       <View style={{ gap: spacing.sm }}>
         <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
           <Text style={{ color: planPalette.textPrimary, fontSize: 17, fontWeight: "900", lineHeight: 22 }}>
@@ -1652,7 +1652,7 @@ export function PlanScreen({
   }
 
   return (
-    <LuminousScreen accent="green" testID="plan-screen">
+    <LuminousScreen accent="blue" testID="plan-screen">
       <ScreenHeader {...tabHeroHeaders.plan} />
       <ThisWeeksPlanCard
         busy={busy}

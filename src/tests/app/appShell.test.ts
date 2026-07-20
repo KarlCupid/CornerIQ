@@ -2404,7 +2404,7 @@ describe("minimal app screens", () => {
     }
     const trainingStatusStyle = flattenStyle((trainingStatusTile.props as { style?: unknown }).style);
     expect(trainingStatusStyle.borderLeftWidth).toBe(0);
-    expect(trainingStatusStyle.borderColor).toBe("rgba(39, 206, 241, 0.16)");
+    expect(trainingStatusStyle.borderColor).toBe("rgba(171, 209, 216, 0.15)");
     expect(detailsOutput).toContain("today-status-row");
     expect(detailsOutput).toContain("today-next-action-card");
     expect(detailsOutput).toContain("Training Today");

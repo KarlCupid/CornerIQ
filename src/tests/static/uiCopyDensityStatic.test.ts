@@ -69,35 +69,19 @@ describe("fatigue-first UI copy density static checks", () => {
     }
   });
 
-  it("keeps the floating bottom tab bar animated and clear of scroll content", () => {
+  it("keeps the editorial bottom tab rail consistent and exposes all five destinations", () => {
     const tabsSource = readFileSync("src/app/navigation/AppTabs.tsx", "utf8");
     const screenSource = readFileSync("src/design/components/LuminousScreen.tsx", "utf8");
-    const tabBarStyle = tabsSource.match(/tabBarStyle:\s*{[\s\S]*?\n\s{12}}/)?.[0] ?? "";
-    expect(tabsSource).toContain("function FloatingTabIcon");
-    expect(tabsSource).toContain("Animated.spring");
-    expect(tabsSource).toContain("const floatingTabBarHeight = 64;");
-    expect(tabsSource).toContain("const floatingTabTouchTarget = 50;");
-    expect(tabsSource).toContain("const floatingTabPuckSize = 46;");
-    expect(tabsSource).toContain("const floatingTabBarMaxWidth = 368;");
-    expect(tabsSource).toContain("useWindowDimensions");
+    expect(tabsSource).toContain("function EditorialTabIcon");
+    expect(tabsSource).not.toContain("Animated.spring");
+    expect(tabsSource).toContain("const tabBarHeight = 72;");
+    expect(tabsSource).toContain("const tabTouchTarget = 48;");
     expect(tabsSource).toContain("tabBarShowLabel: true");
-    expect(tabsSource).toContain("const floatingTabReservedBottom = floatingTabBarHeight + Math.max(insets.bottom, spacing.sm) + spacing.sm;");
-    expect(tabsSource).toContain("sceneStyle:");
-    expect(tabsSource).not.toContain("marginBottom: floatingTabReservedBottom");
-    expect(tabsSource).toContain("height: 34");
-    expect(tabsSource).toMatch(/tabBarStyle:\s*{[\s\S]*position:\s*"absolute"/);
-    expect(tabsSource).toContain("bottom: Math.max(insets.bottom, spacing.sm)");
-    expect(tabsSource).toContain("const floatingTabBarSideInset = Math.max(spacing.sm, (windowWidth - floatingTabBarWidth) / 2);");
-    expect(tabBarStyle).toContain("end: floatingTabBarSideInset");
-    expect(tabBarStyle).toContain("start: floatingTabBarSideInset");
-    expect(tabBarStyle).not.toContain('left: "50%"');
-    expect(tabBarStyle).not.toContain("marginLeft");
-    expect(tabBarStyle).not.toContain('right: "auto"');
-    expect(tabBarStyle).toContain("height: floatingTabBarHeight");
-    expect(tabBarStyle).toContain("paddingBottom: 0");
-    expect(tabBarStyle).toContain("paddingTop: 0");
-    expect(tabBarStyle).not.toMatch(/bottom:\s*0/);
-    expect(screenSource).toContain("const TAB_SCREEN_BOTTOM_PADDING = 104;");
+    expect(tabsSource).toContain('backgroundColor: colors.cornerBlack');
+    expect(tabsSource).toContain('borderTopColor: "rgba(39, 206, 241, 0.22)"');
+    expect(tabsSource).not.toContain("tabBarButton: () => null");
+    expect(tabsSource).toContain('<Tab.Screen name="Profile">');
+    expect(screenSource).toContain("const TAB_SCREEN_BOTTOM_PADDING = 24;");
   });
 
   it("keeps the tab photo headers wired to real local assets without decorative hero actions", () => {
@@ -137,7 +121,7 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(heroSource).not.toContain("Ready to Own Your Day");
   });
 
-  it("keeps tab screens black-first while retaining local hero assets", () => {
+  it("keeps tab screens ivory-first and deep-teal below while retaining local hero assets", () => {
     const heroSource = readFileSync("src/app/screens/tabHeroConfig.ts", "utf8");
     const screenShellSource = readFileSync("src/design/components/LuminousScreen.tsx", "utf8");
     const screenFiles = [
@@ -153,7 +137,11 @@ describe("fatigue-first UI copy density static checks", () => {
 
     expect(heroSource).not.toContain("tabScreenBackgrounds");
     expect(screenShellSource).toContain("backgroundImage?: ImageSourcePropType");
-    expect(screenShellSource).toContain("backgroundColor: colors.cornerBlack");
+    expect(screenShellSource).toContain('const OPENING_BELL_BLACK = "#061318"');
+    expect(screenShellSource).toContain('const OPENING_BELL_IVORY = "#F2EBE0"');
+    expect(screenShellSource).toContain("CornerIQWordmark");
+    expect(screenShellSource).toContain("heroSeam");
+    expect(screenShellSource).toContain("backgroundColor: OPENING_BELL_BLACK");
 
     for (const asset of [
       "tab-today-hero.png",

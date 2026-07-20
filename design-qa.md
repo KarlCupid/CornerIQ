@@ -2,6 +2,48 @@
 
 final result: passed
 
+## Unified Main-Screen Visual Pass
+
+### Reference and capture
+
+- Source visual truth: `C:\Users\karll\.codex\generated_images\019f7b9a-d81f-7e43-b86b-cbdadafd8cf4\exec-47a98932-65f0-4992-b72e-84d2ded0b87d.png`
+- Today: `qa-artifacts/visual-redesign/today-390x844.png`
+- Train: `qa-artifacts/visual-redesign/train-390x844.png`
+- Fuel: `qa-artifacts/visual-redesign/fuel-390x844.png`
+- Plan: `qa-artifacts/visual-redesign/plan-390x844.png`
+- Profile: `qa-artifacts/visual-redesign/profile-390x844.png`
+- Combined comparison input: `qa-artifacts/visual-redesign/reference-vs-implementation.png`
+- Viewport: 390 x 844 CSS pixels.
+- State: local-only safe demo boxer on the first visible state of each primary tab, with the promo-capture flag hiding the test banner.
+
+### Comparison history
+
+- Pass 1 established the selected option 2 composition across all five tabs: warm ivory photographic header, dark editorial wordmark and condensed title, deep teal content surface, cyan actions, and a five-destination bottom rail.
+- Pass 1 visual review found three P2 capture and consistency issues: the web scroll indicator was visible, browser focus chrome surrounded the selected tab, and the Train loose-end primary action retained a green domain color.
+- Pass 2 hid the scroll indicator, supplied a clean custom tab press surface with a cyan selected rule, and moved the Train primary action onto the shared cyan treatment.
+- The final source-and-implementation comparison shows no remaining actionable P0, P1, or P2 mismatch for this implementation pass.
+
+### Required fidelity surfaces
+
+- Typography and hierarchy: CornerIQ wordmark, cyan eyebrow, condensed uppercase page title, and short supporting line remain consistent on all five tabs.
+- Layout and spacing: the light hero occupies the top editorial zone, transitions through a sharp angled seam, and gives way to full-width deep-teal product content and the integrated bottom rail.
+- Color system: every primary screen now uses `#061318` deep teal, `#F2EBE0` ivory, neutral blue-grey dividers, and `#27CEF1` as the single product-action accent. Orange, red, gold, and green remain limited to meaningful status or safety semantics.
+- Navigation: Today, Train, Fuel, Plan, and Profile are all visible, use the same inactive treatment, and show the selected route with the same cyan icon, label, and top rule.
+- Imagery: the current local hero assets remain deliberately replaceable placeholders for this pass. Their lighter editorial treatment establishes the intended composition without pre-empting the user's later per-screen image-generation plan.
+
+### Functional QA
+
+- Entered the local demo through Sign In and all six onboarding steps, then opened each of the five primary tabs.
+- Confirmed every tab target is unique, selectable, and renders its correct first-state content at 390 x 844.
+- Confirmed primary controls, status colors, scroll behavior, and safe demo content remain intact.
+- Browser console review returned no errors.
+
+### Remaining P3 follow-up
+
+- Regenerate each hero image in the exact warm, high-key monochrome photography style of Sign In, Welcome, and onboarding when the image brief is ready; current dark source photos are intentionally softened as temporary stand-ins.
+
+final result: passed
+
 ## Opening Bell Full-Bleed Hero Correction
 
 ### Reference and capture

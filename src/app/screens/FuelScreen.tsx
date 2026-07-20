@@ -35,21 +35,21 @@ type FuelPlanStatus = FuelPlanStatusViewModel;
 type FuelSafetyState = FuelSafetyStateViewModel;
 
 const fuelPalette = {
-  actionFill: "#FF9448",
-  actionFillPressed: "#E9823F",
-  actionBorder: "rgba(255, 148, 72, 0.62)",
-  actionShadow: "rgba(255, 148, 72, 0.28)",
-  cardLine: "rgba(255, 216, 180, 0.14)",
-  controlFill: "rgba(244, 230, 207, 0.055)",
-  controlFillPressed: "rgba(244, 230, 207, 0.095)",
-  controlLine: "rgba(255, 216, 180, 0.16)",
-  textPrimary: "#F4EFE8",
-  textBody: "#D8D0C3",
-  textMuted: "#AFA595",
+  actionFill: "#27CEF1",
+  actionFillPressed: "#20B9D9",
+  actionBorder: "rgba(39, 206, 241, 0.58)",
+  actionShadow: "rgba(39, 206, 241, 0.16)",
+  cardLine: "rgba(216, 228, 230, 0.14)",
+  controlFill: "rgba(216, 228, 230, 0.055)",
+  controlFillPressed: "rgba(216, 228, 230, 0.095)",
+  controlLine: "rgba(216, 228, 230, 0.16)",
+  textPrimary: "#F2EBE0",
+  textBody: "#D8E4E6",
+  textMuted: "#9FAFB4",
   toneBlue: "#27CEF1",
   toneGold: "#FFD861",
   toneGreen: "#38E28A",
-  toneMuted: "#AFA595",
+  toneMuted: "#9FAFB4",
   toneOrange: "#FF9448",
   tonePurple: "#9657F5",
   toneRed: "#FF5265"
@@ -270,7 +270,7 @@ function FuelActionButton({
         }
       ]}
     >
-      {icon ? <DecorativeIcon color={primary ? colors.cornerBlack : fuelPalette.toneOrange} name={icon} size={18} /> : null}
+      {icon ? <DecorativeIcon color={primary ? colors.cornerBlack : fuelPalette.toneBlue} name={icon} size={18} /> : null}
       <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={2} style={{ color: primary ? colors.cornerBlack : fuelPalette.textBody, flexShrink: 1, fontSize: 15, fontWeight: primary ? "900" : "700", lineHeight: 20, textAlign: "center" }}>
         {label}
       </Text>
@@ -326,7 +326,7 @@ function FuelActionButtons({
           paddingHorizontal: spacing.md
         })}
       >
-        <DecorativeIcon color={fuelPalette.toneOrange} name={primaryLog === "water" ? "restaurant-outline" : "water-outline"} size={17} />
+        <DecorativeIcon color={fuelPalette.toneBlue} name={primaryLog === "water" ? "restaurant-outline" : "water-outline"} size={17} />
         <Text numberOfLines={1} style={{ color: fuelPalette.textBody, flexShrink: 1, fontSize: 14, fontWeight: "800", lineHeight: 18 }}>{secondary.label}</Text>
         <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, flexShrink: 1, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{secondary.summary}</Text>
       </Pressable>
@@ -348,7 +348,7 @@ function TodayFuelPlanCard({
   primaryLog: "food" | "water";
 }) {
   return (
-    <PremiumCard accent="orange" density="regular">
+    <PremiumCard accent="blue" density="regular">
       <View style={{ gap: spacing.md }} testID="fuel-hero-card">
         <View testID="fuel-today-plan-card">
         <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
@@ -471,7 +471,7 @@ function FuelKeyNumbersCard({
       ];
   if (!hasActiveWeightTarget) {
     return (
-      <PremiumCard accent="orange" density="compact" testID="fuel-key-numbers">
+      <PremiumCard accent="blue" density="compact" testID="fuel-key-numbers">
         <View style={{ gap: spacing.md }}>
           <View style={{ gap: spacing.xs }}>
             <Text style={fuelTextStyles.sectionTitle}>Today fuel checks</Text>
@@ -1277,7 +1277,7 @@ function FuelDetailsDisclosure({
               width: 38
             }}
           >
-            <DecorativeIcon color={fuelPalette.toneOrange} name="list-outline" size={18} />
+            <DecorativeIcon color={fuelPalette.toneBlue} name="list-outline" size={18} />
           </View>
           <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
             <Text style={{ color: fuelPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>Fuel details</Text>
@@ -1514,7 +1514,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
   const openLogHydration = () => setAppliedFocusIntent("log_hydration");
 
   return (
-    <LuminousScreen accent="orange" testID="fuel-screen">
+    <LuminousScreen accent="blue" testID="fuel-screen">
       <ScreenHeader {...tabHeroHeaders.fuel} />
       {showLogSection ? (
         <>
