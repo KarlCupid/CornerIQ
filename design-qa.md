@@ -1,7 +1,6 @@
 # CornerIQ Design QA
 
 final result: passed
-
 ## Unified Main-Screen Visual Pass
 
 ### Reference and capture
@@ -287,3 +286,39 @@ final result: passed
 - Browser captures are 430x932 mobile QA screenshots; the reference images are taller generated portrait comps, so exact vertical card count per viewport is approximate.
 
 No P0/P1/P2 visual, navigation, or safety blockers remain in the reviewed mobile captures.
+## Confirmation-First Plan Wizard QA
+
+### Reference and capture
+
+- Source visual truth: `C:\Users\karll\.codex\generated_images\019f7b9a-d81f-7e43-b86b-cbdadafd8cf4\exec-2822dae7-a828-4e8c-8541-a4a54734e935.png`
+- Source viewport: 390 x 844 mobile mockup.
+- Implemented state: confirmation-first plan setup modal opened from the Plan screen.
+- Browser QA viewport: 1280 x 720, with the responsive modal constrained to its production maximum width.
+- Implementation evidence: `qa-artifacts/design-qa/plan-wizard-confirmation-implementation.png`
+- Normalized side-by-side comparison: `qa-artifacts/design-qa/plan-wizard-confirmation-comparison.png`
+
+### Interaction checks
+
+- Opened the Plan screen and launched Adjust plan.
+- Confirmed existing engine and profile data populates the summary.
+- Confirmed Edit goal opens the focused goal editor.
+- Confirmed Build phase and Fight camp are the only top-level choices.
+- Confirmed Single fight and Tournament appear only after selecting Fight camp.
+- Confirmed Recovery / maintenance is absent.
+- Confirmed the close and Back to summary controls work.
+- Checked the browser console: no errors. Existing React Native Web deprecation warnings remain for `pointerEvents` and `Image.style.tintColor`.
+
+### Visual comparison
+
+No actionable P0, P1, or P2 visual differences were found. The implementation preserves the selected mockup's warm-white card, dark-teal editorial type, cyan rules, scannable summary rows, strong primary action, and quiet secondary action.
+
+Intentional differences:
+
+- The captured implementation displays Build phase because that is the active local demo profile; the mockup displayed Fight camp / Single fight.
+- Experience is included because the plan engine already receives it from onboarding.
+- Equipment and experience are labelled From profile instead of presenting non-functional Edit controls.
+- The implemented modal is more compact than the concept image to meet the lightweight popup brief and leave room for smaller phone heights.
+
+One focused implementation comparison was completed. No corrective visual pass was required after the interaction and console checks.
+
+final result: passed

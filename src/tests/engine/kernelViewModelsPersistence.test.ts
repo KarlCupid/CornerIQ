@@ -30,6 +30,20 @@ describe("kernel immutability, view models, and persistence schema", () => {
     expect(state.outputHash).not.toBe("");
   });
 
+  it("prepares the plan wizard from the same onboarding profile used by the engine", () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+
+    expect(state.viewModels.plan.planWizardSetup).toEqual(
+      expect.objectContaining({
+        equipmentLabel: "Dumbbells · Bands +1",
+        experienceLabel: "Open amateur",
+        goalMode: "build",
+        fight: null,
+        tournament: null
+      })
+    );
+  });
+
   it("keeps no-wearable copy non-shaming and risk flags visible", () => {
     const state = resolvePerformanceState({
       journey: {

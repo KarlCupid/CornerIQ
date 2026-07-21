@@ -823,6 +823,13 @@ const planViewModel: PlanViewModel = {
     optional: "History and adjustments can wait unless your schedule changed."
   },
   modeLabel: "Build phase",
+  planWizardSetup: {
+    equipmentLabel: "Bands · Jump Rope",
+    experienceLabel: "Open amateur",
+    goalMode: "build",
+    fight: null,
+    tournament: null
+  },
   goalSummary: "strength base focus.",
   acceptedPreviewStatus: "preview",
   boundaryDate: "2026-05-26",
@@ -1383,6 +1390,11 @@ async function switchSection(renderer: ReactTestRenderer, label: string): Promis
   await act(async () => {
     await press(pressableWithText(renderer, label));
   });
+}
+
+async function openGuidedPlanWizard(renderer: ReactTestRenderer): Promise<void> {
+  await switchSection(renderer, "Adjust plan");
+  await switchSection(renderer, "Review step by step");
 }
 
 function workoutPlayerTestSession(): DetailedTrainingSession {
@@ -5044,7 +5056,7 @@ describe("minimal app screens", () => {
       );
 
     const goalRenderer = renderPlan();
-    await switchSection(goalRenderer, "Adjust plan");
+    await openGuidedPlanWizard(goalRenderer);
     let output = JSON.stringify(goalRenderer.toJSON());
     expect(visibleModalCount(goalRenderer)).toBe(1);
     expect(output).toContain("plan-goal-wizard-modal");
@@ -5420,6 +5432,46 @@ describe("minimal app screens", () => {
     expect(onDeleteRecurringProtectedAnchor).toHaveBeenCalledWith("weekly_technical_monday");
   });
 
+  it("Plan generation wizard confirms engine-fed setup and builds without re-entering known data", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const onSaveBuildGoal = vi.fn<(draft: BuildGoalDraft) => Promise<void>>(async () => undefined);
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveBuildGoal,
+        onSaveFightSetup: vi.fn(),
+        onSaveRecoveryGoal: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: planViewModel
+      })
+    );
+
+    await switchSection(renderer, "Adjust plan");
+    const confirmation = JSON.stringify(renderer.toJSON());
+    expect(confirmation).toContain("Is this still right?");
+    expect(confirmation).toContain("4 days each week");
+    expect(confirmation).toContain("Bands · Jump Rope");
+    expect(confirmation).toContain("Open amateur");
+
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
+    });
+
+    expect(onSaveBuildGoal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generatedSupportAvailableDays: ["monday", "wednesday", "friday", "saturday"],
+        planAction: "start_new_plan",
+        protectedScheduleMode: "keep_existing",
+        scheduleAvailability: ["monday", "wednesday", "friday", "saturday"],
+        trainingDose: "standard"
+      })
+    );
+    expect(visibleModalCount(renderer)).toBe(0);
+  });
+
   it("Plan generation wizard adds fixed anchors separately from support availability", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const onSaveBuildGoal = vi.fn<(draft: BuildGoalDraft) => Promise<void>>(async () => undefined);
@@ -5442,6 +5494,7 @@ describe("minimal app screens", () => {
 
     await switchSection(renderer, "Adjust plan");
     expect(JSON.stringify(renderer.toJSON())).toContain("plan-generation-wizard");
+    await switchSection(renderer, "Review step by step");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -5540,6 +5593,7 @@ describe("minimal app screens", () => {
     );
 
     await switchSection(renderer, "Adjust plan");
+    await switchSection(renderer, "Review step by step");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -5585,6 +5639,7 @@ describe("minimal app screens", () => {
     );
 
     await switchSection(renderer, "Adjust plan");
+    await switchSection(renderer, "Review step by step");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -5649,6 +5704,7 @@ describe("minimal app screens", () => {
     const renderer = render(renderPlan(oneDayPlan));
 
     await switchSection(renderer, "Adjust plan");
+    await switchSection(renderer, "Review step by step");
     await act(async () => {
       (renderer as unknown as { update: (element: React.ReactElement) => void }).update(renderPlan(fullAvailabilityPlan));
     });
@@ -5700,6 +5756,7 @@ describe("minimal app screens", () => {
     );
 
     await switchSection(renderer, "Adjust plan");
+    await switchSection(renderer, "Review step by step");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -5749,6 +5806,7 @@ describe("minimal app screens", () => {
     );
 
     await switchSection(renderer, "Adjust plan");
+    await switchSection(renderer, "Review step by step");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -5794,6 +5852,7 @@ describe("minimal app screens", () => {
     );
 
     await switchSection(renderer, "Adjust plan");
+    await switchSection(renderer, "Review step by step");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -5813,7 +5872,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("The new plan could not be saved. Your old plan is still active.");
   });
 
-  it("PlanScreen opens the guided goal flow for build, fight camp, tournament, and recovery", async () => {
+  it("PlanScreen confirms engine-fed setup before the guided build and fight-camp flow", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const onSaveBuildGoal = vi.fn<(draft: BuildGoalDraft) => Promise<void>>(async () => undefined);
     const onSaveFightSetup = vi.fn(async () => undefined);
@@ -5834,13 +5893,16 @@ describe("minimal app screens", () => {
     );
 
     await switchSection(renderer, "Adjust plan");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Generate new plan");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Build phase");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Is this still right?");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Bands · Jump Rope");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Open amateur");
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Recovery / maintenance");
+    await switchSection(renderer, "Review step by step");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
     await switchSection(renderer, "Back");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Step 1: Goal type");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Step 1: Goal");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -5870,6 +5932,7 @@ describe("minimal app screens", () => {
     expect(savedBuildDraft).not.toHaveProperty("supportDaysPerWeek");
 
     await switchSection(renderer, "Adjust plan");
+    await switchSection(renderer, "Review step by step");
     await switchSection(renderer, "Fight camp");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
@@ -5894,6 +5957,8 @@ describe("minimal app screens", () => {
     expect(onSaveFightSetup).toHaveBeenCalledWith(expect.objectContaining({ boutDate: fixtureAsOfDate }));
 
     await switchSection(renderer, "Adjust plan");
+    await switchSection(renderer, "Review step by step");
+    await switchSection(renderer, "Fight camp");
     await switchSection(renderer, "Tournament");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
@@ -5916,21 +5981,7 @@ describe("minimal app screens", () => {
     });
     expect(onSaveTournamentSetup).toHaveBeenCalledWith(expect.objectContaining({ tournamentStartDate: fixtureAsOfDate }));
 
-    await switchSection(renderer, "Adjust plan");
-    await switchSection(renderer, "Recovery / maintenance");
-    await act(async () => {
-      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
-    });
-    await act(async () => {
-      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
-    });
-    await act(async () => {
-      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
-    });
-    await act(async () => {
-      await press(pressableWithAccessibilityLabel(renderer, "Save recovery goal"));
-    });
-    expect(onSaveRecoveryGoal).toHaveBeenCalledWith(expect.objectContaining({ focus: "general" }));
+    expect(onSaveRecoveryGoal).not.toHaveBeenCalled();
   });
 
   it("Plan generation wizard saves short-notice fight camp with a normalized weigh-in datetime", async () => {
@@ -5951,6 +6002,7 @@ describe("minimal app screens", () => {
     );
 
     await switchSection(renderer, "Adjust plan");
+    await switchSection(renderer, "Review step by step");
     await switchSection(renderer, "Fight camp");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
@@ -6053,8 +6105,9 @@ describe("minimal app screens", () => {
     }
     const wizardOutput = JSON.stringify(wizardModal.findAllByType("Text").map((label) => label.props.children));
     expect(output).toContain("Plan generation wizard");
-    expect(output).toContain("Generate new plan");
-    expect(wizardOutput).toContain("Step 1: Goal type");
+    expect(output).toContain("CREATE A NEW PLAN");
+    expect(wizardOutput).toContain("Is this still right?");
+    expect(wizardOutput).toContain("Everything needed is ready");
     expect(wizardOutput).not.toContain("Adjust plan");
   });
 

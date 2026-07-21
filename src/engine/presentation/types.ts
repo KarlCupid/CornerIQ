@@ -673,6 +673,38 @@ export interface PlanViewModel {
   topAction: TopActionViewModel;
   requiresPlanGeneration?: boolean | undefined;
   modeLabel: "Build phase" | "Fight camp" | "Tournament mode" | "Recovery";
+  planWizardSetup: {
+    equipmentLabel: string;
+    experienceLabel: string;
+    goalMode: "build" | "fight" | "tournament";
+    fight: {
+      status: "tentative" | "confirmed" | "short_notice";
+      amateurOrPro: "amateur" | "pro";
+      boutDate: string;
+      weighInDateTime: string | null;
+      weighInType: "same_day" | "day_before" | "multi_day_tournament" | "unknown";
+      rounds: number;
+      roundMinutes: number;
+      restSeconds: number;
+      targetClassLabel: string;
+      contractedWeightKg: number;
+      allowanceKg: number;
+      hydrationTestingRequired: boolean;
+      postWeighInWeightCapKg: number | null;
+      timezone: string;
+    } | null;
+    tournament: {
+      tournamentStartDate: string;
+      tournamentEndDate: string;
+      possibleBoutDates: readonly string[];
+      dailyWeighIns: boolean;
+      weighInTimeEachDay: string;
+      sameDayBoutLikely: boolean;
+      numberOfPotentialBouts: number;
+      rehydrationWindowHoursByDay: readonly number[];
+      strategyMode: "stay_near_weight" | "mild_daily_cut" | "no_cut_recommended";
+    } | null;
+  };
   goalSummary: string;
   acceptedPreviewStatus: NextWeekPreviewViewModel["persistedStatus"];
   boundaryDate: string;

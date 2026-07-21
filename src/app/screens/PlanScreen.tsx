@@ -640,12 +640,11 @@ function PlanGoalWizardModal({
   visible: boolean;
 }>) {
   const insets = useSafeAreaInsets();
-  const { height, width } = useWindowDimensions();
+  const { height } = useWindowDimensions();
   if (!visible) {
     return null;
   }
 
-  const compact = width < 520;
   const modalPaddingBottom = Math.max(insets.bottom + spacing.md, spacing.lg);
   const modalPaddingTop = Math.max(insets.top + spacing.md, spacing.lg);
   const availablePanelHeight = Math.max(360, height - modalPaddingTop - modalPaddingBottom);
@@ -679,7 +678,7 @@ function PlanGoalWizardModal({
         style={{
           alignItems: "center",
           flex: 1,
-          justifyContent: "flex-start",
+          justifyContent: "center",
           paddingBottom: modalPaddingBottom,
           paddingHorizontal: spacing.lg,
           paddingTop: modalPaddingTop
@@ -704,14 +703,14 @@ function PlanGoalWizardModal({
           accessibilityViewIsModal
           style={[
             {
-              backgroundColor: "rgba(6, 19, 24, 0.99)",
-              borderColor: planPalette.controlLine,
+              backgroundColor: "#F7F3EC",
+              borderColor: "rgba(39, 206, 241, 0.42)",
               borderRadius: 5,
               borderWidth: 1,
               maxHeight: maxPanelHeight,
-              maxWidth: 700,
+              maxWidth: 560,
               overflow: "hidden",
-              padding: compact ? spacing.sm : spacing.lg,
+              padding: 0,
               width: "100%"
             },
             modalShadowStyle
@@ -719,7 +718,7 @@ function PlanGoalWizardModal({
           testID="plan-goal-wizard-modal"
         >
           <ScrollView
-            contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.sm }}
+            contentContainerStyle={{ flexGrow: 1 }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
@@ -1638,6 +1637,7 @@ export function PlanScreen({
       existingWeeklyAnchors={viewModel.weeklyAnchors}
       framed={false}
       initialAvailableDays={viewModel.generatedSupportAvailability.selectedDays}
+      initialSetup={viewModel.planWizardSetup}
       isMinor={isMinor}
       onCancel={closeActiveWorkspace}
       onSaveBuildGoal={onSaveBuildGoal ?? (async () => undefined)}

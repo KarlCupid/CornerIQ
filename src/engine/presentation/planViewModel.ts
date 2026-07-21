@@ -18,6 +18,7 @@ import { formatGeneratedSupportWeekdays, normalizeGeneratedSupportWeekdays } fro
 import { buildBodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
 import { plainFuelDemandLabel, plainGeneratedSessionFamilyLabel, plainTrainingCopy, plainWorkoutTitle } from "./trainingCopy";
 import { existingTrainingComponents, existingTrainingTitle } from "../training/existingTraining";
+import { formatEquipmentAccessLabel } from "../athlete/equipmentAccess";
 
 const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
 const SEVERE_FUELING_RISK_CODES = new Set<string>(["rapid_weight_loss", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
@@ -90,6 +91,76 @@ function modeLabel(state: PerformanceState): PlanViewModel["modeLabel"] {
     return "Fight camp";
   }
   return "Build phase";
+}
+
+function planWizardExperienceLabel(state: PerformanceState): string {
+  const labels: Record<PerformanceState["athlete"]["boxingLevel"], string> = {
+    aspiring_boxer: "Aspiring boxer",
+    amateur_novice: "Novice amateur",
+    amateur_open: "Open amateur",
+    amateur_elite: "Elite amateur",
+    pro_development: "Developing pro",
+    pro_4_6_round: "Pro · 4–6 rounds",
+    pro_8_10_round: "Pro · 8–10 rounds",
+    pro_12_round: "Pro · 12 rounds"
+  };
+  return labels[state.athlete.boxingLevel];
+}
+
+function planWizardEquipmentLabel(state: PerformanceState): string {
+  const equipment = state.athlete.equipmentAccess.map(formatEquipmentAccessLabel);
+  if (equipment.length === 0) {
+    return "Needs setup";
+  }
+  if (equipment.includes("Full Gym")) {
+    return "Full gym";
+  }
+  const visible = equipment.slice(0, 2).join(" · ");
+  return equipment.length > 2 ? `${visible} +${equipment.length - 2}` : visible;
+}
+
+function planWizardSetup(state: PerformanceState): PlanViewModel["planWizardSetup"] {
+  const fight = state.fightContext;
+  const tournament = state.tournamentContext;
+  const fightStatus = fight && ["tentative", "confirmed", "short_notice"].includes(fight.status)
+    ? (fight.status as "tentative" | "confirmed" | "short_notice")
+    : "tentative";
+  return {
+    goalMode: tournament ? "tournament" : fight ? "fight" : "build",
+    equipmentLabel: planWizardEquipmentLabel(state),
+    experienceLabel: planWizardExperienceLabel(state),
+    fight: fight
+      ? {
+          status: fightStatus,
+          amateurOrPro: fight.amateurOrPro,
+          boutDate: fight.boutDate,
+          weighInDateTime: fight.weighInDateTime ?? null,
+          weighInType: fight.weighInType,
+          rounds: fight.rounds,
+          roundMinutes: fight.roundMinutes,
+          restSeconds: fight.restSeconds,
+          targetClassLabel: fight.targetWeightClass.label,
+          contractedWeightKg: fight.contractedWeightKg,
+          allowanceKg: fight.allowanceKg,
+          hydrationTestingRequired: fight.hydrationTestingRequired,
+          postWeighInWeightCapKg: fight.postWeighInWeightCapKg ?? null,
+          timezone: fight.timezone
+        }
+      : null,
+    tournament: tournament
+      ? {
+          tournamentStartDate: tournament.tournamentStartDate,
+          tournamentEndDate: tournament.tournamentEndDate,
+          possibleBoutDates: tournament.possibleBoutDates,
+          dailyWeighIns: tournament.dailyWeighIns,
+          weighInTimeEachDay: tournament.weighInTimeEachDay,
+          sameDayBoutLikely: tournament.sameDayBoutLikely,
+          numberOfPotentialBouts: tournament.numberOfPotentialBouts,
+          rehydrationWindowHoursByDay: tournament.rehydrationWindowHoursByDay,
+          strategyMode: tournament.strategyMode
+        }
+      : null
+  };
 }
 
 function kgLabel(value: number | null): string {
@@ -756,6 +827,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     },
     requiresPlanGeneration: state.training.requiresPlanGeneration,
     modeLabel: modeLabel(state),
+    planWizardSetup: planWizardSetup(state),
     goalSummary: state.fightContext
       ? `${state.fightContext.status.replaceAll("_", " ")} bout on ${state.fightContext.boutDate}.`
       : state.tournamentContext

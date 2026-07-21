@@ -35,6 +35,9 @@ import { screenStyles } from "../screenStyles";
 import { planPalette } from "./planPalette";
 
 type GoalMode = "build" | "fight" | "tournament" | "recovery";
+type GoalChoice = "build" | "fight";
+type FightFormat = "single_fight" | "tournament";
+type WizardView = "confirmation" | "guided";
 type WizardStep = "goal" | "schedule" | "details" | "review";
 type AnchorMode = "weekly" | "one_off";
 type GeneratedSupportDay = PlanViewModel["generatedSupportAvailability"]["selectedDays"][number];
@@ -51,6 +54,7 @@ export interface PlanGoalFlowCardProps {
   existingWeeklyAnchors: readonly WeeklyAnchor[];
   framed?: boolean | undefined;
   initialAvailableDays: readonly GeneratedSupportDay[];
+  initialSetup: PlanViewModel["planWizardSetup"];
   isMinor: boolean;
   onCancel: () => void;
   onSaveBuildGoal: (draft: BuildGoalDraft) => Promise<void>;
@@ -69,11 +73,9 @@ const wizardSteps: readonly { key: WizardStep; label: string }[] = [
   { key: "review", label: "Review" }
 ];
 
-const goalOptions: readonly OptionDetail<GoalMode>[] = [
+const goalOptions: readonly OptionDetail<GoalChoice>[] = [
   { label: "Build phase", value: "build", description: "No fight date. Build strength, conditioning, power, skill, or mobility around boxing." },
-  { label: "Fight camp", value: "fight", description: "Use when there is a real bout date, even if details are still tentative." },
-  { label: "Tournament", value: "tournament", description: "Use for repeated weigh-ins, possible same-day bouts, and multi-day recovery needs." },
-  { label: "Recovery / maintenance", value: "recovery", description: "Use after a bout, during travel, or when training should stay conservative." }
+  { label: "Fight camp", value: "fight", description: "Prepare for a single fight or a tournament with known or tentative dates." }
 ];
 
 const availableDayOptions: readonly { label: string; value: GeneratedSupportDay }[] = [
@@ -439,7 +441,16 @@ function titleCase(value: string): string {
 }
 
 function goalLabel(mode: GoalMode): string {
-  return goalOptions.find((option) => option.value === mode)?.label ?? "Build phase";
+  if (mode === "tournament") {
+    return "Fight camp · Tournament";
+  }
+  if (mode === "fight") {
+    return "Fight camp · Single fight";
+  }
+  if (mode === "recovery") {
+    return "Recovery";
+  }
+  return "Build phase";
 }
 
 function primaryFocusLabel(value: BuildGoalDraft["primaryFocus"]): string {
@@ -590,6 +601,64 @@ function defaultBodyMassContext(): PlanViewModel["bodyMassContext"] {
   };
 }
 
+function boxingScheduleSummary(existingWeeklyAnchors: readonly WeeklyAnchor[], existingFixedSchedule: readonly FixedSession[]): string {
+  const weeklyDays = [...new Set(existingWeeklyAnchors.map((anchor) => weekdayLabel(anchor.weekday)))];
+  if (weeklyDays.length > 0) {
+    const weekly = weeklyDays.slice(0, 3).join(" · ");
+    return weeklyDays.length > 3 ? `${weekly} +${weeklyDays.length - 3}` : weekly;
+  }
+  if (existingFixedSchedule.length > 0) {
+    return `${existingFixedSchedule.length} upcoming ${existingFixedSchedule.length === 1 ? "session" : "sessions"}`;
+  }
+  return "No fixed sessions";
+}
+
+function ConfirmationRow({
+  icon,
+  label,
+  onEdit,
+  value
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onEdit?: (() => void) | undefined;
+  value: string;
+}) {
+  const row = (
+    <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, minHeight: 66, paddingVertical: spacing.sm }}>
+      <View style={{ alignItems: "center", backgroundColor: "rgba(39, 206, 241, 0.09)", borderRadius: 22, height: 44, justifyContent: "center", width: 44 }}>
+        <Ionicons color={colors.blueIQ} name={icon} size={22} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ color: "#526168", fontFamily: fontFamilies.semibold, fontSize: 13, lineHeight: 17 }}>{label}</Text>
+        <Text numberOfLines={2} style={{ color: colors.cornerBlack, fontFamily: fontFamilies.bold, fontSize: 17, lineHeight: 22 }}>{value}</Text>
+      </View>
+      {onEdit ? (
+        <View style={{ alignItems: "center", flexDirection: "row", gap: 2 }}>
+          <Text style={{ color: colors.blueIQ, fontFamily: fontFamilies.bold, fontSize: 14 }}>Edit</Text>
+          <Ionicons color={colors.blueIQ} name="chevron-forward" size={17} />
+        </View>
+      ) : (
+        <Text style={{ color: "#6F7C81", fontFamily: fontFamilies.semibold, fontSize: 12 }}>From profile</Text>
+      )}
+    </View>
+  );
+
+  if (!onEdit) {
+    return <View style={{ borderBottomColor: "rgba(6, 19, 24, 0.12)", borderBottomWidth: 1 }}>{row}</View>;
+  }
+  return (
+    <Pressable
+      accessibilityLabel={`Edit ${label}`}
+      accessibilityRole="button"
+      onPress={onEdit}
+      style={({ pressed }) => ({ backgroundColor: pressed ? "rgba(39, 206, 241, 0.06)" : "transparent", borderBottomColor: "rgba(6, 19, 24, 0.12)", borderBottomWidth: 1 })}
+    >
+      {row}
+    </Pressable>
+  );
+}
+
 export function PlanGoalFlowCard({
   asOfDate,
   bodyMassContext,
@@ -599,6 +668,7 @@ export function PlanGoalFlowCard({
   existingWeeklyAnchors,
   framed = true,
   initialAvailableDays,
+  initialSetup,
   isMinor,
   onCancel,
   onSaveBuildGoal,
@@ -607,13 +677,32 @@ export function PlanGoalFlowCard({
   onSaveTournamentSetup,
   showCloseButton = false
 }: PlanGoalFlowCardProps) {
-  const defaultFight = createDefaultFightDraft(asOfDate);
-  const defaultTournament = createDefaultTournamentDraft(asOfDate);
+  const fallbackFight = createDefaultFightDraft(asOfDate);
+  const fallbackTournament = createDefaultTournamentDraft(asOfDate);
+  const defaultFight: FightSetupDraft = (() => {
+    if (!initialSetup.fight) {
+      return fallbackFight;
+    }
+    const { postWeighInWeightCapKg, weighInDateTime, ...knownFight } = initialSetup.fight;
+    return {
+      ...fallbackFight,
+      ...knownFight,
+      targetLimitKg: knownFight.contractedWeightKg,
+      ...(weighInDateTime ? { weighInDateTime: weighInDateTime as FightSetupDraft["weighInDateTime"] } : {}),
+      ...(postWeighInWeightCapKg === null ? {} : { postWeighInWeightCapKg })
+    };
+  })();
+  const defaultTournament: TournamentSetupDraft = initialSetup.tournament
+    ? { ...fallbackTournament, ...initialSetup.tournament, possibleBoutDates: [...initialSetup.tournament.possibleBoutDates], rehydrationWindowHoursByDay: [...initialSetup.tournament.rehydrationWindowHoursByDay] }
+    : fallbackTournament;
   const effectiveBodyMassContext = bodyMassContext ?? defaultBodyMassContext();
+  const initialMode: GoalMode = initialSetup.goalMode;
+  const [wizardView, setWizardView] = React.useState<WizardView>("confirmation");
   const [step, setStep] = React.useState<WizardStep>("goal");
-  const [mode, setMode] = React.useState<GoalMode>("build");
-  const [planAction, setPlanAction] = React.useState<PlanLifecycleAction>(() => defaultPlanAction(currentModeLabel, "build"));
-  const [protectedScheduleMode, setProtectedScheduleMode] = React.useState<PlanProtectedScheduleMode>("replace_for_plan");
+  const [mode, setMode] = React.useState<GoalMode>(initialMode);
+  const [fightFormat, setFightFormat] = React.useState<FightFormat>(initialMode === "tournament" ? "tournament" : "single_fight");
+  const [planAction, setPlanAction] = React.useState<PlanLifecycleAction>(() => defaultPlanAction(currentModeLabel, initialMode));
+  const [protectedScheduleMode, setProtectedScheduleMode] = React.useState<PlanProtectedScheduleMode>("keep_existing");
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [stepError, setStepError] = React.useState<string | null>(null);
   const [selectedAvailableDays, setSelectedAvailableDays] = React.useState<GeneratedSupportDay[]>(() => [...initialAvailableDays]);
@@ -634,9 +723,9 @@ export function PlanGoalFlowCard({
   const [targetClassLabel, setTargetClassLabel] = React.useState(defaultFight.targetClassLabel);
   const [contractedWeightKg, setContractedWeightKg] = React.useState(`${defaultFight.contractedWeightKg}`);
   const [allowanceKg, setAllowanceKg] = React.useState(`${defaultFight.allowanceKg}`);
-  const [weighInDateTime, setWeighInDateTime] = React.useState("");
-  const [hydrationTestingRequired, setHydrationTestingRequired] = React.useState(false);
-  const [postWeighInWeightCapKg, setPostWeighInWeightCapKg] = React.useState("");
+  const [weighInDateTime, setWeighInDateTime] = React.useState(defaultFight.weighInDateTime ?? "");
+  const [hydrationTestingRequired, setHydrationTestingRequired] = React.useState(defaultFight.hydrationTestingRequired);
+  const [postWeighInWeightCapKg, setPostWeighInWeightCapKg] = React.useState(defaultFight.postWeighInWeightCapKg ? `${defaultFight.postWeighInWeightCapKg}` : "");
 
   const [tournamentStartDate, setTournamentStartDate] = React.useState(defaultTournament.tournamentStartDate);
   const [tournamentEndDate, setTournamentEndDate] = React.useState(defaultTournament.tournamentEndDate);
@@ -644,7 +733,7 @@ export function PlanGoalFlowCard({
   const [dailyWeighIns, setDailyWeighIns] = React.useState(defaultTournament.dailyWeighIns);
   const [weighInTimeEachDay, setWeighInTimeEachDay] = React.useState(defaultTournament.weighInTimeEachDay);
   const [numberOfPotentialBouts, setNumberOfPotentialBouts] = React.useState(`${defaultTournament.numberOfPotentialBouts}`);
-  const [strategyMode, setStrategyMode] = React.useState<TournamentSetupDraft["strategyMode"]>("stay_near_weight");
+  const [strategyMode, setStrategyMode] = React.useState<TournamentSetupDraft["strategyMode"]>(defaultTournament.strategyMode);
   const [sameDayBoutLikely, setSameDayBoutLikely] = React.useState(defaultTournament.sameDayBoutLikely);
   const [rehydrationWindowHoursByDay, setRehydrationWindowHoursByDay] = React.useState(defaultTournament.rehydrationWindowHoursByDay.join(","));
 
@@ -715,12 +804,29 @@ export function PlanGoalFlowCard({
     setStepError(null);
   };
 
+  const chooseGoal = (choice: GoalChoice) => {
+    chooseMode(choice === "fight" && fightFormat === "tournament" ? "tournament" : choice);
+  };
+
+  const chooseFightFormat = (format: FightFormat) => {
+    setFightFormat(format);
+    chooseMode(format === "tournament" ? "tournament" : "fight");
+  };
+
+  const openGuidedStep = (nextStep: WizardStep, openScheduleEditor = false) => {
+    setStep(nextStep);
+    setAnchorEditorOpen(openScheduleEditor);
+    setWizardView("guided");
+    setStepError(null);
+  };
+
   const requireAvailability = (): boolean => {
     if (selectedAvailableDays.length > 0) {
       return true;
     }
     setStepError("Select at least one available day before saving a plan.");
     setStep("schedule");
+    setWizardView("guided");
     return false;
   };
 
@@ -983,15 +1089,78 @@ export function PlanGoalFlowCard({
     return [`Primary focus: ${primaryFocusLabel(primaryFocus)}`, `Specific target: ${subFocusLabel(subFocus)}`, `Training dose: ${trainingDoseLabel(trainingDose)}`];
   }, [allowanceKg, amateurOrPro, boutDate, contractedWeightKg, dailyWeighIns, effectiveBodyMassContext.currentWeightLabel, mode, numberOfPotentialBouts, possibleBoutDates, primaryFocus, recoveryDurationDays, recoveryFocus, status, strategyMode, subFocus, tournamentEndDate, tournamentStartDate, trainingDose, weighInType]);
 
-  const content = (
-    <View accessibilityLabel="Plan generation wizard" style={{ gap: spacing.md }} testID="plan-generation-wizard">
+  const availabilitySummary = selectedAvailableDays.length > 0
+    ? `${selectedAvailableDays.length} ${selectedAvailableDays.length === 1 ? "day" : "days"} each week`
+    : "Needs setup";
+  const scheduleSummary = boxingScheduleSummary(existingWeeklyAnchors, existingFixedSchedule);
+  const confirmationContent = (
+    <View accessibilityLabel="Plan generation wizard" style={{ padding: spacing.lg }} testID="plan-generation-wizard">
+      <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+        <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+          <Text style={{ color: colors.blueIQ, fontFamily: fontFamilies.black, fontSize: 12, letterSpacing: 0.4, lineHeight: 16 }}>CREATE A NEW PLAN</Text>
+          <Text style={{ color: colors.cornerBlack, fontFamily: fontFamilies.black, fontSize: 34, lineHeight: 38 }}>Is this still right?</Text>
+          <Text style={{ color: "#526168", fontFamily: fontFamilies.regular, fontSize: 16, lineHeight: 22 }}>We used your onboarding answers and current engine setup.</Text>
+        </View>
+        {showCloseButton ? (
+          <Pressable
+            accessibilityLabel="Close"
+            accessibilityRole="button"
+            disabled={controlsBusy}
+            hitSlop={8}
+            onPress={onCancel}
+            style={({ pressed }) => ({ alignItems: "center", height: 44, justifyContent: "center", opacity: pressed ? 0.6 : controlsBusy ? 0.4 : 1, width: 44 })}
+          >
+            <Ionicons color={colors.cornerBlack} name="close" size={30} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      <View style={{ borderTopColor: "rgba(6, 19, 24, 0.12)", borderTopWidth: 1, marginTop: spacing.lg }} testID="plan-wizard-confirmation">
+        <ConfirmationRow icon="flag-outline" label="Goal" onEdit={() => openGuidedStep("goal")} value={goalLabel(mode)} />
+        <ConfirmationRow icon="calendar-outline" label="Training days" onEdit={() => openGuidedStep("schedule")} value={availabilitySummary} />
+        <ConfirmationRow icon="repeat-outline" label="Boxing sessions" onEdit={() => openGuidedStep("schedule", true)} value={scheduleSummary} />
+        <ConfirmationRow icon="barbell-outline" label="Equipment" value={initialSetup.equipmentLabel} />
+        <ConfirmationRow icon="ribbon-outline" label="Experience" value={initialSetup.experienceLabel} />
+      </View>
+
+      {formError ? <Text accessibilityRole="alert" style={{ color: planPalette.toneRed, fontFamily: fontFamilies.bold, fontSize: 14, marginTop: spacing.md }}>{formError}</Text> : null}
+      {stepError ? <Text accessibilityRole="alert" style={{ color: planPalette.toneRed, fontFamily: fontFamilies.bold, fontSize: 14, marginTop: spacing.md }}>{stepError}</Text> : null}
+      {isMinor ? <Text style={{ color: "#526168", fontFamily: fontFamilies.medium, fontSize: 13, lineHeight: 18, marginTop: spacing.md }}>Safety limits remain active for minor athletes.</Text> : null}
+      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "center", marginTop: spacing.md }}>
+        {submittingCopy ? <Ionicons color={colors.blueIQ} name="sync-outline" size={20} /> : <Ionicons color={colors.blueIQ} name="checkmark-circle-outline" size={22} />}
+        <Text style={{ color: "#526168", fontFamily: fontFamilies.medium, fontSize: 14 }}>{submittingCopy?.title ?? "Everything needed is ready"}</Text>
+      </View>
+      <Pressable
+        accessibilityLabel={finalAccessibilityLabel(mode)}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: controlsBusy }}
+        disabled={controlsBusy}
+        onPress={() => void saveCurrentGoal()}
+        style={({ pressed }) => ({ alignItems: "center", backgroundColor: pressed ? planPalette.actionFillPressed : planPalette.actionFill, borderRadius: 5, justifyContent: "center", marginTop: spacing.md, minHeight: 54, opacity: controlsBusy ? 0.55 : 1, paddingHorizontal: spacing.lg })}
+      >
+        <Text style={{ color: colors.cornerBlack, fontFamily: fontFamilies.black, fontSize: 17, lineHeight: 22 }}>{submittingPlanAction ? "Building your plan..." : "Build my plan"}</Text>
+      </Pressable>
+      <Pressable
+        accessibilityLabel="Review step by step"
+        accessibilityRole="button"
+        disabled={controlsBusy}
+        onPress={() => openGuidedStep("goal")}
+        style={({ pressed }) => ({ alignItems: "center", justifyContent: "center", minHeight: 48, opacity: pressed ? 0.6 : controlsBusy ? 0.4 : 1 })}
+      >
+        <Text style={{ color: colors.blueIQ, fontFamily: fontFamilies.bold, fontSize: 15 }}>Review step by step</Text>
+      </Pressable>
+    </View>
+  );
+
+  const content = wizardView === "confirmation" ? confirmationContent : (
+    <View accessibilityLabel="Plan generation wizard" style={{ backgroundColor: "#061318", gap: spacing.md, padding: spacing.lg }} testID="plan-generation-wizard">
       <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
         <View style={{ alignItems: "center", flexDirection: "row", flex: 1, gap: spacing.md, minWidth: 0 }}>
           <View
             style={{
               alignItems: "center",
-              backgroundColor: "rgba(56, 226, 138, 0.12)",
-              borderColor: "rgba(56, 226, 138, 0.34)",
+              backgroundColor: "rgba(39, 206, 241, 0.10)",
+              borderColor: "rgba(39, 206, 241, 0.34)",
               borderRadius: radii.pill,
               borderWidth: 1,
               height: 46,
@@ -1003,10 +1172,10 @@ export function PlanGoalFlowCard({
           </View>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
             <Text style={{ color: planPalette.actionFill, fontFamily: fontFamilies.black, fontSize: 11, fontWeight: "900", lineHeight: 15, textTransform: "uppercase" }}>
-              Plan wizard
+              Plan setup
             </Text>
             <Text style={{ color: planPalette.textPrimary, fontFamily: fontFamilies.extraBold, fontSize: 24, fontWeight: "800", lineHeight: 30 }}>
-              Generate new plan
+              Review plan details
             </Text>
             <Text style={{ ...screenStyles.subtle, color: planPalette.textBody }}>A guided setup keeps the plan goal, availability, and details clear before saving.</Text>
           </View>
@@ -1025,13 +1194,23 @@ export function PlanGoalFlowCard({
 
         {step === "goal" ? (
           <View style={{ gap: spacing.sm }} testID="plan-wizard-goal-step">
-            <Text style={screenStyles.callout}>Step 1: Goal type</Text>
-            <Text style={screenStyles.body}>Choose the boxing phase CornerIQ should plan around next.</Text>
+            <Text style={screenStyles.callout}>Step 1: Goal</Text>
+            <Text style={screenStyles.body}>Choose the one direction CornerIQ should plan around.</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {goalOptions.map((option) => (
-                <DescribedOptionButton active={mode === option.value} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => chooseMode(option.value)} />
+                <DescribedOptionButton active={option.value === "build" ? mode === "build" : mode === "fight" || mode === "tournament"} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => chooseGoal(option.value)} />
               ))}
             </View>
+            {mode === "fight" || mode === "tournament" ? (
+              <View style={{ borderLeftColor: planPalette.actionFill, borderLeftWidth: 2, gap: spacing.sm, marginLeft: spacing.md, paddingLeft: spacing.md }} testID="plan-wizard-fight-format">
+                <Text style={screenStyles.fieldLabel}>Fight format</Text>
+                <Text style={screenStyles.subtle}>Tournament and single fight are types of fight camp, not separate plan goals.</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                  <OptionButton active={fightFormat === "single_fight"} busy={controlsBusy} label="Single fight" onPress={() => chooseFightFormat("single_fight")} />
+                  <OptionButton active={fightFormat === "tournament"} busy={controlsBusy} label="Tournament" onPress={() => chooseFightFormat("tournament")} />
+                </View>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -1313,7 +1492,11 @@ export function PlanGoalFlowCard({
             <View style={{ flexBasis: 120, flexGrow: 1 }}>
               <PremiumButton disabled={controlsBusy} icon="chevron-back-outline" label="Back" onPress={goBack} tone="green" variant="quiet" />
             </View>
-          ) : null}
+          ) : (
+            <View style={{ flexBasis: 120, flexGrow: 1 }}>
+              <PremiumButton disabled={controlsBusy} icon="chevron-back-outline" label="Back to summary" onPress={() => setWizardView("confirmation")} tone="green" variant="quiet" />
+            </View>
+          )}
           <View style={{ flexBasis: 150, flexGrow: 1 }}>
             <PremiumButton
               accessibilityLabel={step === "review" ? finalAccessibilityLabel(mode) : "Next plan wizard step"}
