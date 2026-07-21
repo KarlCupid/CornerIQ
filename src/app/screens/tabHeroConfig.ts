@@ -11,7 +11,7 @@ export const tabHeroHeaders = {
     eyebrow: "Fuel",
     heroImage: fuelHero,
     heroImageTreatment: "natural",
-    subtitle: "Train normally. Keep food and fluids steady.",
+    subtitle: "Your main hub for food and hydration.",
     title: "Fuel Brief"
   },
   plan: {
@@ -19,15 +19,15 @@ export const tabHeroHeaders = {
     eyebrow: "Plan",
     heroImage: planHero,
     heroImageTreatment: "natural",
-    subtitle: "Build the week around your boxing.",
-    title: "Camp Plan"
+    subtitle: "An overview of your training schedule.",
+    title: "Training Plan"
   },
   profile: {
     accent: "blue",
     eyebrow: "Profile",
     heroImage: profileHero,
     heroImageTreatment: "natural",
-    subtitle: "Your setup, schedule, and controls.",
+    subtitle: "Your profile and app settings.",
     title: "Athlete Profile"
   },
   today: {
@@ -35,7 +35,7 @@ export const tabHeroHeaders = {
     eyebrow: "Today",
     heroImage: todayHero,
     heroImageTreatment: "natural",
-    subtitle: "A quick check-in before it points you into the day.",
+    subtitle: "Your day at a glance, with readiness logging up front.",
     title: "Corner Brief"
   },
   train: {
@@ -43,7 +43,7 @@ export const tabHeroHeaders = {
     eyebrow: "Train",
     heroImage: trainHero,
     heroImageTreatment: "natural",
-    subtitle: "Your boxing session and the work around it.",
+    subtitle: "Your workout for today and the details you need.",
     title: "Session Brief"
   }
 } satisfies Record<string, ScreenHeaderProps>;

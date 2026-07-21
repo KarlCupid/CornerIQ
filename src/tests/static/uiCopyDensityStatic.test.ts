@@ -116,7 +116,7 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(heroSource).toContain("Corner Brief");
     expect(heroSource).toContain("Session Brief");
     expect(heroSource).toContain("Fuel Brief");
-    expect(heroSource).toContain("Camp Plan");
+    expect(heroSource).toContain("Training Plan");
     expect(heroSource).toContain("Athlete Profile");
     expect(heroSource).not.toContain("Ready to Own Your Day");
   });

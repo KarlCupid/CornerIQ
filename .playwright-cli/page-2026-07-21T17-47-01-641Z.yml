@@ -1,0 +1,678 @@
+- generic [ref=e4]:
+  - generic "Local E2E mode banner" [ref=e5]: "Local E2E mode: no Supabase connection, demo data only. Scenario: default. Date: 2026-05-19. Disable EXPO_PUBLIC_CORNERIQ_E2E_LOCAL for normal app use."
+  - generic [ref=e149]:
+    - generic [ref=e150]:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: CornerIQ
+                      - generic:
+                        - generic: Today
+                        - generic: Corner Brief
+                        - generic: Your day at a glance, with readiness logging up front.
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: 01 / Readiness
+                          - generic: Today
+                        - generic:
+                          - generic: 
+                          - generic:
+                            - generic: Current status
+                            - generic: Caution
+                            - generic: Update check-in before guidance changes.
+                        - button:
+                          - generic: 
+                          - generic: Check in
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: Daily weight (optional)
+                        - generic: Log a morning scale reading when you have one. Skip it when you do not.
+                      - generic:
+                        - generic: Body weight
+                        - generic:
+                          - generic: Logged today
+                          - generic: "Today's body weight logged: 68 kg."
+                          - generic: "Why: Daily scale context improves trend confidence, but one value never becomes pressure to chase weight."
+                        - button:
+                          - generic: Update body weight
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: Training Today
+                          - generic: Easy roadwork
+                          - generic: Use the workout to stay sharp without adding extra fatigue.
+                        - generic: 53 min / Moderate
+                      - generic:
+                        - button:
+                          - generic: 
+                          - generic: View workout
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: 
+                        - generic:
+                          - generic: Fuel Status
+                          - generic: Fuel Today
+                          - generic: No active cut is running, but today's fuel is not confirmed.
+                      - generic:
+                        - generic: Missing fuel data stays unknown. Log food or water if anything changed.
+                        - button:
+                          - generic: 
+                          - generic: Log food
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: This Week
+                          - generic: This Week
+                          - generic: This week is about plan built 3 app sessions for standard balanced / full body strength.
+                        - generic: Week 1 - Build phase
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: Today - technical session (moderate)
+                            - generic: 45 min
+                        - generic:
+                          - generic:
+                            - generic: Wed - Easy roadwork
+                            - generic: 53 min
+                      - button:
+                        - generic: 
+                        - generic: View Plan
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: 0 logged days
+                          - generic: 0 min
+                        - generic:
+                          - generic:
+                            - generic: M
+                            - generic: T
+                            - generic: W
+                            - generic: T
+                            - generic: F
+                            - generic: S
+                            - generic: S
+                          - generic:
+                            - generic: Apr 22
+                            - generic: Apr 29
+                            - generic: May 6
+                            - generic: May 13
+                        - generic:
+                          - generic: Less
+                          - generic: More
+                      - generic: Only completed workout logs fill the grid. Missing days stay unknown until you log them.
+                  - generic:
+                    - generic:
+                      - generic:
+                        - button:
+                          - generic: 
+                          - generic:
+                            - generic: More today
+                            - generic: Status tiles, next action, quick logs, and recent logs.
+                          - generic: 
+                  - generic: "App note: Local E2E demo profile loaded. No Supabase writes occurred.. Existing plan stays visible."
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: CornerIQ
+                      - generic:
+                        - generic: Train
+                        - generic: Session Brief
+                        - generic: Your workout for today and the details you need.
+                  - generic:
+                    - generic: Past workout to resolve
+                    - generic:
+                      - generic:
+                        - generic: Leg strength
+                        - generic: This support workout was planned for 2026-05-18. Resolve that planned day, move it to today, or leave it unknown.
+                        - generic: Lift - 52 min - Moderate
+                        - generic: Today's workout and future previews stay separate below.
+                      - generic:
+                        - generic:
+                          - button:
+                            - generic: Did it
+                        - generic:
+                          - button:
+                            - generic: Missed it
+                        - generic:
+                          - button:
+                            - generic: Do it today
+                        - generic:
+                          - button:
+                            - generic: Not sure
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: 01 / Today's session
+                        - generic: Easy roadwork
+                        - generic: "Function: Build repeatable breathing and round-to-round recovery while keeping posture and movement controlled."
+                      - generic:
+                        - generic:
+                          - generic: 
+                          - generic: 53 min
+                        - generic:
+                          - generic: 
+                          - generic: Moderate
+                        - generic:
+                          - generic: 
+                          - generic: Non-contact
+                      - button:
+                        - generic:
+                          - generic: 
+                          - generic: View session
+                      - generic:
+                        - button:
+                          - generic: View details
+                          - generic: 
+                      - generic: "Future preview: scheduled for 2026-05-20. Keep it on that date unless you move it from Plan."
+                  - generic:
+                    - generic: Session Plan
+                    - generic:
+                      - generic:
+                        - generic: "01"
+                        - generic: Warm-up
+                        - generic: 8 min
+                      - generic:
+                        - generic: "02"
+                        - generic: aerobic base work
+                        - generic: 35 min
+                      - generic:
+                        - generic: "03"
+                        - generic: Cooldown
+                        - generic: 10 min
+                  - generic:
+                    - generic: Session signals
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: 
+                          - generic: Duration
+                        - generic: 53 min
+                      - generic:
+                        - generic:
+                          - generic: 
+                          - generic: Intensity
+                        - generic: Moderate
+                      - generic:
+                        - generic:
+                          - generic: 
+                          - generic: Fuel
+                        - generic: Eat before
+                      - generic:
+                        - generic:
+                          - generic: 
+                          - generic: Readiness
+                        - generic: Caution
+                  - generic: Local E2E demo profile loaded. No Supabase writes occurred.
+                  - generic:
+                    - generic: This Week
+                    - generic: "Theme: full body strength"
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: "120"
+                          - generic: "90"
+                          - generic: "60"
+                          - generic: "30"
+                      - generic:
+                        - generic: Mon
+                        - generic: Tue
+                        - generic: Wed
+                        - generic: Thu
+                        - generic: Fri
+                        - generic: Sat
+                        - generic: Sun
+                      - generic: 7-day support view
+                    - generic:
+                      - generic:
+                        - generic: Mon
+                        - generic: Open
+                        - generic: No support session
+                      - generic:
+                        - generic: Tue
+                        - generic: Open
+                        - generic: No support session
+                      - generic:
+                        - generic: Wed
+                        - generic: Easy roadwork
+                        - generic: 53 min - Moderate
+                      - generic:
+                        - generic: Thu
+                        - generic: Open
+                        - generic: No support session
+                      - generic:
+                        - generic: Fri
+                        - generic: Open
+                        - generic: No support session
+                      - generic:
+                        - generic: Sat
+                        - generic: Jab in and out
+                        - generic: 33 min - Moderate
+                      - generic:
+                        - generic: Sun
+                        - generic: Open
+                        - generic: No support session
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: CornerIQ
+                      - generic:
+                        - generic: Fuel
+                        - generic: Fuel Brief
+                        - generic: Your main hub for food and hydration.
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: 01 / Today’s fuel
+                            - generic: "Fuel status: Unknown"
+                            - generic: No active cut is running, but today's fuel is not confirmed.
+                        - generic: Log food or water before fuel guidance changes.
+                        - generic:
+                          - button:
+                            - generic: 
+                            - generic: Log meal
+                          - button:
+                            - generic: 
+                            - generic: Add water
+                            - generic: Fast log
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: Protein / carbs / fat
+                          - generic: No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic: Protein
+                                - generic: Target 96g
+                              - generic:
+                                - generic: No log
+                                - generic: Unknown
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic: Carbs
+                                - generic: Target 272g
+                              - generic:
+                                - generic: No log
+                                - generic: Unknown
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic: Fat
+                                - generic: Target 71g
+                              - generic:
+                                - generic: No log
+                                - generic: Unknown
+                        - generic: Log exact grams when you have them. Calories-only entries stay visible, but macro gaps stay unknown.
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: Today fuel checks
+                          - generic: Quick context after macros. Optional logs refine the read; missing data stays unknown.
+                        - generic:
+                          - generic:
+                            - generic: 
+                            - generic:
+                              - generic: Hydration
+                              - generic: 2.4L
+                              - generic: Fluid target context from today's logs.
+                          - generic:
+                            - generic: 
+                            - generic:
+                              - generic: Weight
+                              - generic: 68.0 kg
+                              - generic: Optional daily log; useful for trends.
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: Weight Trend
+                            - generic: 68.0 kg
+                            - generic: 1 recent log in view
+                          - generic:
+                            - generic: 
+                            - generic: Context only
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: 68.0 kg
+                              - generic: 1 logs
+                            - generic:
+                              - generic: Low 68.0 kg
+                              - generic: High 68.0 kg
+                          - generic: TUE
+                        - generic:
+                          - generic:
+                            - generic: 
+                            - generic:
+                              - generic: 7-day change
+                              - generic: Up 0.0 kg vs 7 days
+                              - generic: "Latest logged value: 68.0 kg."
+                          - generic:
+                            - generic: 
+                            - generic:
+                              - generic: Pace signal
+                              - generic: Unknown
+                              - generic: Used as context only. Do not add weight pressure from missing data.
+                        - generic:
+                          - generic: 
+                          - generic: Your recent weight trend is context, not a cut instruction.
+                    - generic:
+                      - generic:
+                        - generic: Training fuel priorities
+                        - generic: Use these around the next session. Log only what you know; missing food stays unknown.
+                        - generic:
+                          - generic: 
+                          - generic:
+                            - generic: "Before training: Carbs + protein"
+                            - generic: Normal meal timing
+                        - generic:
+                          - generic: 
+                          - generic:
+                            - generic: "After training: Protein + meal"
+                            - generic: Protein plus carbs after
+                        - generic:
+                          - generic: 
+                          - generic:
+                            - generic: "Fluids: Water + electrolytes"
+                            - generic: 2.4L daily guide
+                    - generic:
+                      - generic:
+                        - button:
+                          - generic: 
+                          - generic:
+                            - generic: Fuel details
+                            - generic: Weight trend, training context, logs, safety history, and full fuel context.
+                          - generic: 
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: CornerIQ
+                      - generic:
+                        - generic: Plan
+                        - generic: Training Plan
+                        - generic: An overview of your training schedule.
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: 01 / This week
+                            - generic: Week 1
+                            - generic: Build phase · 1 of 4 weeks
+                          - button:
+                            - generic: 
+                            - generic: Adjust plan
+                            - generic: 
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: 
+                          - generic:
+                            - generic: Objective
+                            - generic: aerobic capacity
+                        - button:
+                          - generic: 
+                          - generic: Preview next week
+                          - generic: 
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: Upcoming sessions
+                          - generic: 3 shown
+                        - generic:
+                          - generic:
+                            - generic: 
+                            - generic:
+                              - generic: Mon, May 18
+                              - generic: Leg strength
+                              - generic: 52 min
+                            - generic: 
+                          - generic:
+                            - generic: 
+                            - generic:
+                              - generic: Tue, May 19
+                              - generic: technical session (moderate)
+                              - generic: 45 min
+                            - generic: 
+                          - generic:
+                            - generic: 
+                            - generic:
+                              - generic: Wed, May 20
+                              - generic: Easy roadwork
+                              - generic: 53 min
+                            - generic: 
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: This week
+                          - generic: Tap the calendar to see what is already planned next.
+                        - button:
+                          - generic: 
+                          - generic: Show calendar
+                      - generic:
+                        - generic:
+                          - generic: Mon
+                          - generic: 52 min
+                        - generic:
+                          - generic: Tue
+                          - generic: 45 min
+                        - generic:
+                          - generic: Wed
+                          - generic: 53 min
+                        - generic:
+                          - generic: Thu
+                          - generic: Hard
+                        - generic:
+                          - generic: Fri
+                          - generic: No session
+                        - generic:
+                          - generic: Sat
+                          - generic: 33 min
+                        - generic:
+                          - generic: Sun
+                          - generic: No session
+                      - generic:
+                        - generic: Boxing
+                        - generic: App
+                        - generic: Recovery
+                        - generic: Hard
+                        - generic: Open
+                  - alert:
+                    - generic: Notice
+                    - generic: Plan update
+                    - generic: Local E2E demo profile loaded. No Supabase writes occurred.
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: Plan tools
+                            - generic: Schedule edits, plan changes, and history stay one tap away without expanding week details.
+                          - generic:
+                            - button:
+                              - generic: 
+                              - generic: Edit existing training
+                            - button:
+                              - generic: 
+                              - generic: Plan changes
+                            - button:
+                              - generic: 
+                              - generic: Plan history
+      - generic "profile screen screen" [ref=e881]:
+        - generic [ref=e882]:
+          - generic [ref=e883]:
+            - generic "Athlete Profile screen header" [ref=e884]:
+              - img "Athlete Profile screen header" [ref=e886]
+            - generic [ref=e887]:
+              - generic "CornerIQ" [ref=e888]
+              - generic [ref=e890]:
+                - generic [ref=e891]: Profile
+                - generic [ref=e892]: Athlete Profile
+                - generic [ref=e893]: Your profile and app settings.
+          - generic [ref=e896]:
+            - generic [ref=e897]:
+              - generic [ref=e898]: Athlete setup
+              - 'generic "Status: Ready" [ref=e899]': Ready
+            - generic [ref=e900]:
+              - generic [ref=e901]:
+                - generic [ref=e902]: Build - Week 1
+                - generic [ref=e903]: "Goal: Build."
+                - generic [ref=e904]: No active bout.
+              - generic [ref=e905]: As of 2026-05-19
+              - generic [ref=e906]: CornerIQ uses this setup to build your Plan, adjust Train, and guide Fuel.
+              - button "Edit setup" [ref=e907] [cursor=pointer]:
+                - generic [ref=e908]: 
+          - generic [ref=e910]:
+            - generic [ref=e911]: Setup snapshot
+            - generic [ref=e913]:
+              - 'generic "Equipment: Jump Rope, Bands" [ref=e914]':
+                - generic [ref=e915]: 
+                - generic [ref=e916]: Equipment
+                - generic [ref=e917]: Jump Rope, Bands
+              - 'generic "Schedule: 3 available days" [ref=e918]':
+                - generic [ref=e919]: 
+                - generic [ref=e920]: Schedule
+                - generic [ref=e921]: 3 available days
+              - 'generic "Units: Metric" [ref=e922]':
+                - generic [ref=e923]: 
+                - generic [ref=e924]: Units
+                - generic [ref=e925]: Metric
+              - 'generic "Cycle support: undecided" [ref=e926]':
+                - generic [ref=e927]: 
+                - generic [ref=e928]: Cycle support
+                - generic [ref=e929]: undecided
+          - generic [ref=e930]:
+            - generic [ref=e931]: Account essentials
+            - generic [ref=e933]:
+              - generic [ref=e934]: Privacy, terms, support, export, sign out, and clear account actions.
+              - generic [ref=e935]:
+                - button "Edit setup" [ref=e937] [cursor=pointer]:
+                  - generic [ref=e938]: 
+                - button "Change goal or schedule" [ref=e941] [cursor=pointer]:
+                  - generic [ref=e942]: 
+                - button "Shortcut privacy link" [ref=e945] [cursor=pointer]:
+                  - generic [ref=e946]: 
+                  - generic [ref=e947]: Open Privacy Policy
+                - button "Shortcut support link" [ref=e949] [cursor=pointer]:
+                  - generic [ref=e950]: 
+                  - generic [ref=e951]: Open Support
+                - button "Shortcut terms of use link" [ref=e953] [cursor=pointer]:
+                  - generic [ref=e954]: 
+                  - generic [ref=e955]: Open Terms of Use
+                - button "Shortcut data preview" [ref=e957] [cursor=pointer]:
+                  - generic [ref=e958]: 
+                  - generic [ref=e959]: Preview export
+                - button "Shortcut JSON bundle" [ref=e961] [cursor=pointer]:
+                  - generic [ref=e962]: 
+                  - generic [ref=e963]: Generate portable JSON export
+                - button "Shortcut account exit" [ref=e965] [cursor=pointer]:
+                  - generic [ref=e966]: 
+                  - generic [ref=e967]: Sign out
+              - generic [ref=e969]:
+                - generic [ref=e970]: Delete account
+                - generic [ref=e971]: "To permanently remove your CornerIQ account: preview/export your data, type DELETE ACCOUNT, then tap Delete account."
+                - generic [ref=e972]: Delete app data removes user-owned app rows only. Delete account uses the trusted server-side account deletion function in normal signed-in mode. Local E2E never contacts Supabase.
+                - textbox "Shortcut identity removal confirmation" [ref=e973]:
+                  - /placeholder: Type DELETE ACCOUNT to enable
+                - button "Shortcut identity removal" [disabled]:
+                  - generic [ref=e974]: 
+                  - generic [ref=e975]: Delete account
+                - generic [ref=e977]: Delete app data only
+                - generic [ref=e978]: This keeps your login but removes user-owned app rows. It requires an export preview and DELETE.
+                - generic [ref=e979]: Preview export first to enable app-data deletion.
+                - textbox "Shortcut data removal confirmation" [ref=e980]:
+                  - /placeholder: Type DELETE to enable
+                - button "Shortcut app data removal" [disabled]:
+                  - generic [ref=e981]: 
+                  - generic [ref=e982]: Delete app data only
+          - generic [ref=e983]:
+            - button "Hide Profile details section" [ref=e984] [cursor=pointer]:
+              - generic [ref=e985]:
+                - generic [ref=e986]: Hide Profile details
+                - generic [ref=e987]: Setup details, health notes, privacy controls, and account actions.
+              - generic [ref=e988]: 
+            - generic [ref=e989]:
+              - button "Show Setup details section" [ref=e991] [cursor=pointer]:
+                - generic [ref=e992]:
+                  - generic [ref=e993]: Show Setup details
+                  - generic [ref=e994]: Inputs, units, schedule, and quick updates.
+                - generic [ref=e995]: 
+              - button "Show Safety section" [ref=e997] [cursor=pointer]:
+                - generic [ref=e998]:
+                  - generic [ref=e999]: Show Health & Safety
+                  - generic [ref=e1000]: Health notes, support path, and saved safety history.
+                - generic [ref=e1001]: 
+              - button "Show Data section" [ref=e1003] [cursor=pointer]:
+                - generic [ref=e1004]:
+                  - generic [ref=e1005]: Show Privacy & Data
+                  - generic [ref=e1006]: Export, privacy policy, terms, support, and delete controls.
+                - generic [ref=e1007]: 
+              - generic [ref=e1008]:
+                - button "Hide Account section" [ref=e1009] [cursor=pointer]:
+                  - generic [ref=e1010]:
+                    - generic [ref=e1011]: Hide Account
+                    - generic [ref=e1012]: Sign out and account session actions.
+                  - generic [ref=e1013]: 
+                - generic [ref=e1015]:
+                  - generic [ref=e1016]: Account
+                  - generic [ref=e1018]:
+                    - generic [ref=e1019]: Sign out of this device when you are done.
+                    - button "Sign out" [ref=e1020] [cursor=pointer]:
+                      - generic [ref=e1021]: 
+    - tablist [ref=e317]:
+      - tab "Today tab" [ref=e319] [cursor=pointer]:
+        - generic [ref=e320]:
+          - generic [ref=e321]: 
+          - generic [ref=e324]: 
+        - generic [ref=e327]: Today
+      - tab "Train tab" [ref=e329] [cursor=pointer]:
+        - generic [ref=e330]:
+          - generic [ref=e331]: 
+          - generic [ref=e334]: 
+        - generic [ref=e337]: Train
+      - tab "Fuel tab" [ref=e339] [cursor=pointer]:
+        - generic [ref=e340]:
+          - generic [ref=e341]: 
+          - generic [ref=e344]: 
+        - generic [ref=e347]: Fuel
+      - tab "Plan tab" [ref=e349] [cursor=pointer]:
+        - generic [ref=e350]:
+          - generic [ref=e351]: 
+          - generic [ref=e354]: 
+        - generic [ref=e357]: Plan
+      - tab "Profile tab" [active] [selected] [ref=e359] [cursor=pointer]:
+        - generic [ref=e360]:
+          - generic [ref=e361]: 
+          - generic [ref=e364]: 
+        - generic [ref=e367]: Profile

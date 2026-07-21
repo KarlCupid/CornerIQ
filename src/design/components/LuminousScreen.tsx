@@ -98,13 +98,13 @@ const luminousStyles = {
     textTransform: "uppercase" as const
   },
   heroSubtitle: {
-    color: "#5E5C58",
+    color: "#101417",
     fontFamily: fontFamilies.medium,
     fontSize: 15,
-    fontWeight: "500" as const,
+    fontWeight: "700" as const,
     letterSpacing: 0,
     lineHeight: 21,
-    maxWidth: 230
+    maxWidth: 236
   },
   heroSeam: {
     backgroundColor: OPENING_BELL_BLACK,
