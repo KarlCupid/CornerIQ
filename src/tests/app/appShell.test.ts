@@ -5501,7 +5501,7 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("plan-wizard-schedule-step");
     expect(output).toContain("plan-wizard-anchor-editor");
-    expect(output).toContain("Boxing sessions");
+    expect(output).toContain("Existing workouts");
     expect(output).toContain("Fixed schedule");
 
     await switchSection(renderer, "Replace");
@@ -5509,17 +5509,17 @@ describe("minimal app screens", () => {
     await switchSection(renderer, "Add weekly session");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Weekly");
-    expect(output).toContain("Weekday");
+    expect(output).toContain("Workout includes");
+    expect(output).toContain("Boxing work");
+    expect(output).toContain("Expected effort");
+    expect(output).toContain("Total duration (minutes)");
     expect(output).not.toContain("YYYY-MM-DD");
-    act(() => {
-      changeInputWithAccessibilityLabel(renderer, "Time (optional)", "18:00");
-      changeInputWithAccessibilityLabel(renderer, "Rounds (optional)", "6");
-      changeInputWithAccessibilityLabel(renderer, "Note (optional)", "Protected technical work");
-    });
-    await switchSection(renderer, "Add session to review");
+    expect(output).not.toContain("Rounds (optional)");
+    expect(output).not.toContain("Note (optional)");
+    await switchSection(renderer, "Add workout to review");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Every Monday");
-    expect(output).toContain("Technical session");
+    expect(output).toContain("Boxing");
 
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
@@ -5560,11 +5560,11 @@ describe("minimal app screens", () => {
     expect(savedBuildDraft.protectedScheduleMode).toBe("replace_for_plan");
     expect(savedBuildDraft.pendingRecurringProtectedAnchors).toEqual([
       expect.objectContaining({
+        boxingFormat: "technical_work",
+        components: ["boxing"],
         durationMinutes: 60,
         intensity: "moderate",
-        localStartTime: "18:00",
-        note: "Protected technical work",
-        rounds: 6,
+        primaryComponent: "boxing",
         type: "technical_session",
         weekday: "monday"
       })
@@ -5598,15 +5598,16 @@ describe("minimal app screens", () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
     await switchSection(renderer, "Add weekly session");
-    await switchSection(renderer, "Session type");
-    await switchSection(renderer, "Competition");
+    await switchSection(renderer, "One-off");
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("One-off");
     expect(output).toContain("YYYY-MM-DD");
-    await switchSection(renderer, "Add session to review");
+    expect(output).toContain("Workout includes");
+    expect(output).toContain("Boxing work");
+    await switchSection(renderer, "Add workout to review");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain(fixtureAsOfDate);
-    expect(output).toContain("Competition");
+    expect(output).toContain("Boxing");
 
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
@@ -5618,7 +5619,7 @@ describe("minimal app screens", () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
     });
 
-    expect(onSaveBuildGoal).toHaveBeenCalledWith(expect.objectContaining({ pendingProtectedSessions: [expect.objectContaining({ date: fixtureAsOfDate, type: "competition" })] }));
+    expect(onSaveBuildGoal).toHaveBeenCalledWith(expect.objectContaining({ pendingProtectedSessions: [expect.objectContaining({ boxingFormat: "technical_work", components: ["boxing"], date: fixtureAsOfDate, primaryComponent: "boxing", type: "technical_session" })] }));
     expect(onSaveProtectedSession).not.toHaveBeenCalled();
     expect(onSaveRecurringProtectedAnchor).not.toHaveBeenCalled();
   });

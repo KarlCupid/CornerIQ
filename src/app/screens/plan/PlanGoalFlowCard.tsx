@@ -1,13 +1,12 @@
 import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, Text, TextInput, View } from "react-native";
-import type { ISODateString, PlanViewModel } from "../../../engine/core/types";
+import type { ExistingTrainingComponent, ISODateString, PlanViewModel } from "../../../engine/core/types";
 import { colors, spacing } from "../../../design/theme";
 import { fontFamilies } from "../../../design/typography";
 import { useFormMessage } from "../../forms/useFormMessage";
 import {
   parseOptionalISODateTime,
-  parseOptionalNonNegativeInteger,
   parseOptionalPositiveInteger,
   parseOptionalPositiveNumber,
   parseRequiredDateYYYYMMDD,
@@ -21,6 +20,8 @@ import {
 import {
   createDefaultFightDraft,
   createDefaultTournamentDraft,
+  existingTrainingDraftTitle,
+  workoutTypeForExistingTraining,
   type BuildGoalDraft,
   type FightSetupDraft,
   type PlanLifecycleAction,
@@ -30,6 +31,14 @@ import {
   type RecoveryGoalDraft,
   type TournamentSetupDraft
 } from "../../../services/supabase/onboardingService";
+import {
+  existingBoxingOptions,
+  existingConditioningOptions,
+  existingStrengthOptions,
+  existingTrainingComponentOptions,
+  existingTrainingEffortOptions,
+  intensityForExistingTrainingEffort
+} from "../../forms/existingTrainingFields";
 
 type GoalMode = "build" | "fight" | "tournament" | "recovery";
 type GoalChoice = "build" | "fight";
@@ -161,26 +170,6 @@ const recoveryFocusOptions: readonly OptionDetail<NonNullable<RecoveryGoalDraft[
   { label: "Travel", value: "travel", description: "Plan around travel fatigue, limited equipment, and disrupted routines." },
   { label: "Post-bout", value: "post_bout", description: "Use after competition before normal training resumes." }
 ];
-const anchorTypeOptions: readonly { label: string; value: ProtectedWorkoutDraft["type"] }[] = [
-  { label: "Boxing class", value: "boxing_class" },
-  { label: "Technical session", value: "technical_session" },
-  { label: "Pads / mitts", value: "pads_mitts" },
-  { label: "Bag work", value: "bag_work" },
-  { label: "Footwork", value: "footwork_session" },
-  { label: "Coach/team sparring", value: "sparring" },
-  { label: "Roadwork", value: "roadwork" },
-  { label: "Assigned strength", value: "coach_assigned_strength" },
-  { label: "Recovery day", value: "recovery_day" },
-  { label: "Travel", value: "travel" },
-  { label: "Competition", value: "competition" }
-];
-const anchorIntensityOptions: readonly { label: string; value: ProtectedWorkoutDraft["intensity"] }[] = [
-  { label: "Easy", value: "easy" },
-  { label: "Moderate", value: "moderate" },
-  { label: "Hard", value: "hard" },
-  { label: "Max", value: "max" }
-];
-
 const wizardPalette = {
   canvas: "#F7F3EC",
   surface: "#FFFCF7",
@@ -461,22 +450,6 @@ function WizardButton({
   );
 }
 
-function WizardSelectRow({ expanded, label, onPress, value }: { expanded: boolean; label: string; onPress: () => void; value: string }) {
-  return (
-    <Pressable
-      accessibilityLabel={`${label}: ${value}`}
-      accessibilityRole="button"
-      accessibilityState={{ expanded }}
-      onPress={onPress}
-      style={({ pressed }) => ({ ...wizardStyles.row, backgroundColor: pressed ? wizardPalette.cyanWash : "transparent", paddingHorizontal: spacing.xs })}
-    >
-      <Text style={wizardStyles.rowLabel}>{label}</Text>
-      <Text style={wizardStyles.rowValue}>{value}</Text>
-      <Ionicons color={wizardPalette.cyan} name={expanded ? "chevron-up" : "chevron-down"} size={17} />
-    </Pressable>
-  );
-}
-
 function parseHourList(value: string): number[] {
   const hours = value
     .split(",")
@@ -570,44 +543,21 @@ function daySummary(days: readonly GeneratedSupportDay[]): string {
   return availableDayOptions.filter((option) => days.includes(option.value)).map((option) => option.label).join(", ");
 }
 
-function anchorTypeLabel(type: ProtectedWorkoutDraft["type"]): string {
-  return anchorTypeOptions.find((option) => option.value === type)?.label ?? titleCase(type);
-}
-
 function weekdayLabel(weekday: RecurringProtectedWorkoutAnchorDraft["weekday"]): string {
   return weekdayOptions.find((option) => option.value === weekday)?.label ?? titleCase(weekday);
-}
-
-function timeLabel(time: string | undefined): string | null {
-  if (!time) {
-    return null;
-  }
-  const [hourText, minute = "00"] = time.split(":");
-  const hour = Number(hourText);
-  if (!Number.isFinite(hour)) {
-    return time;
-  }
-  const period = hour >= 12 ? "PM" : "AM";
-  return `${hour % 12 || 12}:${minute} ${period}`;
 }
 
 function weeklyAnchorSummary(anchor: RecurringProtectedWorkoutAnchorDraft): string {
   return [
     `Every ${weekdayLabel(anchor.weekday)}`,
-    anchorTypeLabel(anchor.type),
-    timeLabel(anchor.localStartTime),
+    existingTrainingDraftTitle(anchor),
     `${anchor.durationMinutes} min`,
-    titleCase(anchor.intensity),
-    anchor.rounds ? `${anchor.rounds} rounds` : null
+    titleCase(anchor.intensity)
   ].filter(Boolean).join(" · ");
 }
 
 function datedAnchorSummary(anchor: ProtectedWorkoutDraft): string {
-  return [anchor.date, anchorTypeLabel(anchor.type), timeLabel(anchor.startTime), `${anchor.durationMinutes} min`, titleCase(anchor.intensity), anchor.rounds ? `${anchor.rounds} rounds` : null].filter(Boolean).join(" · ");
-}
-
-function shouldDefaultOneOff(type: ProtectedWorkoutDraft["type"]): boolean {
-  return type === "competition" || type === "travel";
+  return [anchor.date, existingTrainingDraftTitle(anchor), `${anchor.durationMinutes} min`, titleCase(anchor.intensity)].filter(Boolean).join(" · ");
 }
 
 function stepIndex(step: WizardStep): number {
@@ -809,16 +759,15 @@ export function PlanGoalFlowCard({
   const [recoveryFocus, setRecoveryFocus] = React.useState<NonNullable<RecoveryGoalDraft["focus"]>>("general");
   const [anchorEditorOpen, setAnchorEditorOpen] = React.useState(false);
   const [anchorMode, setAnchorMode] = React.useState<AnchorMode>("weekly");
-  const [anchorTypePickerOpen, setAnchorTypePickerOpen] = React.useState(false);
-  const [anchorWeekdayPickerOpen, setAnchorWeekdayPickerOpen] = React.useState(false);
-  const [anchorType, setAnchorType] = React.useState<ProtectedWorkoutDraft["type"]>("technical_session");
+  const [anchorComponents, setAnchorComponents] = React.useState<ExistingTrainingComponent[]>(["boxing"]);
+  const [anchorPrimaryComponent, setAnchorPrimaryComponent] = React.useState<ExistingTrainingComponent | null>(null);
+  const [anchorBoxingFormat, setAnchorBoxingFormat] = React.useState<NonNullable<RecurringProtectedWorkoutAnchorDraft["boxingFormat"]>>("technical_work");
+  const [anchorStrengthArea, setAnchorStrengthArea] = React.useState<NonNullable<RecurringProtectedWorkoutAnchorDraft["strengthArea"]>>("full_body");
+  const [anchorConditioningFormat, setAnchorConditioningFormat] = React.useState<NonNullable<RecurringProtectedWorkoutAnchorDraft["conditioningFormat"]>>("steady_cardio");
   const [anchorWeekday, setAnchorWeekday] = React.useState<RecurringProtectedWorkoutAnchorDraft["weekday"]>("monday");
   const [anchorDate, setAnchorDate] = React.useState(asOfDate);
-  const [anchorStartTime, setAnchorStartTime] = React.useState("");
   const [anchorDurationMinutes, setAnchorDurationMinutes] = React.useState("60");
-  const [anchorIntensity, setAnchorIntensity] = React.useState<ProtectedWorkoutDraft["intensity"]>("moderate");
-  const [anchorRounds, setAnchorRounds] = React.useState("");
-  const [anchorNote, setAnchorNote] = React.useState("");
+  const [anchorEffort, setAnchorEffort] = React.useState(6);
   const [pendingWeeklyAnchors, setPendingWeeklyAnchors] = React.useState<RecurringProtectedWorkoutAnchorDraft[]>([]);
   const [pendingDatedAnchors, setPendingDatedAnchors] = React.useState<ProtectedWorkoutDraft[]>([]);
   const [submittingPlanAction, setSubmittingPlanAction] = React.useState<PlanLifecycleAction | null>(null);
@@ -920,52 +869,55 @@ export function PlanGoalFlowCard({
 
   const resetAnchorEditor = () => {
     setAnchorMode("weekly");
-    setAnchorType("technical_session");
+    setAnchorComponents(["boxing"]);
+    setAnchorPrimaryComponent(null);
+    setAnchorBoxingFormat("technical_work");
+    setAnchorStrengthArea("full_body");
+    setAnchorConditioningFormat("steady_cardio");
     setAnchorWeekday("monday");
     setAnchorDate(asOfDate);
-    setAnchorStartTime("");
     setAnchorDurationMinutes("60");
-    setAnchorIntensity("moderate");
-    setAnchorRounds("");
-    setAnchorNote("");
-    setAnchorTypePickerOpen(false);
-    setAnchorWeekdayPickerOpen(false);
+    setAnchorEffort(6);
   };
 
-  const selectAnchorType = (type: ProtectedWorkoutDraft["type"]) => {
-    setAnchorType(type);
-    setAnchorTypePickerOpen(false);
-    if (shouldDefaultOneOff(type)) {
-      setAnchorMode("one_off");
-    }
+  const toggleAnchorComponent = (component: ExistingTrainingComponent) => {
+    setAnchorComponents((current) => {
+      const next = current.includes(component) ? current.filter((item) => item !== component) : [...current, component];
+      if (next.length === 0) return current;
+      if (anchorPrimaryComponent && !next.includes(anchorPrimaryComponent)) setAnchorPrimaryComponent(null);
+      return next;
+    });
   };
 
   const addPendingAnchor = () => {
     try {
-      const parsedStart = anchorStartTime.trim() ? parseRequiredTimeHHMM(anchorStartTime, "Session start time") : undefined;
-      const parsedRounds = parseOptionalNonNegativeInteger(anchorRounds, "Session rounds");
-      const trimmedNote = anchorNote.trim();
+      const type = workoutTypeForExistingTraining(anchorComponents, anchorBoxingFormat);
+      const details = {
+        components: [...anchorComponents],
+        primaryComponent: anchorComponents.length > 1 ? anchorPrimaryComponent : anchorComponents[0] ?? null,
+        ...(anchorComponents.includes("boxing") ? { boxingFormat: anchorBoxingFormat } : {}),
+        ...(anchorComponents.includes("strength") ? { strengthArea: anchorStrengthArea } : {}),
+        ...(anchorComponents.includes("conditioning") ? { conditioningFormat: anchorConditioningFormat } : {})
+      };
+      const durationMinutes = parseRequiredPositiveInteger(anchorDurationMinutes, "Workout duration minutes");
+      const intensity = intensityForExistingTrainingEffort(anchorEffort);
       if (anchorMode === "weekly") {
         const draft: RecurringProtectedWorkoutAnchorDraft = {
-          type: anchorType,
+          type,
           weekday: anchorWeekday,
-          ...(parsedStart ? { localStartTime: parsedStart } : {}),
-          durationMinutes: parseRequiredPositiveInteger(anchorDurationMinutes, "Session duration minutes"),
-          intensity: anchorIntensity,
-          ...(parsedRounds === undefined ? {} : { rounds: parsedRounds }),
-          ...(trimmedNote ? { note: trimmedNote } : {}),
+          durationMinutes,
+          intensity,
+          ...details,
           activeFrom: asOfDate
         };
         setPendingWeeklyAnchors((current) => [...current, draft]);
       } else {
         const draft: ProtectedWorkoutDraft = {
-          type: anchorType,
+          type,
           date: parseRequiredDateYYYYMMDD(anchorDate, "Session date"),
-          ...(parsedStart ? { startTime: parsedStart, localStartTime: parsedStart } : {}),
-          durationMinutes: parseRequiredPositiveInteger(anchorDurationMinutes, "Session duration minutes"),
-          intensity: anchorIntensity,
-          ...(parsedRounds === undefined ? {} : { rounds: parsedRounds }),
-          ...(trimmedNote ? { note: trimmedNote } : {})
+          durationMinutes,
+          intensity,
+          ...details
         };
         setPendingDatedAnchors((current) => [...current, draft]);
       }
@@ -1348,8 +1300,8 @@ export function PlanGoalFlowCard({
               </Text>
             </View>
             <View style={{ gap: spacing.sm }} testID="plan-wizard-anchor-editor">
-              <Text style={wizardStyles.fieldLabel}>Boxing sessions</Text>
-              <Text style={wizardStyles.body}>{protectedScheduleMode === "clear_for_plan" ? "No boxing sessions will be saved from this wizard." : "Add recurring or one-off sessions for CornerIQ to plan around."}</Text>
+              <Text style={wizardStyles.fieldLabel}>Existing workouts</Text>
+              <Text style={wizardStyles.body}>{protectedScheduleMode === "clear_for_plan" ? "No existing workouts will be saved from this wizard." : "Add recurring or one-off workouts already set by you, your coach, or your gym."}</Text>
               {pendingWeeklyAnchors.length > 0 ? pendingWeeklyAnchors.map((anchor, index) => (
                 <View key={`pending-weekly-anchor:${index}`} style={{ gap: spacing.xs }}>
                   <Text style={wizardStyles.body}>{weeklyAnchorSummary(anchor)}</Text>
@@ -1362,46 +1314,67 @@ export function PlanGoalFlowCard({
                   <WizardButton disabled={controlsBusy} icon="trash-outline" label="Remove draft one-off session" onPress={() => removePendingDatedAnchor(index)} variant="quiet" />
                 </View>
               )) : null}
-              {pendingWeeklyAnchors.length === 0 && pendingDatedAnchors.length === 0 ? <Text style={wizardStyles.subtle}>No new boxing sessions added yet.</Text> : null}
+              {pendingWeeklyAnchors.length === 0 && pendingDatedAnchors.length === 0 ? <Text style={wizardStyles.subtle}>No new existing workouts added yet.</Text> : null}
               {protectedScheduleMode !== "clear_for_plan" ? (
                 <WizardButton disabled={controlsBusy} icon={anchorEditorOpen ? "chevron-up-outline" : "add-circle-outline"} label={anchorEditorOpen ? "Hide session fields" : "Add weekly session"} onPress={() => setAnchorEditorOpen((value) => !value)} variant="quiet" />
               ) : null}
               {anchorEditorOpen && protectedScheduleMode !== "clear_for_plan" ? (
                 <View style={{ gap: spacing.sm }}>
-                  <Text style={wizardStyles.fieldLabel}>Session frequency</Text>
+                  <Text style={wizardStyles.fieldLabel}>Workout frequency</Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                     <OptionButton accessibilityLabel="Weekly recurring" active={anchorMode === "weekly"} busy={controlsBusy} label="Weekly" onPress={() => setAnchorMode("weekly")} />
                     <OptionButton accessibilityLabel="One-off date" active={anchorMode === "one_off"} busy={controlsBusy} label="One-off" onPress={() => setAnchorMode("one_off")} />
                   </View>
-                  <WizardSelectRow expanded={anchorTypePickerOpen} label="Session type" onPress={() => setAnchorTypePickerOpen((value) => !value)} value={anchorTypeLabel(anchorType)} />
-                  {anchorTypePickerOpen ? (
-                    <View style={{ gap: spacing.xs }}>
-                      {anchorTypeOptions.map((option) => <OptionButton active={anchorType === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => selectAnchorType(option.value)} />)}
+                  <WizardFieldGroup title="Workout includes" helper="Choose every part included in this workout.">
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                      {existingTrainingComponentOptions.map((option) => <OptionButton active={anchorComponents.includes(option.value)} busy={controlsBusy} key={option.value} label={option.label} onPress={() => toggleAnchorComponent(option.value)} />)}
                     </View>
+                  </WizardFieldGroup>
+                  {anchorComponents.length > 1 ? (
+                    <WizardFieldGroup title="Main part" helper="Choose the part that takes the most work, or leave it balanced.">
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                        <OptionButton active={anchorPrimaryComponent === null} busy={controlsBusy} label="No single main part" onPress={() => setAnchorPrimaryComponent(null)} />
+                        {anchorComponents.map((component) => <OptionButton active={anchorPrimaryComponent === component} busy={controlsBusy} key={component} label={existingTrainingComponentOptions.find((option) => option.value === component)?.label ?? component} onPress={() => setAnchorPrimaryComponent(component)} />)}
+                      </View>
+                    </WizardFieldGroup>
+                  ) : null}
+                  {anchorComponents.includes("boxing") ? (
+                    <WizardFieldGroup title="Boxing work">
+                      <View style={{ gap: spacing.xs }}>
+                        {existingBoxingOptions.map((option) => <DescribedOptionButton active={anchorBoxingFormat === option.value} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => setAnchorBoxingFormat(option.value)} />)}
+                      </View>
+                    </WizardFieldGroup>
+                  ) : null}
+                  {anchorComponents.includes("strength") ? (
+                    <WizardFieldGroup title="Strength area" helper="What area does the strength work mainly train?">
+                      <View style={{ gap: spacing.xs }}>
+                        {existingStrengthOptions.map((option) => <DescribedOptionButton active={anchorStrengthArea === option.value} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => setAnchorStrengthArea(option.value)} />)}
+                      </View>
+                    </WizardFieldGroup>
+                  ) : null}
+                  {anchorComponents.includes("conditioning") ? (
+                    <WizardFieldGroup title="Conditioning format">
+                      <View style={{ gap: spacing.xs }}>
+                        {existingConditioningOptions.map((option) => <DescribedOptionButton active={anchorConditioningFormat === option.value} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => setAnchorConditioningFormat(option.value)} />)}
+                      </View>
+                    </WizardFieldGroup>
                   ) : null}
                   {anchorMode === "weekly" ? (
-                    <View style={{ gap: spacing.xs }}>
-                      <WizardSelectRow expanded={anchorWeekdayPickerOpen} label="Weekday" onPress={() => setAnchorWeekdayPickerOpen((value) => !value)} value={weekdayLabel(anchorWeekday)} />
-                      {anchorWeekdayPickerOpen ? (
-                        <View style={{ gap: spacing.xs }}>
-                          {weekdayOptions.map((option) => <OptionButton active={anchorWeekday === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => { setAnchorWeekday(option.value); setAnchorWeekdayPickerOpen(false); }} />)}
-                        </View>
-                      ) : null}
-                    </View>
+                    <WizardFieldGroup title="Day">
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                        {weekdayOptions.map((option) => <OptionButton active={anchorWeekday === option.value} busy={controlsBusy} key={option.value} label={option.label.slice(0, 3)} onPress={() => setAnchorWeekday(option.value)} />)}
+                      </View>
+                    </WizardFieldGroup>
                   ) : (
                     <WizardField label="Date" onChangeText={setAnchorDate} placeholder="YYYY-MM-DD" value={anchorDate} />
                   )}
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                    <WizardField keyboardType="number-pad" label="Time (optional)" onChangeText={setAnchorStartTime} placeholder="HH:MM" value={anchorStartTime} />
-                    <WizardField keyboardType="number-pad" label="Duration" onChangeText={setAnchorDurationMinutes} placeholder="Minutes" value={anchorDurationMinutes} />
-                  </View>
-                  <Text style={wizardStyles.fieldLabel}>Intensity</Text>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                    {anchorIntensityOptions.map((option) => <OptionButton active={anchorIntensity === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => setAnchorIntensity(option.value)} />)}
-                  </View>
-                  <WizardField keyboardType="number-pad" label="Rounds (optional)" onChangeText={setAnchorRounds} placeholder="Rounds" value={anchorRounds} />
-                  <WizardField label="Note (optional)" onChangeText={setAnchorNote} placeholder="Add a short note" value={anchorNote} />
-                  <WizardButton disabled={controlsBusy} icon="add-circle-outline" label="Add session to review" onPress={addPendingAnchor} />
+                  <WizardField keyboardType="number-pad" label="Total duration (minutes)" onChangeText={setAnchorDurationMinutes} placeholder="60" value={anchorDurationMinutes} />
+                  <WizardFieldGroup title="Expected effort" helper="1 is very easy. 10 is an all-out effort.">
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                      {existingTrainingEffortOptions.map((value) => <OptionButton active={anchorEffort === value} busy={controlsBusy} key={value} label={String(value)} onPress={() => setAnchorEffort(value)} />)}
+                    </View>
+                  </WizardFieldGroup>
+                  <WizardButton disabled={controlsBusy} icon="add-circle-outline" label="Add workout to review" onPress={addPendingAnchor} />
                 </View>
               ) : null}
             </View>

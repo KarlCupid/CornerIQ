@@ -288,7 +288,9 @@ describe("fatigue-first UI copy density static checks", () => {
   });
 
   it("keeps existing-training subtype tips short and concrete", () => {
-    const source = readFileSync("src/app/screens/onboarding/steps/ProtectedScheduleStep.tsx", "utf8");
+    const source = readFileSync("src/app/forms/existingTrainingFields.ts", "utf8");
+    const onboardingSource = readFileSync("src/app/screens/onboarding/steps/ProtectedScheduleStep.tsx", "utf8");
+    const wizardSource = readFileSync("src/app/screens/plan/PlanGoalFlowCard.tsx", "utf8");
 
     for (const tip of [
       "A coached group boxing session.",
@@ -303,7 +305,10 @@ describe("fatigue-first UI copy density static checks", () => {
       expect(source).toContain(tip);
     }
 
-    expect(source).toContain("description={option.description}");
+    expect(onboardingSource).toContain("description={option.description}");
+    expect(wizardSource).toContain("description={option.description}");
+    expect(onboardingSource).toContain('from "../../../forms/existingTrainingFields"');
+    expect(wizardSource).toContain('from "../../forms/existingTrainingFields"');
   });
 
   it("keeps card pills free of accent rails and marker dots", () => {
