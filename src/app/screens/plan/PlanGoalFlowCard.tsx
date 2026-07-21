@@ -2,8 +2,7 @@ import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, Text, TextInput, View } from "react-native";
 import type { ISODateString, PlanViewModel } from "../../../engine/core/types";
-import { PremiumButton, PremiumCard } from "../../../design/components/PremiumPrimitives";
-import { colors, radii, spacing } from "../../../design/theme";
+import { colors, spacing } from "../../../design/theme";
 import { fontFamilies } from "../../../design/typography";
 import { useFormMessage } from "../../forms/useFormMessage";
 import {
@@ -31,8 +30,6 @@ import {
   type RecoveryGoalDraft,
   type TournamentSetupDraft
 } from "../../../services/supabase/onboardingService";
-import { screenStyles } from "../screenStyles";
-import { planPalette } from "./planPalette";
 
 type GoalMode = "build" | "fight" | "tournament" | "recovery";
 type GoalChoice = "build" | "fight";
@@ -63,6 +60,7 @@ export interface PlanGoalFlowCardProps {
   onSaveRecurringProtectedAnchor?: ((anchorId: string | null, draft: RecurringProtectedWorkoutAnchorDraft) => Promise<void>) | undefined;
   onSaveRecoveryGoal: (draft: RecoveryGoalDraft) => Promise<void>;
   onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
+  onStepChange?: (() => void) | undefined;
   showCloseButton?: boolean | undefined;
 }
 
@@ -183,31 +181,61 @@ const anchorIntensityOptions: readonly { label: string; value: ProtectedWorkoutD
   { label: "Max", value: "max" }
 ];
 
-function OptionButton({ active, busy, label, onPress }: { active: boolean; busy: boolean; label: string; onPress: () => void }) {
+const wizardPalette = {
+  canvas: "#F7F3EC",
+  surface: "#FFFCF7",
+  ink: "#061318",
+  body: "#526168",
+  muted: "#6F7C81",
+  line: "rgba(6, 19, 24, 0.13)",
+  cyan: "#27CEF1",
+  cyanWash: "rgba(39, 206, 241, 0.09)",
+  warning: "#9A6100",
+  warningWash: "#FFF0CF",
+  danger: "#B4233B",
+  dangerWash: "#FFF0F2"
+} as const;
+
+const wizardStyles = {
+  shell: { backgroundColor: wizardPalette.canvas, padding: spacing.lg },
+  guidedShell: { backgroundColor: wizardPalette.canvas, gap: spacing.lg, padding: spacing.lg },
+  eyebrow: { color: wizardPalette.cyan, fontFamily: fontFamilies.black, fontSize: 11, letterSpacing: 0.35, lineHeight: 15, textTransform: "uppercase" },
+  displayTitle: { color: wizardPalette.ink, fontFamily: fontFamilies.black, fontSize: 30, letterSpacing: -0.6, lineHeight: 32 },
+  body: { color: wizardPalette.ink, fontFamily: fontFamilies.medium, fontSize: 14, lineHeight: 19 },
+  subtle: { color: wizardPalette.body, fontFamily: fontFamilies.regular, fontSize: 13, lineHeight: 18 },
+  fieldLabel: { color: wizardPalette.ink, fontFamily: fontFamilies.bold, fontSize: 12, lineHeight: 16 },
+  callout: { color: wizardPalette.cyan, fontFamily: fontFamilies.black, fontSize: 11, letterSpacing: 0.25, lineHeight: 15, textTransform: "uppercase" },
+  input: { backgroundColor: wizardPalette.surface, borderColor: wizardPalette.line, borderRadius: 5, borderWidth: 1, color: wizardPalette.ink, fontFamily: fontFamilies.medium, fontSize: 15, minHeight: 46, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  section: { borderTopColor: wizardPalette.line, borderTopWidth: 1, gap: spacing.sm, paddingTop: spacing.md },
+  row: { alignItems: "center", borderBottomColor: wizardPalette.line, borderBottomWidth: 1, flexDirection: "row", gap: spacing.sm, minHeight: 48, paddingVertical: spacing.sm },
+  rowLabel: { color: wizardPalette.muted, fontFamily: fontFamilies.semibold, fontSize: 12, lineHeight: 16 },
+  rowValue: { color: wizardPalette.ink, flex: 1, fontFamily: fontFamilies.bold, fontSize: 14, lineHeight: 19, textAlign: "right" }
+} as const;
+
+function OptionButton({ accessibilityLabel, active, busy, label, onPress }: { accessibilityLabel?: string | undefined; active: boolean; busy: boolean; label: string; onPress: () => void }) {
   return (
     <Pressable
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
       accessibilityState={{ disabled: busy, selected: active }}
       disabled={busy}
       onPress={onPress}
       style={({ pressed }) => ({
         alignItems: "center",
-        backgroundColor: active ? "rgba(56, 226, 138, 0.14)" : pressed ? "rgba(230, 247, 234, 0.095)" : "rgba(230, 247, 234, 0.055)",
-        borderColor: active ? "rgba(56, 226, 138, 0.5)" : "rgba(210, 244, 221, 0.16)",
-        borderCurve: "continuous",
-        borderRadius: radii.tile,
+        backgroundColor: active ? wizardPalette.cyan : pressed ? wizardPalette.cyanWash : wizardPalette.surface,
+        borderColor: active ? wizardPalette.cyan : wizardPalette.line,
+        borderRadius: 5,
         borderWidth: 1,
-        boxShadow: active ? "0 10px 26px rgba(56, 226, 138, 0.14)" : "0 8px 22px rgba(0, 0, 0, 0.16)",
         flexGrow: 1,
         justifyContent: "center",
         maxWidth: 360,
         minHeight: 44,
         opacity: busy ? 0.58 : 1,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs
       })}
     >
-      <Text style={{ color: active ? planPalette.textPrimary : planPalette.textBody, fontFamily: fontFamilies.bold, fontSize: 14, fontWeight: "700", lineHeight: 18, textAlign: "center" }}>{label}</Text>
+      <Text style={{ color: wizardPalette.ink, fontFamily: fontFamilies.bold, fontSize: 13, lineHeight: 17, textAlign: "center" }}>{label}</Text>
     </Pressable>
   );
 }
@@ -232,30 +260,27 @@ function DescribedOptionButton({
       disabled={busy}
       onPress={onPress}
       style={({ pressed }) => ({
-        alignItems: "flex-start",
-        backgroundColor: active ? "rgba(56, 226, 138, 0.14)" : pressed ? "rgba(230, 247, 234, 0.095)" : "rgba(230, 247, 234, 0.055)",
-        borderColor: active ? "rgba(56, 226, 138, 0.5)" : "rgba(210, 244, 221, 0.16)",
-        borderCurve: "continuous",
-        borderRadius: radii.tile,
+        alignItems: "center",
+        backgroundColor: active ? wizardPalette.cyanWash : pressed ? "rgba(39, 206, 241, 0.05)" : "transparent",
+        borderColor: active ? wizardPalette.cyan : wizardPalette.line,
+        borderRadius: 5,
         borderWidth: 1,
-        boxShadow: active ? "0 10px 26px rgba(56, 226, 138, 0.14)" : "0 8px 22px rgba(0, 0, 0, 0.16)",
-        flexBasis: 158,
+        flexBasis: "100%",
+        flexDirection: "row",
         flexGrow: 1,
-        gap: 3,
+        gap: spacing.sm,
         justifyContent: "center",
-        minHeight: 72,
-        minWidth: 138,
+        minHeight: 64,
         opacity: busy ? 0.58 : 1,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm
       })}
     >
-      <Text style={{ color: active ? planPalette.textPrimary : planPalette.textBody, fontFamily: fontFamilies.bold, fontSize: 14, fontWeight: "800", lineHeight: 18 }}>
-        {label}
-      </Text>
-      <Text style={{ color: planPalette.textMuted, fontFamily: fontFamilies.medium, fontSize: 12, fontWeight: "600", lineHeight: 16 }}>
-        {description}
-      </Text>
+      <Ionicons color={active ? wizardPalette.cyan : wizardPalette.muted} name={active ? "radio-button-on" : "radio-button-off"} size={20} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ color: wizardPalette.ink, fontFamily: fontFamilies.bold, fontSize: 14, lineHeight: 18 }}>{label}</Text>
+        <Text style={{ color: wizardPalette.body, fontFamily: fontFamilies.regular, fontSize: 12, lineHeight: 16 }}>{description}</Text>
+      </View>
     </Pressable>
   );
 }
@@ -266,38 +291,13 @@ function WizardProgress({
   currentStep: WizardStep;
 }) {
   const currentIndex = stepIndex(currentStep);
+  const current = wizardSteps[currentIndex] ?? wizardSteps[0];
   return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
-      {wizardSteps.map((item, index) => {
-        const active = item.key === currentStep;
-        const complete = index < currentIndex;
-        return (
-          <View
-            accessibilityLabel={`${item.label} ${complete ? "complete" : active ? "current" : "upcoming"}`}
-            key={item.key}
-            style={{
-              alignItems: "center",
-              backgroundColor: active ? "rgba(56, 226, 138, 0.14)" : complete ? "rgba(56, 226, 138, 0.085)" : "rgba(230, 247, 234, 0.045)",
-              borderColor: active || complete ? "rgba(56, 226, 138, 0.36)" : "rgba(210, 244, 221, 0.12)",
-              borderCurve: "continuous",
-              borderRadius: radii.pill,
-              borderWidth: 1,
-              flexDirection: "row",
-              gap: spacing.xs,
-              minHeight: 34,
-              paddingHorizontal: spacing.sm,
-              paddingVertical: spacing.xs
-            }}
-          >
-            <Text style={{ color: active || complete ? planPalette.actionFill : planPalette.textMuted, fontFamily: fontFamilies.black, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
-              {index + 1}
-            </Text>
-            <Text style={{ color: active ? planPalette.textPrimary : planPalette.textMuted, fontFamily: fontFamilies.bold, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>
-              {item.label}
-            </Text>
-          </View>
-        );
-      })}
+    <View accessibilityLabel={`${current?.label ?? "Wizard"}, step ${currentIndex + 1} of ${wizardSteps.length}`} style={{ gap: spacing.xs }}>
+      <Text style={wizardStyles.eyebrow}>{currentIndex + 1} OF {wizardSteps.length} · {current?.label}</Text>
+      <View style={{ backgroundColor: wizardPalette.line, height: 2, overflow: "hidden" }}>
+        <View style={{ backgroundColor: wizardPalette.cyan, height: 2, width: `${((currentIndex + 1) / wizardSteps.length) * 100}%` }} />
+      </View>
     </View>
   );
 }
@@ -313,23 +313,22 @@ function WizardNotice({
   title: string;
   tone?: "green" | "muted" | "red" | "orange" | undefined;
 }) {
-  const color = tone === "green" ? planPalette.actionFill : tone === "red" ? colors.redCorner : tone === "orange" ? colors.amberCaution : planPalette.textMuted;
+  const color = tone === "red" ? wizardPalette.danger : tone === "orange" ? wizardPalette.warning : wizardPalette.cyan;
   return (
     <View
       accessibilityRole={tone === "red" || tone === "orange" ? "alert" : undefined}
       style={{
-        backgroundColor: tone === "red" ? "rgba(255, 82, 101, 0.09)" : tone === "orange" ? "rgba(255, 148, 72, 0.09)" : "rgba(230, 247, 234, 0.055)",
-        borderColor: `${color}44`,
-        borderCurve: "continuous",
-        borderRadius: radii.tile,
+        backgroundColor: tone === "red" ? wizardPalette.dangerWash : tone === "orange" ? wizardPalette.warningWash : wizardPalette.cyanWash,
+        borderColor: color,
+        borderRadius: 5,
         borderWidth: 1,
         gap: spacing.xs,
         padding: spacing.md
       }}
       testID={testID}
     >
-      <Text style={{ color, fontFamily: fontFamilies.bold, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>{title}</Text>
-      {body ? <Text style={{ ...screenStyles.subtle, color: planPalette.textBody }}>{body}</Text> : null}
+      <Text style={{ color, fontFamily: fontFamilies.bold, fontSize: 13, lineHeight: 18 }}>{title}</Text>
+      {body ? <Text style={wizardStyles.subtle}>{body}</Text> : null}
     </View>
   );
 }
@@ -351,17 +350,17 @@ function WizardField({
 }) {
   return (
     <View style={{ flexBasis: 150, flexGrow: 1, gap: spacing.xs, minWidth: 132 }}>
-      <Text style={screenStyles.fieldLabel}>{label}</Text>
+      <Text style={wizardStyles.fieldLabel}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
         keyboardType={keyboardType}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={colors.wrap}
-        style={screenStyles.input}
+        placeholderTextColor={wizardPalette.muted}
+        style={wizardStyles.input}
         value={value}
       />
-      {helper ? <Text style={screenStyles.subtle}>{helper}</Text> : null}
+      {helper ? <Text style={wizardStyles.subtle}>{helper}</Text> : null}
     </View>
   );
 }
@@ -377,14 +376,13 @@ function WizardFactField({
 }) {
   return (
     <View style={{ flexBasis: 150, flexGrow: 1, gap: spacing.xs, minWidth: 132 }}>
-      <Text style={screenStyles.fieldLabel}>{label}</Text>
+      <Text style={wizardStyles.fieldLabel}>{label}</Text>
       <View
         accessibilityLabel={`${label}: ${value}`}
         style={{
-          backgroundColor: "rgba(230, 247, 234, 0.035)",
-          borderColor: "rgba(210, 244, 221, 0.14)",
-          borderCurve: "continuous",
-          borderRadius: radii.tile,
+          backgroundColor: wizardPalette.surface,
+          borderColor: wizardPalette.line,
+          borderRadius: 5,
           borderWidth: 1,
           justifyContent: "center",
           minHeight: 48,
@@ -392,11 +390,11 @@ function WizardFactField({
           paddingVertical: spacing.sm
         }}
       >
-        <Text selectable style={{ color: planPalette.textPrimary, fontFamily: fontFamilies.medium, fontSize: 16, fontWeight: "600", lineHeight: 22 }}>
+        <Text selectable style={{ color: wizardPalette.ink, fontFamily: fontFamilies.medium, fontSize: 15, lineHeight: 21 }}>
           {value}
         </Text>
       </View>
-      {helper ? <Text style={screenStyles.subtle}>{helper}</Text> : null}
+      {helper ? <Text style={wizardStyles.subtle}>{helper}</Text> : null}
     </View>
   );
 }
@@ -412,11 +410,70 @@ function WizardFieldGroup({
   return (
     <View style={{ gap: spacing.sm }}>
       <View style={{ gap: spacing.xs }}>
-        <Text style={screenStyles.fieldLabel}>{title}</Text>
-        {helper ? <Text style={screenStyles.subtle}>{helper}</Text> : null}
+        <Text style={wizardStyles.fieldLabel}>{title}</Text>
+        {helper ? <Text style={wizardStyles.subtle}>{helper}</Text> : null}
       </View>
       {children}
     </View>
+  );
+}
+
+function WizardButton({
+  accessibilityLabel,
+  disabled,
+  icon,
+  label,
+  onPress,
+  variant = "primary"
+}: {
+  accessibilityLabel?: string | undefined;
+  disabled?: boolean | undefined;
+  icon?: keyof typeof Ionicons.glyphMap | undefined;
+  label: string;
+  onPress: () => Promise<void> | void;
+  variant?: "primary" | "quiet" | undefined;
+}) {
+  const primary = variant === "primary";
+  return (
+    <Pressable
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        alignItems: "center",
+        backgroundColor: primary ? wizardPalette.cyan : "transparent",
+        borderColor: primary ? wizardPalette.cyan : "transparent",
+        borderRadius: 5,
+        borderWidth: primary ? 1 : 0,
+        flexDirection: "row",
+        gap: spacing.sm,
+        justifyContent: "center",
+        minHeight: primary ? 52 : 44,
+        opacity: disabled ? 0.42 : pressed ? 0.68 : 1,
+        paddingHorizontal: spacing.md
+      })}
+    >
+      {icon ? <Ionicons color={primary ? wizardPalette.ink : wizardPalette.cyan} name={icon} size={18} /> : null}
+      <Text style={{ color: primary ? wizardPalette.ink : wizardPalette.cyan, fontFamily: fontFamilies.black, fontSize: primary ? 16 : 14, lineHeight: 20 }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function WizardSelectRow({ expanded, label, onPress, value }: { expanded: boolean; label: string; onPress: () => void; value: string }) {
+  return (
+    <Pressable
+      accessibilityLabel={`${label}: ${value}`}
+      accessibilityRole="button"
+      accessibilityState={{ expanded }}
+      onPress={onPress}
+      style={({ pressed }) => ({ ...wizardStyles.row, backgroundColor: pressed ? wizardPalette.cyanWash : "transparent", paddingHorizontal: spacing.xs })}
+    >
+      <Text style={wizardStyles.rowLabel}>{label}</Text>
+      <Text style={wizardStyles.rowValue}>{value}</Text>
+      <Ionicons color={wizardPalette.cyan} name={expanded ? "chevron-up" : "chevron-down"} size={17} />
+    </Pressable>
   );
 }
 
@@ -659,6 +716,16 @@ function ConfirmationRow({
   );
 }
 
+function ReviewSummaryRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+  return (
+    <View style={wizardStyles.row}>
+      <Ionicons color={wizardPalette.cyan} name={icon} size={18} />
+      <Text style={wizardStyles.rowLabel}>{label}</Text>
+      <Text numberOfLines={2} style={wizardStyles.rowValue}>{value}</Text>
+    </View>
+  );
+}
+
 export function PlanGoalFlowCard({
   asOfDate,
   bodyMassContext,
@@ -675,6 +742,7 @@ export function PlanGoalFlowCard({
   onSaveFightSetup,
   onSaveRecoveryGoal,
   onSaveTournamentSetup,
+  onStepChange,
   showCloseButton = false
 }: PlanGoalFlowCardProps) {
   const fallbackFight = createDefaultFightDraft(asOfDate);
@@ -741,6 +809,8 @@ export function PlanGoalFlowCard({
   const [recoveryFocus, setRecoveryFocus] = React.useState<NonNullable<RecoveryGoalDraft["focus"]>>("general");
   const [anchorEditorOpen, setAnchorEditorOpen] = React.useState(false);
   const [anchorMode, setAnchorMode] = React.useState<AnchorMode>("weekly");
+  const [anchorTypePickerOpen, setAnchorTypePickerOpen] = React.useState(false);
+  const [anchorWeekdayPickerOpen, setAnchorWeekdayPickerOpen] = React.useState(false);
   const [anchorType, setAnchorType] = React.useState<ProtectedWorkoutDraft["type"]>("technical_session");
   const [anchorWeekday, setAnchorWeekday] = React.useState<RecurringProtectedWorkoutAnchorDraft["weekday"]>("monday");
   const [anchorDate, setAnchorDate] = React.useState(asOfDate);
@@ -781,10 +851,10 @@ export function PlanGoalFlowCard({
   }, [initialAvailableDays, initialAvailableDaysKey]);
 
   const toggleAvailableDay = (day: GeneratedSupportDay) => {
-    setStepError(null);
     availabilityEditedRef.current = true;
     setSelectedAvailableDays((current) => {
       const next = current.includes(day) ? current.filter((item) => item !== day) : [...current, day];
+      setStepError(next.length === 0 ? "Choose at least one available day." : null);
       if (!trainingDoseEditedRef.current) {
         setTrainingDose(defaultTrainingDose(next.length));
       }
@@ -814,6 +884,7 @@ export function PlanGoalFlowCard({
   };
 
   const openGuidedStep = (nextStep: WizardStep, openScheduleEditor = false) => {
+    onStepChange?.();
     setStep(nextStep);
     setAnchorEditorOpen(openScheduleEditor);
     setWizardView("guided");
@@ -824,7 +895,7 @@ export function PlanGoalFlowCard({
     if (selectedAvailableDays.length > 0) {
       return true;
     }
-    setStepError("Select at least one available day before saving a plan.");
+    setStepError("Choose at least one available day.");
     setStep("schedule");
     setWizardView("guided");
     return false;
@@ -835,12 +906,14 @@ export function PlanGoalFlowCard({
       return;
     }
     const next = wizardSteps[Math.min(stepIndex(step) + 1, wizardSteps.length - 1)]?.key ?? "review";
+    onStepChange?.();
     setStepError(null);
     setStep(next);
   };
 
   const goBack = () => {
     const previous = wizardSteps[Math.max(stepIndex(step) - 1, 0)]?.key ?? "goal";
+    onStepChange?.();
     setStepError(null);
     setStep(previous);
   };
@@ -855,10 +928,13 @@ export function PlanGoalFlowCard({
     setAnchorIntensity("moderate");
     setAnchorRounds("");
     setAnchorNote("");
+    setAnchorTypePickerOpen(false);
+    setAnchorWeekdayPickerOpen(false);
   };
 
   const selectAnchorType = (type: ProtectedWorkoutDraft["type"]) => {
     setAnchorType(type);
+    setAnchorTypePickerOpen(false);
     if (shouldDefaultOneOff(type)) {
       setAnchorMode("one_off");
     }
@@ -916,6 +992,14 @@ export function PlanGoalFlowCard({
       setPendingDatedAnchors([]);
       setAnchorEditorOpen(false);
     }
+  };
+
+  const updateRehydrationWindow = (index: number, value: string) => {
+    setRehydrationWindowHoursByDay((current) => {
+      const windows = current.split(",").map((item) => item.trim());
+      windows[index] = value;
+      return windows.join(",");
+    });
   };
 
   const selectPrimaryFocus = (focus: BuildGoalDraft["primaryFocus"]) => {
@@ -1093,6 +1177,22 @@ export function PlanGoalFlowCard({
     ? `${selectedAvailableDays.length} ${selectedAvailableDays.length === 1 ? "day" : "days"} each week`
     : "Needs setup";
   const scheduleSummary = boxingScheduleSummary(existingWeeklyAnchors, existingFixedSchedule);
+  const guidedTitle = step === "goal"
+    ? "What are we training toward?"
+    : step === "schedule"
+      ? anchorEditorOpen
+        ? anchorMode === "weekly" ? "Add a weekly session" : "Add a one-off session"
+        : "Let's set up your weekly schedule."
+      : step === "details"
+        ? mode === "build" ? "Shape the work" : mode === "tournament" ? "Set the tournament" : "Set the fight details"
+        : "Ready to build";
+  const guidedHelper = step === "goal"
+    ? "Choose the direction CornerIQ should plan around."
+    : step === "schedule"
+      ? anchorEditorOpen ? "Add the details CornerIQ should protect in your schedule." : "Review your support days and current boxing schedule."
+      : step === "details"
+        ? mode === "build" ? "Choose your support dose and main workout goal." : mode === "tournament" ? "Add the timing and strategy details that shape this tournament." : "Add the confirmed information for this fight."
+        : "Review your plan details before we generate it.";
   const confirmationContent = (
     <View accessibilityLabel="Plan generation wizard" style={{ padding: spacing.lg }} testID="plan-generation-wizard">
       <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
@@ -1123,8 +1223,8 @@ export function PlanGoalFlowCard({
         <ConfirmationRow icon="ribbon-outline" label="Experience" value={initialSetup.experienceLabel} />
       </View>
 
-      {formError ? <Text accessibilityRole="alert" style={{ color: planPalette.toneRed, fontFamily: fontFamilies.bold, fontSize: 14, marginTop: spacing.md }}>{formError}</Text> : null}
-      {stepError ? <Text accessibilityRole="alert" style={{ color: planPalette.toneRed, fontFamily: fontFamilies.bold, fontSize: 14, marginTop: spacing.md }}>{stepError}</Text> : null}
+      {formError ? <Text accessibilityRole="alert" style={{ color: wizardPalette.danger, fontFamily: fontFamilies.bold, fontSize: 14, marginTop: spacing.md }}>{formError}</Text> : null}
+      {stepError ? <Text accessibilityRole="alert" style={{ color: wizardPalette.danger, fontFamily: fontFamilies.bold, fontSize: 14, marginTop: spacing.md }}>{stepError}</Text> : null}
       {isMinor ? <Text style={{ color: "#526168", fontFamily: fontFamilies.medium, fontSize: 13, lineHeight: 18, marginTop: spacing.md }}>Safety limits remain active for minor athletes.</Text> : null}
       <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "center", marginTop: spacing.md }}>
         {submittingCopy ? <Ionicons color={colors.blueIQ} name="sync-outline" size={20} /> : <Ionicons color={colors.blueIQ} name="checkmark-circle-outline" size={22} />}
@@ -1136,7 +1236,7 @@ export function PlanGoalFlowCard({
         accessibilityState={{ disabled: controlsBusy }}
         disabled={controlsBusy}
         onPress={() => void saveCurrentGoal()}
-        style={({ pressed }) => ({ alignItems: "center", backgroundColor: pressed ? planPalette.actionFillPressed : planPalette.actionFill, borderRadius: 5, justifyContent: "center", marginTop: spacing.md, minHeight: 54, opacity: controlsBusy ? 0.55 : 1, paddingHorizontal: spacing.lg })}
+        style={({ pressed }) => ({ alignItems: "center", backgroundColor: wizardPalette.cyan, borderRadius: 5, justifyContent: "center", marginTop: spacing.md, minHeight: 54, opacity: controlsBusy ? 0.55 : pressed ? 0.72 : 1, paddingHorizontal: spacing.lg })}
       >
         <Text style={{ color: colors.cornerBlack, fontFamily: fontFamilies.black, fontSize: 17, lineHeight: 22 }}>{submittingPlanAction ? "Building your plan..." : "Build my plan"}</Text>
       </Pressable>
@@ -1152,59 +1252,63 @@ export function PlanGoalFlowCard({
     </View>
   );
 
-  const content = wizardView === "confirmation" ? confirmationContent : (
-    <View accessibilityLabel="Plan generation wizard" style={{ backgroundColor: "#061318", gap: spacing.md, padding: spacing.lg }} testID="plan-generation-wizard">
-      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-        <View style={{ alignItems: "center", flexDirection: "row", flex: 1, gap: spacing.md, minWidth: 0 }}>
-          <View
-            style={{
-              alignItems: "center",
-              backgroundColor: "rgba(39, 206, 241, 0.10)",
-              borderColor: "rgba(39, 206, 241, 0.34)",
-              borderRadius: radii.pill,
-              borderWidth: 1,
-              height: 46,
-              justifyContent: "center",
-              width: 46
-            }}
-          >
-            <Ionicons color={planPalette.actionFill} name="sparkles-outline" size={22} />
-          </View>
-          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={{ color: planPalette.actionFill, fontFamily: fontFamilies.black, fontSize: 11, fontWeight: "900", lineHeight: 15, textTransform: "uppercase" }}>
-              Plan setup
-            </Text>
-            <Text style={{ color: planPalette.textPrimary, fontFamily: fontFamilies.extraBold, fontSize: 24, fontWeight: "800", lineHeight: 30 }}>
-              Review plan details
-            </Text>
-            <Text style={{ ...screenStyles.subtle, color: planPalette.textBody }}>A guided setup keeps the plan goal, availability, and details clear before saving.</Text>
-          </View>
-        </View>
-        {showCloseButton ? (
-          <PremiumButton disabled={controlsBusy} icon="close-outline" label="Close" onPress={onCancel} tone="green" variant="quiet" />
-        ) : null}
+  const content = wizardView === "confirmation" ? confirmationContent : submittingCopy ? (
+    <View accessibilityLabel="Plan generation in progress" style={[wizardStyles.guidedShell, { minHeight: 430 }]} testID="plan-wizard-generating-state">
+      <Text style={wizardStyles.eyebrow}>4 OF 4 · REVIEW</Text>
+      <Text style={wizardStyles.displayTitle}>{submittingPlanAction === "amend_current_plan" ? "Updating your plan" : "Building your plan"}</Text>
+      <Text style={wizardStyles.subtle}>
+        {submittingPlanAction === "amend_current_plan"
+          ? "Keeping your confirmed schedule while recalculating the work around it."
+          : "Matching your goal, schedule and recovery needs."}
+      </Text>
+      <View style={{ backgroundColor: wizardPalette.line, height: 4, marginTop: spacing.xl, overflow: "hidden" }}>
+        <View style={{ backgroundColor: wizardPalette.cyan, height: 4, width: "65%" }} />
       </View>
+      <Text style={[wizardStyles.subtle, { textAlign: "right" }]}>65%</Text>
+      <View style={{ marginTop: spacing.lg, opacity: 0.34 }}>
+        <ReviewSummaryRow icon="refresh-outline" label="Action" value={submittingPlanAction === "amend_current_plan" ? "Amend current plan" : "Start new plan"} />
+        <ReviewSummaryRow icon="flag-outline" label="Goal" value={goalLabel(mode)} />
+        <ReviewSummaryRow icon="barbell-outline" label="Support" value={`${selectedAvailableDays.length} days / ${trainingDoseLabel(trainingDose)}`} />
+        <ReviewSummaryRow icon="calendar-outline" label="Schedule" value={protectedScheduleMode === "keep_existing" ? "Keep" : protectedScheduleMode === "replace_for_plan" ? "Replace" : "Clear"} />
+      </View>
+    </View>
+  ) : (
+    <View accessibilityLabel="Plan generation wizard" style={wizardStyles.guidedShell} testID="plan-generation-wizard">
+      <View style={{ gap: spacing.sm }}>
+        <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={wizardStyles.eyebrow}>CREATE A NEW PLAN</Text>
+          {showCloseButton ? (
+            <Pressable
+              accessibilityLabel="Close"
+              accessibilityRole="button"
+              disabled={controlsBusy}
+              hitSlop={8}
+              onPress={onCancel}
+              style={({ pressed }) => ({ alignItems: "center", height: 44, justifyContent: "center", opacity: controlsBusy ? 0.4 : pressed ? 0.6 : 1, width: 44 })}
+            >
+              <Ionicons color={wizardPalette.ink} name="close" size={26} />
+            </Pressable>
+          ) : null}
+        </View>
         <WizardProgress currentStep={step} />
+        <Text style={wizardStyles.displayTitle}>{guidedTitle}</Text>
+        <Text style={wizardStyles.subtle}>{guidedHelper}</Text>
+      </View>
         {formError ? <WizardNotice title={formError} tone="red" /> : null}
         {stepError ? <WizardNotice title={stepError} tone="red" /> : null}
-        {submittingCopy ? (
-          <WizardNotice body={submittingCopy.body} testID="plan-wizard-generating-state" title={submittingCopy.title} tone="green" />
-        ) : null}
-        {isMinor ? <WizardNotice title="Minor athletes stay safety-first; acute weight-class shortcuts stay blocked." tone="orange" /> : null}
+        {isMinor && step === "details" && (mode === "fight" || mode === "tournament") ? <WizardNotice title="Minor athletes stay safety-first. Acute weight-class shortcuts stay blocked." tone="orange" /> : null}
 
         {step === "goal" ? (
           <View style={{ gap: spacing.sm }} testID="plan-wizard-goal-step">
-            <Text style={screenStyles.callout}>Step 1: Goal</Text>
-            <Text style={screenStyles.body}>Choose the one direction CornerIQ should plan around.</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {goalOptions.map((option) => (
                 <DescribedOptionButton active={option.value === "build" ? mode === "build" : mode === "fight" || mode === "tournament"} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => chooseGoal(option.value)} />
               ))}
             </View>
             {mode === "fight" || mode === "tournament" ? (
-              <View style={{ borderLeftColor: planPalette.actionFill, borderLeftWidth: 2, gap: spacing.sm, marginLeft: spacing.md, paddingLeft: spacing.md }} testID="plan-wizard-fight-format">
-                <Text style={screenStyles.fieldLabel}>Fight format</Text>
-                <Text style={screenStyles.subtle}>Tournament and single fight are types of fight camp, not separate plan goals.</Text>
+              <View style={{ borderLeftColor: wizardPalette.cyan, borderLeftWidth: 2, gap: spacing.sm, marginLeft: spacing.md, paddingLeft: spacing.md }} testID="plan-wizard-fight-format">
+                <Text style={wizardStyles.fieldLabel}>Fight camp type</Text>
+                <Text style={wizardStyles.subtle}>Tournament and single fight are types of fight camp, not separate plan goals.</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                   <OptionButton active={fightFormat === "single_fight"} busy={controlsBusy} label="Single fight" onPress={() => chooseFightFormat("single_fight")} />
                   <OptionButton active={fightFormat === "tournament"} busy={controlsBusy} label="Tournament" onPress={() => chooseFightFormat("tournament")} />
@@ -1217,26 +1321,25 @@ export function PlanGoalFlowCard({
         {step === "schedule" ? (
           <View style={{ gap: spacing.md }} testID="plan-wizard-schedule-step">
             <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.callout}>Step 2: Schedule</Text>
-              <Text style={screenStyles.fieldLabel}>Support workout days</Text>
-              <Text style={screenStyles.body}>Support workouts will only be placed on selected available days.</Text>
-              <Text style={screenStyles.subtle}>At least one support workout day is required. Boxing sessions you add are separate and do not automatically make a day available.</Text>
+              <Text style={wizardStyles.fieldLabel}>Support workout days</Text>
+              <Text style={wizardStyles.body}>Support workouts will only be placed on selected available days.</Text>
+              <Text style={wizardStyles.subtle}>Boxing sessions stay separate and do not automatically make a day available.</Text>
             </View>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {availableDayOptions.map((option) => (
                 <OptionButton active={selectedAvailableDays.includes(option.value)} busy={controlsBusy} key={option.value} label={option.label} onPress={() => toggleAvailableDay(option.value)} />
               ))}
             </View>
-            <Text style={screenStyles.subtle}>Selected: {daySummary(selectedAvailableDays)}</Text>
+            <Text style={wizardStyles.subtle}>Selected: {daySummary(selectedAvailableDays)}</Text>
             <View style={{ gap: spacing.sm }} testID="plan-wizard-protected-schedule-mode">
-              <Text style={screenStyles.fieldLabel}>Fixed schedule for this plan</Text>
-              <Text style={screenStyles.body}>Choose what happens to existing boxing sessions when this starts as a new plan.</Text>
+              <Text style={wizardStyles.fieldLabel}>Fixed schedule</Text>
+              <Text style={wizardStyles.body}>Choose what happens to the boxing sessions already on your plan.</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                <OptionButton active={protectedScheduleMode === "keep_existing"} busy={controlsBusy} label="Keep existing fixed schedule" onPress={() => selectProtectedScheduleMode("keep_existing")} />
-                <OptionButton active={protectedScheduleMode === "replace_for_plan"} busy={controlsBusy} label="Replace fixed schedule for this plan" onPress={() => selectProtectedScheduleMode("replace_for_plan")} />
-                <OptionButton active={protectedScheduleMode === "clear_for_plan"} busy={controlsBusy} label="Clear fixed schedule" onPress={() => selectProtectedScheduleMode("clear_for_plan")} />
+                <OptionButton accessibilityLabel="Keep existing fixed schedule" active={protectedScheduleMode === "keep_existing"} busy={controlsBusy} label="Keep" onPress={() => selectProtectedScheduleMode("keep_existing")} />
+                <OptionButton accessibilityLabel="Replace fixed schedule for this plan" active={protectedScheduleMode === "replace_for_plan"} busy={controlsBusy} label="Replace" onPress={() => selectProtectedScheduleMode("replace_for_plan")} />
+                <OptionButton accessibilityLabel="Clear fixed schedule" active={protectedScheduleMode === "clear_for_plan"} busy={controlsBusy} label="Clear" onPress={() => selectProtectedScheduleMode("clear_for_plan")} />
               </View>
-              <Text style={screenStyles.subtle}>
+              <Text style={wizardStyles.subtle}>
                 {protectedScheduleMode === "keep_existing"
                   ? `Existing boxing sessions will stay: ${existingWeeklyAnchors.length} weekly, ${existingFixedSchedule.length} dated.`
                   : protectedScheduleMode === "replace_for_plan"
@@ -1245,52 +1348,60 @@ export function PlanGoalFlowCard({
               </Text>
             </View>
             <View style={{ gap: spacing.sm }} testID="plan-wizard-anchor-editor">
-              <Text style={screenStyles.fieldLabel}>Weekly boxing session</Text>
-              <Text style={screenStyles.body}>{protectedScheduleMode === "clear_for_plan" ? "No boxing sessions will be saved from this wizard." : "CornerIQ will plan around this every week."}</Text>
+              <Text style={wizardStyles.fieldLabel}>Boxing sessions</Text>
+              <Text style={wizardStyles.body}>{protectedScheduleMode === "clear_for_plan" ? "No boxing sessions will be saved from this wizard." : "Add recurring or one-off sessions for CornerIQ to plan around."}</Text>
               {pendingWeeklyAnchors.length > 0 ? pendingWeeklyAnchors.map((anchor, index) => (
                 <View key={`pending-weekly-anchor:${index}`} style={{ gap: spacing.xs }}>
-                  <Text style={screenStyles.body}>{weeklyAnchorSummary(anchor)}</Text>
-                  <PremiumButton disabled={controlsBusy} icon="trash-outline" label="Remove draft weekly session" onPress={() => removePendingWeeklyAnchor(index)} tone="green" variant="quiet" />
+                  <Text style={wizardStyles.body}>{weeklyAnchorSummary(anchor)}</Text>
+                  <WizardButton disabled={controlsBusy} icon="trash-outline" label="Remove draft weekly session" onPress={() => removePendingWeeklyAnchor(index)} variant="quiet" />
                 </View>
               )) : null}
               {pendingDatedAnchors.length > 0 ? pendingDatedAnchors.map((anchor, index) => (
                 <View key={`pending-dated-anchor:${index}`} style={{ gap: spacing.xs }}>
-                  <Text style={screenStyles.body}>{datedAnchorSummary(anchor)}</Text>
-                  <PremiumButton disabled={controlsBusy} icon="trash-outline" label="Remove draft one-off session" onPress={() => removePendingDatedAnchor(index)} tone="green" variant="quiet" />
+                  <Text style={wizardStyles.body}>{datedAnchorSummary(anchor)}</Text>
+                  <WizardButton disabled={controlsBusy} icon="trash-outline" label="Remove draft one-off session" onPress={() => removePendingDatedAnchor(index)} variant="quiet" />
                 </View>
               )) : null}
-              {pendingWeeklyAnchors.length === 0 && pendingDatedAnchors.length === 0 ? <Text style={screenStyles.subtle}>No new boxing sessions added in this wizard yet.</Text> : null}
+              {pendingWeeklyAnchors.length === 0 && pendingDatedAnchors.length === 0 ? <Text style={wizardStyles.subtle}>No new boxing sessions added yet.</Text> : null}
               {protectedScheduleMode !== "clear_for_plan" ? (
-                <PremiumButton disabled={controlsBusy} icon={anchorEditorOpen ? "chevron-up-outline" : "add-outline"} label={anchorEditorOpen ? "Hide session fields" : "Add weekly session"} onPress={() => setAnchorEditorOpen((value) => !value)} tone="green" variant="quiet" />
+                <WizardButton disabled={controlsBusy} icon={anchorEditorOpen ? "chevron-up-outline" : "add-circle-outline"} label={anchorEditorOpen ? "Hide session fields" : "Add weekly session"} onPress={() => setAnchorEditorOpen((value) => !value)} variant="quiet" />
               ) : null}
               {anchorEditorOpen && protectedScheduleMode !== "clear_for_plan" ? (
                 <View style={{ gap: spacing.sm }}>
-                  <Text style={screenStyles.fieldLabel}>Weekly recurring or one-off date?</Text>
+                  <Text style={wizardStyles.fieldLabel}>Session frequency</Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                    <OptionButton active={anchorMode === "weekly"} busy={controlsBusy} label="Weekly recurring" onPress={() => setAnchorMode("weekly")} />
-                    <OptionButton active={anchorMode === "one_off"} busy={controlsBusy} label="One-off date" onPress={() => setAnchorMode("one_off")} />
+                    <OptionButton accessibilityLabel="Weekly recurring" active={anchorMode === "weekly"} busy={controlsBusy} label="Weekly" onPress={() => setAnchorMode("weekly")} />
+                    <OptionButton accessibilityLabel="One-off date" active={anchorMode === "one_off"} busy={controlsBusy} label="One-off" onPress={() => setAnchorMode("one_off")} />
                   </View>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                    {anchorTypeOptions.map((option) => <OptionButton active={anchorType === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => selectAnchorType(option.value)} />)}
-                  </View>
+                  <WizardSelectRow expanded={anchorTypePickerOpen} label="Session type" onPress={() => setAnchorTypePickerOpen((value) => !value)} value={anchorTypeLabel(anchorType)} />
+                  {anchorTypePickerOpen ? (
+                    <View style={{ gap: spacing.xs }}>
+                      {anchorTypeOptions.map((option) => <OptionButton active={anchorType === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => selectAnchorType(option.value)} />)}
+                    </View>
+                  ) : null}
                   {anchorMode === "weekly" ? (
                     <View style={{ gap: spacing.xs }}>
-                      <Text style={screenStyles.fieldLabel}>Which day does this usually happen?</Text>
-                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                        {weekdayOptions.map((option) => <OptionButton active={anchorWeekday === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => setAnchorWeekday(option.value)} />)}
-                      </View>
+                      <WizardSelectRow expanded={anchorWeekdayPickerOpen} label="Weekday" onPress={() => setAnchorWeekdayPickerOpen((value) => !value)} value={weekdayLabel(anchorWeekday)} />
+                      {anchorWeekdayPickerOpen ? (
+                        <View style={{ gap: spacing.xs }}>
+                          {weekdayOptions.map((option) => <OptionButton active={anchorWeekday === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => { setAnchorWeekday(option.value); setAnchorWeekdayPickerOpen(false); }} />)}
+                        </View>
+                      ) : null}
                     </View>
                   ) : (
-                    <TextInput onChangeText={setAnchorDate} placeholder="Date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorDate} />
+                    <WizardField label="Date" onChangeText={setAnchorDate} placeholder="YYYY-MM-DD" value={anchorDate} />
                   )}
-                  <TextInput keyboardType="number-pad" onChangeText={setAnchorStartTime} placeholder="Time optional HH:MM" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorStartTime} />
-                  <TextInput keyboardType="number-pad" onChangeText={setAnchorDurationMinutes} placeholder="Duration minutes" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorDurationMinutes} />
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                    <WizardField keyboardType="number-pad" label="Time (optional)" onChangeText={setAnchorStartTime} placeholder="HH:MM" value={anchorStartTime} />
+                    <WizardField keyboardType="number-pad" label="Duration" onChangeText={setAnchorDurationMinutes} placeholder="Minutes" value={anchorDurationMinutes} />
+                  </View>
+                  <Text style={wizardStyles.fieldLabel}>Intensity</Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                     {anchorIntensityOptions.map((option) => <OptionButton active={anchorIntensity === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => setAnchorIntensity(option.value)} />)}
                   </View>
-                  <TextInput keyboardType="number-pad" onChangeText={setAnchorRounds} placeholder="Rounds optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorRounds} />
-                  <TextInput onChangeText={setAnchorNote} placeholder="Note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorNote} />
-                  <PremiumButton disabled={controlsBusy} icon="add-circle-outline" label="Add session to review" onPress={addPendingAnchor} tone="green" />
+                  <WizardField keyboardType="number-pad" label="Rounds (optional)" onChangeText={setAnchorRounds} placeholder="Rounds" value={anchorRounds} />
+                  <WizardField label="Note (optional)" onChangeText={setAnchorNote} placeholder="Add a short note" value={anchorNote} />
+                  <WizardButton disabled={controlsBusy} icon="add-circle-outline" label="Add session to review" onPress={addPendingAnchor} />
                 </View>
               ) : null}
             </View>
@@ -1299,33 +1410,34 @@ export function PlanGoalFlowCard({
 
         {step === "details" ? (
           <View style={{ gap: spacing.sm }} testID="plan-wizard-details-step">
-            <Text style={screenStyles.callout}>Step 3: Goal-specific details</Text>
-            <Text style={screenStyles.body}>{goalLabel(mode)}</Text>
             <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.fieldLabel}>Support workout dose</Text>
-              <Text style={screenStyles.subtle}>How much app-generated support should CornerIQ try to place around boxing. Safety and readiness can still reduce it.</Text>
+              <Text style={wizardStyles.fieldLabel}>Support workout dose</Text>
+              <Text style={wizardStyles.subtle}>How much app-generated support should sit around boxing. Safety and readiness can still reduce it.</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                 {trainingDoseOptions.map((option) => (
-                  <DescribedOptionButton active={trainingDose === option.value} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => selectTrainingDose(option.value)} />
+                  <OptionButton active={trainingDose === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => selectTrainingDose(option.value)} />
                 ))}
               </View>
+              <Text style={wizardStyles.subtle}>{trainingDoseOptions.find((option) => option.value === trainingDose)?.description}</Text>
             </View>
             {mode === "build" ? (
               <View style={{ gap: spacing.sm }}>
-                <Text style={screenStyles.fieldLabel}>Main workout goal</Text>
-                <Text style={screenStyles.subtle}>Pick the clearest thing your app workouts should improve. Boxing sessions you add still stay first.</Text>
+                <Text style={wizardStyles.fieldLabel}>Main workout goal</Text>
+                <Text style={wizardStyles.subtle}>Choose the clearest thing your app workouts should improve.</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                   {buildFocusOptions.map((option) => (
                     <DescribedOptionButton active={primaryFocus === option.value} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => selectPrimaryFocus(option.value)} />
                   ))}
                 </View>
-                <Text style={screenStyles.fieldLabel}>Specific target</Text>
-                <Text style={screenStyles.subtle}>Choose the most objective target you recognize. Balanced defaults to a safe mix if you are unsure.</Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                  {subFocusOptionsFor(primaryFocus).map((option) => (
-                    <DescribedOptionButton active={subFocus === option} busy={controlsBusy} description={subFocusDescription(option)} key={option} label={subFocusLabel(option)} onPress={() => setSubFocus(option)} />
-                  ))}
-                </View>
+                {primaryFocus !== "balanced" ? <Text style={wizardStyles.fieldLabel}>Specific target</Text> : null}
+                {primaryFocus !== "balanced" ? <Text style={wizardStyles.subtle}>Choose the specific result this phase should support.</Text> : null}
+                {primaryFocus !== "balanced" ? (
+                  <View style={{ gap: spacing.xs }}>
+                    {subFocusOptionsFor(primaryFocus).map((option) => (
+                      <DescribedOptionButton active={subFocus === option} busy={controlsBusy} description={subFocusDescription(option)} key={option} label={subFocusLabel(option)} onPress={() => setSubFocus(option)} />
+                    ))}
+                  </View>
+                ) : null}
               </View>
             ) : null}
 
@@ -1360,19 +1472,24 @@ export function PlanGoalFlowCard({
                     <OptionButton active={weighInType === "unknown"} busy={controlsBusy} label="Unknown" onPress={() => setWeighInType("unknown")} />
                   </View>
                 </WizardFieldGroup>
-                {weighInType === "unknown" ? <WizardNotice title="Weight-class action is blocked until weigh-in timing is confirmed." tone="orange" /> : null}
+                {weighInType === "unknown" ? <WizardNotice title="Confirm weigh-in timing before using any weight strategy." tone="orange" /> : null}
                 <WizardFieldGroup title="Bout format" helper="Defaults are fine for most amateur entries; update if the bout sheet differs.">
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                     <WizardField keyboardType="number-pad" label="Rounds" onChangeText={setRounds} placeholder="Rounds" value={rounds} />
                     <WizardField keyboardType="decimal-pad" label="Round minutes" onChangeText={setRoundMinutes} placeholder="Round minutes" value={roundMinutes} />
                   </View>
                 </WizardFieldGroup>
-                <PremiumButton disabled={controlsBusy} icon={advancedOpen ? "chevron-up-outline" : "options-outline"} label={advancedOpen ? "Hide optional details" : "Optional official details"} onPress={() => setAdvancedOpen((value) => !value)} tone="green" variant="quiet" />
+                <WizardButton disabled={controlsBusy} icon={advancedOpen ? "chevron-up-outline" : "add-circle-outline"} label={advancedOpen ? "Hide official details" : "Add official details"} onPress={() => setAdvancedOpen((value) => !value)} variant="quiet" />
                 {advancedOpen ? (
                   <View style={{ gap: spacing.sm }}>
                     <WizardField helper="Optional exact timestamp from the bout sheet, for example 2026-07-01T08:00:00.000Z." label="Exact weigh-in date/time" onChangeText={setWeighInDateTime} placeholder="Weigh-in datetime optional ISO" value={weighInDateTime} />
                     <WizardField helper="Only use this if the promotion lists a post-weigh-in cap." keyboardType="decimal-pad" label="Post-weigh-in cap (kg)" onChangeText={setPostWeighInWeightCapKg} placeholder="Post-weigh-in cap kg optional" value={postWeighInWeightCapKg} />
-                    <OptionButton active={hydrationTestingRequired} busy={controlsBusy} label="Hydration testing required" onPress={() => setHydrationTestingRequired((value) => !value)} />
+                    <WizardFieldGroup title="Hydration testing required">
+                      <View style={{ flexDirection: "row", gap: spacing.sm }}>
+                        <OptionButton active={hydrationTestingRequired} busy={controlsBusy} label="Yes" onPress={() => setHydrationTestingRequired(true)} />
+                        <OptionButton active={!hydrationTestingRequired} busy={controlsBusy} label="No" onPress={() => setHydrationTestingRequired(false)} />
+                      </View>
+                    </WizardFieldGroup>
                   </View>
                 ) : null}
               </View>
@@ -1392,9 +1509,17 @@ export function PlanGoalFlowCard({
                 </WizardFieldGroup>
                 <WizardField helper="Comma-separated dates are okay while the draw is uncertain." label="Possible bout dates" onChangeText={setPossibleBoutDates} placeholder="Possible bout days, comma-separated" value={possibleBoutDates} />
                 <WizardFieldGroup title="Weigh-ins" helper="Daily or same-day weigh-ins keep the plan conservative by default.">
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                    <OptionButton active={dailyWeighIns} busy={controlsBusy} label="Daily weigh-ins" onPress={() => setDailyWeighIns((value) => !value)} />
-                    <OptionButton active={sameDayBoutLikely} busy={controlsBusy} label="Same-day bout likely" onPress={() => setSameDayBoutLikely((value) => !value)} />
+                  <View style={{ gap: spacing.sm }}>
+                    <Text style={wizardStyles.fieldLabel}>Daily weigh-ins</Text>
+                    <View style={{ flexDirection: "row", gap: spacing.sm }}>
+                      <OptionButton active={dailyWeighIns} busy={controlsBusy} label="Yes" onPress={() => setDailyWeighIns(true)} />
+                      <OptionButton active={!dailyWeighIns} busy={controlsBusy} label="No" onPress={() => setDailyWeighIns(false)} />
+                    </View>
+                    <Text style={wizardStyles.fieldLabel}>Same-day bout likely</Text>
+                    <View style={{ flexDirection: "row", gap: spacing.sm }}>
+                      <OptionButton active={sameDayBoutLikely} busy={controlsBusy} label="Yes" onPress={() => setSameDayBoutLikely(true)} />
+                      <OptionButton active={!sameDayBoutLikely} busy={controlsBusy} label="No" onPress={() => setSameDayBoutLikely(false)} />
+                    </View>
                   </View>
                   <WizardField helper="Local time, HH:MM." label="Daily weigh-in time" onChangeText={setWeighInTimeEachDay} placeholder="Weigh-in time" value={weighInTimeEachDay} />
                 </WizardFieldGroup>
@@ -1406,10 +1531,25 @@ export function PlanGoalFlowCard({
                     <OptionButton active={strategyMode === "no_cut_recommended"} busy={controlsBusy} label="No cut recommended" onPress={() => setStrategyMode("no_cut_recommended")} />
                   </View>
                 </WizardFieldGroup>
-                <PremiumButton disabled={controlsBusy} icon={advancedOpen ? "chevron-up-outline" : "options-outline"} label={advancedOpen ? "Hide optional timing" : "Optional timing details"} onPress={() => setAdvancedOpen((value) => !value)} tone="green" variant="quiet" />
+                <WizardButton disabled={controlsBusy} icon={advancedOpen ? "chevron-up-outline" : "add-circle-outline"} label={advancedOpen ? "Hide timing details" : "Add timing details"} onPress={() => setAdvancedOpen((value) => !value)} variant="quiet" />
                 {advancedOpen ? (
                   <View style={{ gap: spacing.sm }}>
-                    <WizardField helper="Hours available after each weigh-in before a possible bout, comma-separated if it varies by day." label="Rehydration windows (hours)" onChangeText={setRehydrationWindowHoursByDay} placeholder="Rehydration windows hours" value={rehydrationWindowHoursByDay} />
+                    <Text style={wizardStyles.fieldLabel}>Rehydration window hours</Text>
+                    <Text style={wizardStyles.subtle}>Hours available after each weigh-in before a possible bout.</Text>
+                    {possibleBoutDates.split(",").map((date, index) => (
+                      <View key={`rehydration-window:${date.trim()}:${index}`} style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm }}>
+                        <Text style={[wizardStyles.body, { flex: 1 }]}>{date.trim() || `Bout day ${index + 1}`}</Text>
+                        <TextInput
+                          accessibilityLabel={`Rehydration window for ${date.trim() || `bout day ${index + 1}`}`}
+                          keyboardType="decimal-pad"
+                          onChangeText={(value) => updateRehydrationWindow(index, value)}
+                          placeholder="Hours"
+                          placeholderTextColor={wizardPalette.muted}
+                          style={[wizardStyles.input, { width: 96 }]}
+                          value={rehydrationWindowHoursByDay.split(",")[index]?.trim() ?? ""}
+                        />
+                      </View>
+                    ))}
                   </View>
                 ) : null}
               </View>
@@ -1417,7 +1557,7 @@ export function PlanGoalFlowCard({
 
             {mode === "recovery" ? (
               <View style={{ gap: spacing.sm }}>
-                <Text style={screenStyles.body}>Recovery keeps support workouts conservative while you get back to normal training.</Text>
+                <Text style={wizardStyles.body}>Recovery keeps support workouts conservative while you get back to normal training.</Text>
                 <WizardField keyboardType="number-pad" helper="Leave blank for the engine default." label="Recovery duration days" onChangeText={setRecoveryDurationDays} placeholder="Duration days optional" value={recoveryDurationDays} />
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                   {recoveryFocusOptions.map((option) => (
@@ -1430,88 +1570,50 @@ export function PlanGoalFlowCard({
         ) : null}
 
         {step === "review" ? (
-          <View style={{ gap: spacing.sm }} testID="plan-wizard-review-step">
-            <Text style={screenStyles.callout}>Step 4: Review</Text>
-            <Text style={screenStyles.body}>Readiness, safety, and phase rules still gate the final plan.</Text>
+          <View style={{ gap: spacing.md }} testID="plan-wizard-review-step">
             <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>Plan action</Text>
+              <Text style={wizardStyles.fieldLabel}>Plan action</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                 <OptionButton active={planAction === "start_new_plan"} busy={controlsBusy} label="Start new plan" onPress={() => setPlanAction("start_new_plan")} />
                 <OptionButton active={planAction === "amend_current_plan"} busy={controlsBusy} label="Amend current plan" onPress={() => setPlanAction("amend_current_plan")} />
               </View>
             </View>
-            <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>Goal</Text>
-              <Text style={screenStyles.body}>{goalLabel(mode)}</Text>
+            {planAction === "amend_current_plan" ? <WizardNotice title="Your current plan stays active until this update is ready." /> : null}
+            <View style={{ borderTopColor: wizardPalette.line, borderTopWidth: 1 }}>
+              <ReviewSummaryRow icon="refresh-outline" label="Action" value={planAction === "start_new_plan" ? "Start new plan" : "Amend current plan"} />
+              <ReviewSummaryRow icon="flag-outline" label="Goal" value={goalLabel(mode)} />
+              <ReviewSummaryRow icon="barbell-outline" label="Support" value={`${selectedAvailableDays.length} days / ${trainingDoseLabel(trainingDose)}`} />
+              <ReviewSummaryRow icon="calendar-outline" label="Fixed schedule" value={protectedScheduleMode === "keep_existing" ? "Keep" : protectedScheduleMode === "replace_for_plan" ? "Replace" : "Clear"} />
+              <ReviewSummaryRow icon="add-circle-outline" label="Added sessions" value={`${pendingWeeklyAnchors.length} weekly · ${pendingDatedAnchors.length} one-off`} />
+              {reviewRows.map((row) => {
+                const [label, ...valueParts] = row.split(": ");
+                return <ReviewSummaryRow icon="checkmark-circle-outline" key={`review:${row}`} label={label ?? "Detail"} value={valueParts.join(": ") || row} />;
+              })}
             </View>
-            <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>Support workout availability</Text>
-              <Text style={screenStyles.body}>{daySummary(selectedAvailableDays)}</Text>
-              <Text style={screenStyles.subtle}>
-                {protectedScheduleMode === "keep_existing"
-                  ? "Existing weekly and one-off boxing sessions stay on the plan because you chose to keep them."
-                  : protectedScheduleMode === "replace_for_plan"
-                    ? "Existing boxing sessions will be replaced by sessions added in this wizard."
-                    : "Existing weekly sessions and future one-off sessions will be cleared."}
-              </Text>
-              <Text style={screenStyles.subtle}>Support workouts use only the selected availability above.</Text>
-            </View>
-            <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>Fixed schedule mode</Text>
-              <Text style={screenStyles.body}>{protectedScheduleMode === "keep_existing" ? "Keep existing fixed schedule" : protectedScheduleMode === "replace_for_plan" ? "Replace fixed schedule for this plan" : "Clear fixed schedule"}</Text>
-            </View>
-            <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>New weekly sessions to save</Text>
-              {pendingWeeklyAnchors.length > 0 ? pendingWeeklyAnchors.map((anchor, index) => <Text key={`review-weekly-anchor:${index}`} style={screenStyles.body}>{weeklyAnchorSummary(anchor)}</Text>) : <Text style={screenStyles.subtle}>No new weekly sessions in this wizard.</Text>}
-            </View>
-            <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>New one-off sessions to save</Text>
-              {pendingDatedAnchors.length > 0 ? pendingDatedAnchors.map((anchor, index) => <Text key={`review-dated-anchor:${index}`} style={screenStyles.body}>{datedAnchorSummary(anchor)}</Text>) : <Text style={screenStyles.subtle}>No new one-off sessions in this wizard.</Text>}
-            </View>
-            <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>Existing weekly sessions</Text>
-              {existingWeeklyAnchors.length > 0 ? existingWeeklyAnchors.slice(0, 6).map((anchor) => (
-                <Text key={`existing-weekly-anchor:${anchor.id}`} style={screenStyles.body}>{anchor.label}</Text>
-              )) : <Text style={screenStyles.subtle}>No existing weekly sessions are already on the plan.</Text>}
-            </View>
-            <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>Upcoming dated sessions</Text>
-              {existingFixedSchedule.length > 0 ? existingFixedSchedule.slice(0, 6).map((anchor) => (
-                <Text key={`existing-anchor:${anchor.id}`} style={screenStyles.body}>{datedAnchorSummary({ type: anchor.type, date: anchor.date, ...(anchor.startTime ? { startTime: anchor.startTime } : {}), durationMinutes: anchor.durationMinutes, intensity: anchor.intensity, ...(anchor.rounds === null ? {} : { rounds: anchor.rounds }), ...(anchor.note ? { note: anchor.note } : {}) })}</Text>
-              )) : <Text style={screenStyles.subtle}>No upcoming dated sessions are already on the plan.</Text>}
-            </View>
-            <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>Key details</Text>
-              {reviewRows.map((row) => <Text key={`review:${row}`} style={screenStyles.body}>{row}</Text>)}
+            <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "center" }}>
+              <Ionicons color={wizardPalette.cyan} name="checkmark-circle-outline" size={20} />
+              <Text style={wizardStyles.subtle}>Everything looks good</Text>
             </View>
           </View>
         ) : null}
 
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+        <View style={{ gap: spacing.xs }}>
+          <WizardButton
+            accessibilityLabel={step === "review" ? finalAccessibilityLabel(mode) : "Next plan wizard step"}
+            disabled={controlsBusy || (step === "schedule" && selectedAvailableDays.length === 0)}
+            icon={step === "review" ? "sparkles-outline" : "arrow-forward-outline"}
+            label={submittingPlanAction === "start_new_plan" ? "Building your plan..." : submittingPlanAction === "amend_current_plan" ? "Updating your plan..." : step === "review" ? planAction === "amend_current_plan" ? "Update plan" : "Generate plan" : step === "details" ? "Review plan" : "Continue"}
+            onPress={step === "review" ? () => void saveCurrentGoal() : goNext}
+          />
           {step !== "goal" ? (
-            <View style={{ flexBasis: 120, flexGrow: 1 }}>
-              <PremiumButton disabled={controlsBusy} icon="chevron-back-outline" label="Back" onPress={goBack} tone="green" variant="quiet" />
-            </View>
+            <WizardButton disabled={controlsBusy} label="Back" onPress={goBack} variant="quiet" />
           ) : (
-            <View style={{ flexBasis: 120, flexGrow: 1 }}>
-              <PremiumButton disabled={controlsBusy} icon="chevron-back-outline" label="Back to summary" onPress={() => setWizardView("confirmation")} tone="green" variant="quiet" />
-            </View>
+            <WizardButton disabled={controlsBusy} label="Back to summary" onPress={() => setWizardView("confirmation")} variant="quiet" />
           )}
-          <View style={{ flexBasis: 150, flexGrow: 1 }}>
-            <PremiumButton
-              accessibilityLabel={step === "review" ? finalAccessibilityLabel(mode) : "Next plan wizard step"}
-              disabled={controlsBusy}
-              icon={step === "review" ? "sparkles-outline" : "arrow-forward-outline"}
-              label={submittingPlanAction === "start_new_plan" ? "Generating plan..." : submittingPlanAction === "amend_current_plan" ? "Updating plan..." : step === "review" ? "Generate plan" : step === "details" ? "Review plan" : "Next"}
-              onPress={step === "review" ? () => void saveCurrentGoal() : goNext}
-              tone="green"
-            />
-          </View>
         </View>
-        <PremiumButton disabled={controlsBusy} icon="return-up-back-outline" label="Keep current plan" onPress={onCancel} tone="green" variant="quiet" />
     </View>
   );
 
-  return framed ? <PremiumCard accent="green" density="spacious" testID="plan-generation-frame">{content}</PremiumCard> : content;
+  return framed ? <View style={wizardStyles.shell} testID="plan-generation-frame">{content}</View> : content;
 }
 

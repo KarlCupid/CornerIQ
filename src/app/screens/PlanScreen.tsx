@@ -633,10 +633,12 @@ function PlanGoalWizardModal({
   busy,
   children,
   onClose,
+  scrollRef,
   visible
 }: React.PropsWithChildren<{
   busy: boolean;
   onClose: () => void;
+  scrollRef: React.RefObject<ScrollView | null>;
   visible: boolean;
 }>) {
   const insets = useSafeAreaInsets();
@@ -720,6 +722,7 @@ function PlanGoalWizardModal({
           <ScrollView
             contentContainerStyle={{ flexGrow: 1 }}
             keyboardShouldPersistTaps="handled"
+            ref={scrollRef}
             showsVerticalScrollIndicator={false}
           >
             {children}
@@ -1572,6 +1575,7 @@ export function PlanScreen({
   const [activeWorkspace, setActiveWorkspace] = React.useState<PlanActiveWorkspace>("overview");
   const [previewDetailsOpen, setPreviewDetailsOpen] = React.useState(false);
   const [planCalendarOpen, setPlanCalendarOpen] = React.useState(false);
+  const goalWizardScrollRef = React.useRef<ScrollView>(null);
   const showCriticalPlanRisk = viewModel.rollForwardStatus === "blocked" && viewModel.rollForwardRiskTone === "critical";
   const scheduleBusy = busy || !onSaveProtectedSession || !onDeleteProtectedSession || !onSaveRecurringProtectedAnchor || !onDeleteRecurringProtectedAnchor;
   const goalBusy = busy || !onSaveBuildGoal || !onSaveRecoveryGoal;
@@ -1646,6 +1650,7 @@ export function PlanScreen({
       onSaveRecurringProtectedAnchor={onSaveRecurringProtectedAnchor}
       onSaveRecoveryGoal={onSaveRecoveryGoal ?? (async () => undefined)}
       onSaveTournamentSetup={onSaveTournamentSetup}
+      onStepChange={() => goalWizardScrollRef.current?.scrollTo({ animated: false, y: 0 })}
       showCloseButton
     />
   ) : null;
@@ -1705,7 +1710,7 @@ export function PlanScreen({
         viewModel={viewModel}
       />
       <PlanActiveWorkspaceFrame generationStatus={generationStatus}>{activeWorkspaceContent}</PlanActiveWorkspaceFrame>
-      <PlanGoalWizardModal busy={goalBusy} onClose={closeActiveWorkspace} visible={goalWizardOpen}>
+      <PlanGoalWizardModal busy={goalBusy} onClose={closeActiveWorkspace} scrollRef={goalWizardScrollRef} visible={goalWizardOpen}>
         {goalWizardContent}
       </PlanGoalWizardModal>
       </EditorialSurfaceProvider>

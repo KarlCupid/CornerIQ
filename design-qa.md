@@ -1,6 +1,30 @@
 # CornerIQ Design QA
 
 final result: passed
+
+## Complete Plan Wizard Image-to-Code QA
+
+### Reference and capture
+
+- Shared setup board: `C:\Users\karll\.codex\generated_images\019f7b9a-d81f-7e43-b86b-cbdadafd8cf4\exec-e8839176-1d8b-436b-b387-405c0e815055.png`
+- Build details board: `C:\Users\karll\.codex\generated_images\019f7b9a-d81f-7e43-b86b-cbdadafd8cf4\exec-f72bd1d0-cc63-4312-bba4-612cd10f4189.png`
+- Build review board: `C:\Users\karll\.codex\generated_images\019f7b9a-d81f-7e43-b86b-cbdadafd8cf4\exec-ca156641-521c-4bdd-b45d-c253749b8820.png`
+- Single-fight board: `C:\Users\karll\.codex\generated_images\019f7b9a-d81f-7e43-b86b-cbdadafd8cf4\exec-45a88556-c787-4708-9d95-e522aa6c7eee.png`
+- Tournament board: `C:\Users\karll\.codex\generated_images\019f7b9a-d81f-7e43-b86b-cbdadafd8cf4\exec-33d6aabb-b492-435a-ad64-bd951e38c53e.png`
+- Implementation states: `qa-artifacts/design-qa/plan-wizard-goal-final.png`, `plan-wizard-schedule-final.png`, `plan-wizard-build-details-final.png`, `plan-wizard-single-fight-final.png`, `plan-wizard-tournament-final.png`, and `plan-wizard-review-final.png`.
+- Combined comparison inputs: `qa-artifacts/design-qa/plan-wizard-build-comparison-final.png` and `qa-artifacts/design-qa/plan-wizard-fight-comparison-final.png`.
+- Viewport: 390 x 844 CSS pixels in the local-only safe demo flow.
+
+### Comparison history and findings
+
+- Pass 1 carried the selected warm ivory, near-black editorial type, cyan rule/action, sharp 5px control, and lightweight popup language through goal, schedule, details, review, loading, validation, and progressive-disclosure states.
+- The first browser comparison found duplicated step copy and retained scroll position between wizard steps. Both were corrected: each step now has one header hierarchy, and every forward/back/edit transition resets the modal to its top.
+- Build, single-fight, tournament, and review captures were compared alongside their source boards. The runtime uses real onboarding, schedule, body-mass, and engine inputs, so content density differs from the idealized board while the selected hierarchy and interaction model remain intact.
+- Goal choices are limited to Build phase and Fight camp; Single fight and Tournament remain progressive subcategories. Unknown weigh-in timing and minor-athlete safety states retain clear, non-green safety treatment.
+- All visible inputs, segmented controls, radio rows, schedule edits, optional official/timing disclosures, review actions, validation, and generation states now share the same design system and remain operable.
+- No actionable P0, P1, or P2 visual mismatch remains. Browser review found no runtime errors; only existing React Native Web deprecation warnings for `pointerEvents` and image `tintColor` appeared.
+
+final result: passed
 ## Unified Main-Screen Visual Pass
 
 ### Reference and capture

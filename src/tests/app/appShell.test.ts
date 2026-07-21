@@ -5501,20 +5501,20 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("plan-wizard-schedule-step");
     expect(output).toContain("plan-wizard-anchor-editor");
-    expect(output).toContain("Weekly boxing session");
-    expect(output).toContain("Fixed schedule for this plan");
+    expect(output).toContain("Boxing sessions");
+    expect(output).toContain("Fixed schedule");
 
-    await switchSection(renderer, "Replace fixed schedule for this plan");
+    await switchSection(renderer, "Replace");
 
     await switchSection(renderer, "Add weekly session");
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Weekly recurring");
-    expect(output).toContain("Which day does this usually happen?");
-    expect(output).not.toContain("Date YYYY-MM-DD");
+    expect(output).toContain("Weekly");
+    expect(output).toContain("Weekday");
+    expect(output).not.toContain("YYYY-MM-DD");
     act(() => {
-      changeInput(renderer, "Time optional HH:MM", "18:00");
-      changeInput(renderer, "Rounds optional", "6");
-      changeInput(renderer, "Note optional", "Protected technical work");
+      changeInputWithAccessibilityLabel(renderer, "Time (optional)", "18:00");
+      changeInputWithAccessibilityLabel(renderer, "Rounds (optional)", "6");
+      changeInputWithAccessibilityLabel(renderer, "Note (optional)", "Protected technical work");
     });
     await switchSection(renderer, "Add session to review");
     output = JSON.stringify(renderer.toJSON());
@@ -5527,9 +5527,10 @@ describe("minimal app screens", () => {
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("plan-wizard-details-step");
     expect(output).toContain("Support workout dose");
-    expect(output).toContain("Specific target");
+    expect(output).not.toContain("Specific target");
     expect(output).not.toContain("Support days per week");
     await switchSection(renderer, "Conditioning");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Specific target");
     await switchSection(renderer, "Interval conditioning");
 
     await act(async () => {
@@ -5537,9 +5538,8 @@ describe("minimal app screens", () => {
     });
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("plan-wizard-review-step");
-    expect(output).toContain("New weekly sessions to save");
-    expect(output).toContain("Existing weekly sessions");
-    expect(output).toContain("Upcoming dated sessions");
+    expect(output).toContain("Added sessions");
+    expect(output).toContain("1 weekly");
     expect(output).toContain("Training dose");
     expect(output).not.toContain("Support days per week");
 
@@ -5598,10 +5598,11 @@ describe("minimal app screens", () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
     await switchSection(renderer, "Add weekly session");
+    await switchSection(renderer, "Session type");
     await switchSection(renderer, "Competition");
     let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("One-off date");
-    expect(output).toContain("Date YYYY-MM-DD");
+    expect(output).toContain("One-off");
+    expect(output).toContain("YYYY-MM-DD");
     await switchSection(renderer, "Add session to review");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain(fixtureAsOfDate);
@@ -5823,9 +5824,9 @@ describe("minimal app screens", () => {
 
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("plan-wizard-generating-state");
-    expect(output).toContain("Generating your new plan...");
-    expect(output).toContain("Rebuilding this week from your new goal, support days, and fixed boxing schedule.");
-    expect(pressableWithAccessibilityLabel(renderer, "Save build goal")?.props.disabled).toBe(true);
+    expect(output).toContain("Building your plan");
+    expect(output).toContain("Matching your goal, schedule and recovery needs.");
+    expect(pressableWithAccessibilityLabel(renderer, "Save build goal")).toBeUndefined();
 
     await act(async () => {
       resolveSave?.();
@@ -5902,7 +5903,7 @@ describe("minimal app screens", () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
     await switchSection(renderer, "Back");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Step 1: Goal");
+    expect(JSON.stringify(renderer.toJSON())).toContain("What are we training toward?");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -5914,7 +5915,7 @@ describe("minimal app screens", () => {
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
-    expect(JSON.stringify(renderer.toJSON())).toContain("Select at least one available day");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Choose at least one available day");
     await act(async () => {
       await press(pressableWithExactText(renderer, "Tue"));
     });
@@ -5946,7 +5947,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Auto-filled from today");
     expect(output).toContain("Fight date");
     expect(output).toContain("Weigh-in target (kg)");
-    expect(output).toContain("Optional official details");
+    expect(output).toContain("Add official details");
     expect(output).not.toContain("Advanced fields");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
@@ -5972,7 +5973,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Target weight source");
     expect(output).toContain("Use fight / weight-class setup");
     expect(output).toContain("Daily weigh-in time");
-    expect(output).toContain("Optional timing details");
+    expect(output).toContain("Add timing details");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -6017,7 +6018,7 @@ describe("minimal app screens", () => {
       changeInputWithAccessibilityLabel(renderer, "Weigh-in target (kg)", "67");
       changeInputWithAccessibilityLabel(renderer, "Allowance (kg)", "0");
     });
-    await switchSection(renderer, "Optional official details");
+    await switchSection(renderer, "Add official details");
     act(() => {
       changeInputWithAccessibilityLabel(renderer, "Exact weigh-in date/time", `${weighInDate}T08:00Z`);
     });
