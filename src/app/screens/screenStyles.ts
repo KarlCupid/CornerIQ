@@ -123,6 +123,7 @@ export const screenStyles = {
   } satisfies TextStyle,
   input: {
     ...glassStyles.input,
+    borderRadius: 5,
     minHeight: 48,
     color: colors.canvas,
     fontFamily: fontFamilies.medium,
@@ -135,6 +136,8 @@ export const screenStyles = {
   button: {
     ...glassStyles.primaryControl,
     alignItems: "center",
+    borderRadius: 5,
+    boxShadow: "none",
     justifyContent: "center",
     minHeight: 54,
     paddingHorizontal: spacing.lg,
@@ -143,6 +146,8 @@ export const screenStyles = {
   quietButton: {
     ...glassStyles.control,
     alignItems: "center",
+    borderRadius: 5,
+    boxShadow: "none",
     justifyContent: "center",
     minHeight: 44,
     paddingHorizontal: spacing.md,
@@ -167,7 +172,7 @@ export const screenStyles = {
   chip: {
     ...glassStyles.control,
     alignItems: "center",
-    borderRadius: 13,
+    borderRadius: 5,
     justifyContent: "center",
     minHeight: 40,
     paddingHorizontal: spacing.md,

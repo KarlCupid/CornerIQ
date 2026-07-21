@@ -1,15 +1,15 @@
 import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Pressable, Text, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { Pressable, Text as NativeText, View, type TextProps, type TextStyle } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { DetailedTrainingSession, ISODateString, RecentLogsViewModel, TrainViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
-import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
-import { DashboardCard } from "../../design/components/PerformanceVisuals";
-import { GroupedMetricTiles, PremiumTimelineRows } from "../../design/components/PremiumPrimitives";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { colors, spacing } from "../../design/theme";
+import { fontFamilies } from "../../design/typography";
 import type { BarVisual, VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { clamp01 } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
@@ -18,7 +18,7 @@ import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion"
 import { ProtectedWorkoutLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 import { tabHeroHeaders } from "./tabHeroConfig";
-import { trainColorForTone, trainPalette, trainTextStyles, trainTint } from "./train/trainPalette";
+import { trainColorForTone, trainPalette, trainTextStyles } from "./train/trainPalette";
 import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
 import type { WorkoutPlayerStatus } from "./train/WorkoutPlayer";
 import {
@@ -65,6 +65,40 @@ export interface TrainWorkoutPlayerSummary {
   sessionId: string;
   status: WorkoutPlayerStatus;
   title: string;
+}
+
+function flattenEditorialStyle(style: unknown): TextStyle {
+  if (Array.isArray(style)) {
+    return Object.assign({}, ...style.map((item) => flattenEditorialStyle(item)));
+  }
+  return style && typeof style === "object" ? style as TextStyle : {};
+}
+
+function trainEditorialFont(style: TextStyle): string {
+  const weight = Number.parseInt(String(style.fontWeight ?? "400"), 10);
+  if (weight >= 900) return fontFamilies.black;
+  if (weight >= 800) return fontFamilies.extraBold;
+  if (weight >= 700) return fontFamilies.bold;
+  if (weight >= 600) return fontFamilies.semibold;
+  if (weight >= 500) return fontFamilies.medium;
+  return fontFamilies.regular;
+}
+
+function Text({ style, ...props }: TextProps) {
+  const flattened = flattenEditorialStyle(style);
+  return <NativeText {...props} style={[style, { fontFamily: trainEditorialFont(flattened) }]} />;
+}
+
+function TrainEditorialSection({ children, testID, title }: React.PropsWithChildren<{ testID?: string | undefined; title?: string | undefined }>) {
+  return (
+    <View
+      style={{ borderBottomColor: trainPalette.cardLine, borderBottomWidth: 1, gap: spacing.md, paddingBottom: spacing.xl, paddingTop: spacing.xl }}
+      testID={testID}
+    >
+      {title ? <Text style={{ color: trainPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>{title}</Text> : null}
+      {children}
+    </View>
+  );
 }
 
 function DecorativeIcon(props: React.ComponentProps<typeof Ionicons>) {
@@ -286,16 +320,12 @@ function TrainPrimaryButton({
   children,
   disabled,
   onPress,
-  tone = "purple"
+  tone: _tone = "purple"
 }: React.PropsWithChildren<{
   disabled?: boolean | undefined;
   onPress?: (() => Promise<void> | void) | undefined;
   tone?: VisualTone | undefined;
 }>) {
-  const toneColor = trainColorForTone(tone);
-  const fill = tone === "purple" ? trainPalette.actionFill : `${toneColor}E6`;
-  const pressedFill = tone === "purple" ? trainPalette.actionFillPressed : `${toneColor}CC`;
-  const textColor = disabled ? trainPalette.textMuted : tone === "purple" || tone === "red" ? trainPalette.textPrimary : colors.cornerBlack;
   return (
     <Pressable
       accessibilityRole="button"
@@ -305,13 +335,15 @@ function TrainPrimaryButton({
       style={({ pressed }) => [
         screenStyles.button,
         {
-          backgroundColor: disabled ? "rgba(255, 255, 255, 0.1)" : pressed ? pressedFill : fill,
-          borderColor: disabled ? "rgba(255, 255, 255, 0.16)" : tone === "purple" ? trainPalette.actionBorder : trainTint(tone, "66"),
-          boxShadow: disabled ? "none" : `0 14px 32px ${tone === "purple" ? trainPalette.actionShadow : `${toneColor}35`}`
+          backgroundColor: disabled ? trainPalette.controlFill : pressed ? trainPalette.actionFillPressed : trainPalette.actionFill,
+          borderColor: disabled ? trainPalette.controlLine : trainPalette.actionBorder,
+          borderRadius: 5,
+          boxShadow: "none",
+          minHeight: 52
         }
       ]}
     >
-      <Text style={{ color: textColor, fontSize: 15, fontWeight: "900", lineHeight: 20, textAlign: "center" }}>
+      <Text style={{ color: disabled ? trainPalette.textMuted : colors.cornerBlack, fontSize: 14, fontWeight: "900", lineHeight: 18, textAlign: "center" }}>
         {children}
       </Text>
     </Pressable>
@@ -344,13 +376,15 @@ function TrainQuietButton({
       style={({ pressed }) => [
         screenStyles.quietButton,
         {
-          backgroundColor: disabled ? "rgba(255, 255, 255, 0.07)" : pressed ? trainPalette.controlFillPressed : trainPalette.controlFill,
-          borderColor: disabled ? "rgba(255, 255, 255, 0.14)" : trainPalette.controlLine,
-          boxShadow: disabled ? "none" : "0 8px 22px rgba(0, 0, 0, 0.18)"
+          backgroundColor: disabled ? trainPalette.controlFill : pressed ? trainPalette.controlFillPressed : "transparent",
+          borderColor: disabled ? trainPalette.controlLine : trainPalette.actionBorder,
+          borderRadius: 5,
+          boxShadow: "none",
+          minHeight: 44
         }
       ]}
     >
-      <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textBody, fontSize: 15, fontWeight: "700", lineHeight: 20, textAlign: "center" }}>
+      <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.toneBlue, fontSize: 14, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>
         {children}
       </Text>
     </Pressable>
@@ -361,13 +395,12 @@ function TrainTextButton({
   children,
   disabled,
   onPress,
-  tone = "purple"
+  tone: _tone = "purple"
 }: React.PropsWithChildren<{
   disabled?: boolean | undefined;
   onPress?: (() => Promise<void> | void) | undefined;
   tone?: VisualTone | undefined;
 }>) {
-  const color = trainColorForTone(tone);
   return (
     <Pressable
       accessibilityRole="button"
@@ -386,10 +419,10 @@ function TrainTextButton({
         paddingVertical: spacing.xs
       })}
     >
-      <Text style={{ color: disabled ? trainPalette.textMuted : color, fontSize: 17, fontWeight: "900", lineHeight: 22, textAlign: "center" }}>
+      <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.toneBlue, fontSize: 15, fontWeight: "900", lineHeight: 20, textAlign: "center" }}>
         {children}
       </Text>
-      <DecorativeIcon color={disabled ? trainPalette.textMuted : color} name="chevron-forward" size={18} />
+      <DecorativeIcon color={disabled ? trainPalette.textMuted : trainPalette.toneBlue} name="chevron-forward" size={17} />
     </Pressable>
   );
 }
@@ -422,8 +455,8 @@ function TrainMiniBarChart({
                 <View
                   style={{
                     backgroundColor: !bar.hasSession || bar.faded ? "transparent" : color,
-                    borderColor: !bar.hasSession || bar.faded ? "rgba(218, 208, 242, 0.24)" : `${color}77`,
-                    borderRadius: 8,
+                    borderColor: !bar.hasSession || bar.faded ? trainPalette.controlLine : `${color}77`,
+                    borderRadius: 3,
                     borderStyle: !bar.hasSession || bar.faded ? "dashed" : "solid",
                     borderWidth: !bar.hasSession || bar.faded ? 1 : 0,
                     height: `${Math.max(8, clamp01(bar.ratio) * 100)}%`,
@@ -460,7 +493,7 @@ function WorkoutInProgressCard({
   status: WorkoutPlayerStatus;
 }) {
   return (
-    <DashboardCard testID="train-workout-in-progress-card" title="Workout in progress">
+    <TrainEditorialSection testID="train-workout-in-progress-card" title="Workout in progress">
       <Text style={trainTextStyles.body}>{sessionTitle}</Text>
       <Text style={trainTextStyles.subtle}>Status: {status.replace(/_/g, " ")}.</Text>
       <Text style={trainTextStyles.subtle}>Progress is saved on this device. Reopen this workout to resume. Discard removes saved progress.</Text>
@@ -472,7 +505,7 @@ function WorkoutInProgressCard({
           <TrainQuietButton onPress={onDiscard}>Discard progress</TrainQuietButton>
         </View>
       </View>
-    </DashboardCard>
+    </TrainEditorialSection>
   );
 }
 
@@ -533,7 +566,7 @@ function WorkoutLooseEndsCard({
     }
   };
   return (
-    <DashboardCard testID="train-loose-end-card" title="Past workout to resolve">
+    <TrainEditorialSection testID="train-loose-end-card" title="Past workout to resolve">
       <View style={{ gap: spacing.md }}>
         <View style={{ gap: spacing.xs }}>
           <Text style={{ color: trainPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>{looseEnd.title}</Text>
@@ -620,7 +653,7 @@ function WorkoutLooseEndsCard({
         {!canMove ? <Text style={trainTextStyles.subtle}>Move is available after the plan and date are loaded.</Text> : null}
         {looseEnds.length > 1 ? <Text style={trainTextStyles.subtle}>{looseEnds.length - 1} more past workout{looseEnds.length === 2 ? "" : "s"} after this.</Text> : null}
       </View>
-    </DashboardCard>
+    </TrainEditorialSection>
   );
 }
 
@@ -639,7 +672,7 @@ function ReadinessGateCard({
     return null;
   }
   return (
-    <DashboardCard testID="train-readiness-gate-card" title={gate.title}>
+    <TrainEditorialSection testID="train-readiness-gate-card" title={gate.title}>
       <View style={{ gap: spacing.md }}>
         <Text style={trainTextStyles.body}>{gate.body}</Text>
         <Text style={trainTextStyles.subtle}>{gate.guidance}</Text>
@@ -652,7 +685,7 @@ function ReadinessGateCard({
           </View>
         </View>
       </View>
-    </DashboardCard>
+    </TrainEditorialSection>
   );
 }
 
@@ -695,12 +728,12 @@ function TrainingScheduleDebugCard({ viewModel }: { viewModel: TrainViewModel })
     `looseEndSessionIds: ${debug.looseEndSessionIds.join(", ") || "none"}`
   ];
   return (
-    <DashboardCard testID="train-schedule-debug-card" title="Training Schedule Debug">
+    <TrainEditorialSection testID="train-schedule-debug-card" title="Training Schedule Debug">
       <View style={{ gap: spacing.sm }}>
         <TrainQuietButton expanded={open} onPress={() => setOpen((value) => !value)}>{open ? "Hide debug" : "Show debug"}</TrainQuietButton>
         {open ? rows.map((row) => <Text key={`train-debug:${row}`} style={trainTextStyles.subtle}>{row}</Text>) : null}
       </View>
-    </DashboardCard>
+    </TrainEditorialSection>
   );
 }
 
@@ -750,20 +783,21 @@ function TodayTrainingPlanCard({
   return (
     <View
       style={{
-        borderTopColor: trainPalette.cardLine,
-        borderTopWidth: 1,
+        borderBottomColor: trainPalette.cardLine,
+        borderBottomWidth: 1,
         gap: spacing.lg,
-        paddingTop: spacing.xxl
+        paddingBottom: spacing.xl,
+        paddingTop: spacing.xl
       }}
       testID="train-today-plan-card"
     >
       <View style={{ gap: spacing.md }}>
         <View style={{ gap: spacing.sm }}>
-          {hasSessionSummary ? <Text style={{ color: trainPalette.tonePurple, fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>CornerIQ workout</Text> : null}
-          <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={2} style={{ color: trainPalette.textPrimary, fontSize: 40, fontWeight: "900", letterSpacing: 0, lineHeight: 45 }}>
+          {hasSessionSummary ? <Text style={{ color: trainPalette.toneBlue, fontSize: 12, fontWeight: "900", letterSpacing: 0.7, lineHeight: 16, textTransform: "uppercase" }}>01 / Today&apos;s session</Text> : null}
+          <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={2} style={{ color: trainPalette.textPrimary, fontSize: 32, fontWeight: "900", letterSpacing: -0.6, lineHeight: 36 }}>
             {planTitle(session, card, generated)}
           </Text>
-          <Text style={{ color: trainPalette.textBody, fontSize: 20, fontWeight: "600", lineHeight: 27 }}>
+          <Text style={{ color: trainPalette.textBody, fontSize: 16, fontWeight: "500", lineHeight: 23 }}>
             {trainingAim(session, card, generated, viewModel)}
           </Text>
           {dayNote ? <Text style={trainTextStyles.subtle}>{dayNote}</Text> : null}
@@ -783,14 +817,16 @@ function TodayTrainingPlanCard({
             screenStyles.button,
             {
               backgroundColor: disabled ? "rgba(255, 255, 255, 0.1)" : pressed ? trainPalette.actionFillPressed : trainPalette.actionFill,
-              borderColor: disabled ? "rgba(255, 255, 255, 0.16)" : primaryAction.tone === "orange" ? trainTint("orange", "66") : trainPalette.actionBorder,
-              boxShadow: disabled ? "none" : `0 12px 30px ${primaryAction.tone === "orange" ? `${trainColorForTone("orange")}2D` : trainPalette.actionShadow}`
+              borderColor: disabled ? trainPalette.controlLine : trainPalette.actionBorder,
+              borderRadius: 5,
+              boxShadow: "none",
+              minHeight: 52
             }
           ]}
         >
           <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "center" }}>
-            <DecorativeIcon color={disabled ? trainPalette.textMuted : trainPalette.textPrimary} name={primaryAction.label.toLowerCase().includes("start") ? "play-outline" : "chevron-forward"} size={20} />
-            <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>{primaryAction.label}</Text>
+            <DecorativeIcon color={disabled ? trainPalette.textMuted : colors.cornerBlack} name={primaryAction.label.toLowerCase().includes("start") ? "play-outline" : "chevron-forward"} size={19} />
+            <Text style={{ color: disabled ? trainPalette.textMuted : colors.cornerBlack, fontSize: 14, fontWeight: "900", lineHeight: 18, textAlign: "center" }}>{primaryAction.label}</Text>
           </View>
         </Pressable>
         {showDetailsAction || showTrainingLogAction ? (
@@ -832,25 +868,41 @@ function QuickStatsRow({
     { icon: "flame-outline" as const, label: "Fuel", tone: fuelDemand === "high" || intensity === "hard" ? "orange" as const : "gold" as const, value: trainFuelStatLabel(fuelDemand, intensity) },
     { icon: "shield-checkmark-outline" as const, label: "Readiness", tone: trainReadinessTone(readiness), value: readiness }
   ];
-  return <GroupedMetricTiles items={items} testID="train-compact-stats" />;
+  return (
+    <TrainEditorialSection testID="train-compact-stats" title="Session signals">
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+        {items.map((item) => (
+          <View
+            accessibilityLabel={`${item.label}: ${item.value}`}
+            key={`train-stat:${item.label}`}
+            style={{ backgroundColor: "transparent", borderColor: trainPalette.cardLine, borderRadius: 4, borderWidth: 1, flexBasis: 132, flexGrow: 1, gap: spacing.xs, minHeight: 74, padding: spacing.md }}
+          >
+            <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.xs }}>
+              <DecorativeIcon color={trainPalette.toneBlue} name={item.icon} size={15} />
+              <Text numberOfLines={1} style={{ color: trainPalette.textMuted, flex: 1, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{item.label}</Text>
+            </View>
+            <Text numberOfLines={1} style={{ color: item.tone === "muted" ? trainPalette.textPrimary : trainColorForTone(item.tone), fontSize: 18, fontWeight: "900", lineHeight: 23 }}>{item.value}</Text>
+          </View>
+        ))}
+      </View>
+    </TrainEditorialSection>
+  );
 }
 
 function WorkoutFlowCard({ card, session }: { card: TrainSessionCard | null; session: DetailedTrainingSession | null }) {
   const rows = flowRows(session, card);
   return (
-    <View style={{ gap: spacing.sm }} testID="train-workout-flow-card">
-      <Text style={{ color: trainPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>Session Plan</Text>
+    <TrainEditorialSection testID="train-workout-flow-card" title="Session Plan">
       <View style={{ borderTopColor: trainPalette.cardLine, borderTopWidth: 1 }}>
-        <PremiumTimelineRows
-          items={rows.map((row, index) => ({
-            id: `flow:${index}:${row.label}`,
-            meta: row.value,
-            title: row.label,
-            tone: index === 0 ? "purple" : index === rows.length - 1 ? "green" : "purple"
-          }))}
-        />
+        {rows.map((row, index) => (
+          <View key={`flow:${index}:${row.label}`} style={{ alignItems: "center", borderBottomColor: trainPalette.cardLine, borderBottomWidth: 1, flexDirection: "row", gap: spacing.md, minHeight: 52, paddingVertical: spacing.sm }}>
+            <Text style={{ color: trainPalette.toneBlue, fontSize: 11, fontWeight: "900", lineHeight: 15, width: 24 }}>{`${index + 1}`.padStart(2, "0")}</Text>
+            <Text style={{ color: trainPalette.textPrimary, flex: 1, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>{row.label}</Text>
+            <Text numberOfLines={1} style={{ color: trainPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16, maxWidth: "42%", textAlign: "right" }}>{row.value}</Text>
+          </View>
+        ))}
       </View>
-    </View>
+    </TrainEditorialSection>
   );
 }
 
@@ -864,27 +916,26 @@ function BeforeYouStartCard({
   viewModel: TrainViewModel;
 }) {
   return (
-    <DashboardCard testID="train-before-start-card" title="Before You Start">
+    <TrainEditorialSection testID="train-before-start-card" title="Before You Start">
       <View style={{ gap: spacing.sm }}>
         {trainPrepRows(session, card, viewModel).map((row) => (
           <View
             key={`prep:${row.label}`}
             style={{
-              backgroundColor: trainTint(row.tone, "0E"),
-              borderColor: trainTint(row.tone, "32"),
-              borderRadius: 14,
-              borderWidth: 1,
+              backgroundColor: "transparent",
+              borderBottomColor: trainPalette.cardLine,
+              borderBottomWidth: 1,
               gap: spacing.xs,
-              padding: spacing.md
+              paddingVertical: spacing.md
             }}
           >
-            <Text style={{ color: trainColorForTone(row.tone), fontSize: 11, fontWeight: "900", lineHeight: 15, textTransform: "uppercase" }}>{row.label}</Text>
+            <Text style={{ color: trainPalette.toneBlue, fontSize: 11, fontWeight: "900", letterSpacing: 0.5, lineHeight: 15, textTransform: "uppercase" }}>{row.label}</Text>
             <Text style={{ color: trainPalette.textPrimary, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>{row.value}</Text>
             {row.detail ? <Text style={trainTextStyles.subtle}>{row.detail}</Text> : null}
           </View>
         ))}
       </View>
-    </DashboardCard>
+    </TrainEditorialSection>
   );
 }
 
@@ -897,12 +948,12 @@ function ManualTrainingLoggerSection({ busy, openRequestKey, quickLogs }: { busy
   }, [openRequestKey]);
   return (
     <View style={{ gap: spacing.md }} testID="train-manual-logger-section">
-      <DashboardCard title="Log Other Training">
+      <TrainEditorialSection title="Log Other Training">
         <Text style={trainTextStyles.body}>Add boxing class, roadwork, lifting, or coach-assigned work outside the player.</Text>
         <Text style={trainTextStyles.subtle}>Duration and RPE update training load. Rounds and notes help protect future boxing volume, pain decisions, and schedule conflicts.</Text>
         <TrainQuietButton expanded={open} onPress={() => setOpen((value) => !value)}>{open ? "Hide training log" : "Show training log"}</TrainQuietButton>
-      </DashboardCard>
-      {open ? <ProtectedWorkoutLogCard actions={quickLogs} busy={busy} /> : null}
+      </TrainEditorialSection>
+      {open ? <ProtectedWorkoutLogCard actions={quickLogs} busy={busy} surface="today" /> : null}
     </View>
   );
 }
@@ -910,7 +961,7 @@ function ManualTrainingLoggerSection({ busy, openRequestKey, quickLogs }: { busy
 function WeekContextCard({ asOfDate, viewModel }: { asOfDate?: ISODateString | undefined; viewModel: TrainViewModel }) {
   const weekDays = currentWeekDays(viewModel, asOfDate);
   return (
-    <DashboardCard testID="train-week-context" title="This Week">
+    <TrainEditorialSection testID="train-week-context" title="This Week">
       <Text style={trainTextStyles.body}>Theme: {plainTrainCopy(viewModel.supportGenerationSummary.weekDevelopmentTheme || "keep boxing quality repeatable")}</Text>
       <TrainMiniBarChart bars={weekDays} height={122} referenceLabel="7-day support view" />
       <View style={{ gap: spacing.xs }}>
@@ -924,7 +975,7 @@ function WeekContextCard({ asOfDate, viewModel }: { asOfDate?: ISODateString | u
           </View>
         ))}
       </View>
-    </DashboardCard>
+    </TrainEditorialSection>
   );
 }
 
@@ -933,10 +984,10 @@ function CycleContextCard({ viewModel }: { viewModel: TrainViewModel }) {
     return null;
   }
   return (
-    <DashboardCard testID="train-cycle-context-card" title="Cycle context">
+    <TrainEditorialSection testID="train-cycle-context-card" title="Cycle context">
       <Text style={trainTextStyles.body}>{plainTrainCopy(viewModel.cycleTrainingDecision.summary)}</Text>
       <Text style={trainTextStyles.subtle}>{plainTrainCopy(viewModel.cycleTrainingDecision.action)}</Text>
-    </DashboardCard>
+    </TrainEditorialSection>
   );
 }
 
@@ -980,7 +1031,7 @@ function CollapsibleTrainDetails({
     return null;
   }
   return (
-    <View style={{ gap: spacing.md }} testID="train-collapsible-details">
+    <View style={{ gap: 0 }} testID="train-collapsible-details">
       <View style={{ alignItems: "flex-start" }}>
         <TrainQuietButton expanded={detailsOpen} onPress={onToggleDetails}>Hide details</TrainQuietButton>
       </View>
@@ -1003,9 +1054,9 @@ function CollapsibleTrainDetails({
             </View>
           ) : hasWorkoutSummary ? (
             <View testID="train-workout-section">
-              <DashboardCard testID="train-workout-summary-card" title="Exercise Details">
+              <TrainEditorialSection testID="train-workout-summary-card" title="Exercise Details">
                 <Text style={trainTextStyles.body}>The player details are not available for this session. Use Log Other Training if you complete it outside the player.</Text>
-              </DashboardCard>
+              </TrainEditorialSection>
             </View>
           ) : (
             <EmptyState title="No player workout today" message={plainTrainCopy(viewModel.todaySummary)} />
@@ -1038,6 +1089,7 @@ export function TrainScreen({
   recentLogs: _recentLogs,
   viewModel
 }: TrainScreenProps) {
+  const insets = useSafeAreaInsets();
   const [pendingStartSessionId, setPendingStartSessionId] = React.useState<string | null>(null);
   const [dismissedLooseEndIds, setDismissedLooseEndIds] = React.useState<ReadonlySet<string>>(new Set());
   const [looseEndFeedbackMessage, setLooseEndFeedbackMessage] = React.useState<string | null>(null);
@@ -1110,8 +1162,10 @@ export function TrainScreen({
   const criticalRisk = trainCriticalTrainingRisk(viewModel);
   const showSafety = Boolean(primarySessionBlockedReason || criticalRisk);
   return (
-    <LuminousScreen accent="blue" testID="train-screen">
-      <ScreenHeader {...tabHeroHeaders.train} />
+    <>
+    <StatusBar backgroundColor="transparent" style="dark" translucent />
+    <LuminousScreen accent="blue" contentGap={0} immersiveHeader testID="train-screen">
+      <ScreenHeader {...tabHeroHeaders.train} immersive topInset={insets.top} />
       {showSafety ? (
         <RiskBanner
           message={primarySessionBlockedReason ?? firstSentence(criticalRisk ?? "Use today's recovery-focused guidance.")}
@@ -1172,7 +1226,7 @@ export function TrainScreen({
       <WorkoutFlowCard card={primaryCard} session={primarySession} />
       <QuickStatsRow card={primaryCard} generated={generatedSummary} session={primarySession} viewModel={viewModel} />
       {pendingStartSession && activeWorkout ? (
-        <EngineCard>
+        <TrainEditorialSection>
           <View style={{ gap: spacing.sm }} testID="train-start-conflict-card">
             <Text style={trainTextStyles.sectionTitle}>Workout in progress</Text>
             <Text style={trainTextStyles.body}>Resume {activeWorkout.title} or discard it before starting {pendingStartSession.title}.</Text>
@@ -1199,7 +1253,7 @@ export function TrainScreen({
               </Pressable>
             </View>
           </View>
-        </EngineCard>
+        </TrainEditorialSection>
       ) : null}
       {trainCycleDecisionIsDefaultVisible(viewModel) ? <CycleContextCard viewModel={viewModel} /> : null}
       <CollapsibleTrainDetails
@@ -1223,5 +1277,6 @@ export function TrainScreen({
       {completionMessage ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone("orange") }]}>{completionMessage}</Text> : null}
       <WeekContextCard asOfDate={asOfDate} viewModel={viewModel} />
     </LuminousScreen>
+    </>
   );
 }

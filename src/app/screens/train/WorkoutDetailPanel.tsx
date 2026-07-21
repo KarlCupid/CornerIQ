@@ -1,11 +1,10 @@
 import React, { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text as NativeText, TextInput, View, type TextProps, type TextStyle } from "react-native";
 import type { DetailedTrainingSession, ExerciseResultDraft, ExerciseResultLoadUnit, ExerciseResultSide, ExerciseResultTechnicalQuality } from "../../../engine/core/types";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
 import { PostActionNextStep } from "../../../design/components/FastTask";
-import { DashboardCard } from "../../../design/components/PerformanceVisuals";
-import { glassStyles } from "../../../design/glass";
-import { spacing } from "../../../design/theme";
+import { colors, spacing } from "../../../design/theme";
+import { fontFamilies } from "../../../design/typography";
 import {
   plainSectionIntent,
   plainSectionName
@@ -22,7 +21,7 @@ import { parseOptionalNonNegativeInteger, parseOptionalPositiveNumber, validatio
 import { screenStyles } from "../screenStyles";
 import { ExercisePrescriptionCard } from "./ExercisePrescriptionCard";
 import { WorkoutExerciseDetails } from "./WorkoutExerciseDetails";
-import { trainColorForTone, trainPalette, trainTextStyles, trainTint } from "./trainPalette";
+import { trainColorForTone, trainPalette, trainTextStyles } from "./trainPalette";
 
 type WorkoutFollowUpState = "completed" | "skipped" | "review";
 
@@ -39,6 +38,18 @@ interface ExerciseResultInputs {
   rpe: string;
   notes: string;
   painFlag: boolean;
+}
+
+function flattenEditorialStyle(style: unknown): TextStyle {
+  if (Array.isArray(style)) return Object.assign({}, ...style.map((item) => flattenEditorialStyle(item)));
+  return style && typeof style === "object" ? style as TextStyle : {};
+}
+
+function Text({ style, ...props }: TextProps) {
+  const flattened = flattenEditorialStyle(style);
+  const weight = Number.parseInt(String(flattened.fontWeight ?? "400"), 10);
+  const fontFamily = weight >= 900 ? fontFamilies.black : weight >= 800 ? fontFamilies.extraBold : weight >= 700 ? fontFamilies.bold : weight >= 600 ? fontFamilies.semibold : weight >= 500 ? fontFamilies.medium : fontFamilies.regular;
+  return <NativeText {...props} style={[style, { fontFamily }]} />;
 }
 
 function emptyExerciseResultInputs(): ExerciseResultInputs {
@@ -183,19 +194,17 @@ function GuidanceTile({
   label: string;
   tone?: Parameters<typeof trainColorForTone>[0] | undefined;
 }) {
-  const color = trainColorForTone(tone);
   return (
     <View
       style={{
-        backgroundColor: trainTint(tone, "10"),
-        borderColor: trainTint(tone, "36"),
-        borderRadius: 14,
-        borderWidth: 1,
+        backgroundColor: "transparent",
+        borderBottomColor: trainPalette.cardLine,
+        borderBottomWidth: 1,
         gap: spacing.xs,
-        padding: spacing.md
+        paddingVertical: spacing.md
       }}
     >
-      <Text style={{ color, fontSize: 11, fontWeight: "900", lineHeight: 15, textTransform: "uppercase" }}>{label}</Text>
+      <Text style={{ color: tone === "red" ? trainPalette.textPrimary : trainPalette.toneBlue, fontSize: 11, fontWeight: "900", letterSpacing: 0.5, lineHeight: 15, textTransform: "uppercase" }}>{label}</Text>
       <Text style={{ color: trainPalette.textPrimary, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>{body}</Text>
       {detail ? <Text style={trainTextStyles.subtle}>{detail}</Text> : null}
     </View>
@@ -206,9 +215,9 @@ function CompactMetric({ label, value, tone = "muted" }: { label: string; value:
   return (
     <View
       style={{
-        backgroundColor: trainPalette.controlFill,
+        backgroundColor: "transparent",
         borderColor: trainPalette.cardLine,
-        borderRadius: 14,
+        borderRadius: 4,
         borderWidth: 1,
         flexBasis: 104,
         flexGrow: 1,
@@ -245,12 +254,11 @@ function WorkoutPlanDetails({ session }: { session: DetailedTrainingSession }) {
           <View
             key={`plan-summary:${block.label}:${block.title}`}
             style={{
-              backgroundColor: trainTint(block.tone, "10"),
-              borderColor: trainTint(block.tone, "32"),
-              borderRadius: 14,
-              borderWidth: 1,
+              backgroundColor: "transparent",
+              borderBottomColor: trainPalette.cardLine,
+              borderBottomWidth: 1,
               gap: spacing.sm,
-              padding: spacing.md
+              paddingVertical: spacing.md
             }}
           >
             <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm }}>
@@ -262,7 +270,7 @@ function WorkoutPlanDetails({ session }: { session: DetailedTrainingSession }) {
             {block.steps.length ? (
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
                 {block.steps.map((step) => (
-                  <View key={`plan-step:${block.label}:${step}`} style={{ backgroundColor: trainPalette.controlFill, borderColor: trainPalette.controlLine, borderRadius: 999, borderWidth: 1, paddingHorizontal: spacing.sm, paddingVertical: 4 }}>
+                  <View key={`plan-step:${block.label}:${step}`} style={{ backgroundColor: trainPalette.controlFill, borderColor: trainPalette.controlLine, borderRadius: 4, borderWidth: 1, paddingHorizontal: spacing.sm, paddingVertical: 4 }}>
                     <Text numberOfLines={1} style={{ color: trainPalette.textBody, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{step}</Text>
                   </View>
                 ))}
@@ -292,7 +300,6 @@ function DetailToggleRow({
   onPress: () => void;
   open: boolean;
 }) {
-  const accentTone = open ? "gold" : "blue";
   return (
     <Pressable
       accessibilityLabel={`${open ? "Hide" : "Show"} ${label}`}
@@ -300,21 +307,19 @@ function DetailToggleRow({
       accessibilityState={{ disabled, expanded: open }}
       disabled={disabled}
       onPress={onPress}
-      style={[
-        glassStyles.control,
-        {
-          alignItems: "center",
-          backgroundColor: disabled ? trainPalette.controlFill : open ? trainTint("blue", "12") : trainPalette.controlFill,
-          borderColor: disabled ? "rgba(218, 208, 242, 0.12)" : open ? trainTint("blue", "42") : trainPalette.controlLine,
-          flexDirection: "row",
-          gap: spacing.md,
-          justifyContent: "space-between",
-          minHeight: 52,
-          opacity: disabled ? 0.58 : 1,
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.sm
-        }
-      ]}
+      style={{
+        alignItems: "center",
+        backgroundColor: open ? trainPalette.controlFillPressed : "transparent",
+        borderBottomColor: open ? trainPalette.actionBorder : trainPalette.cardLine,
+        borderBottomWidth: 1,
+        flexDirection: "row",
+        gap: spacing.md,
+        justifyContent: "space-between",
+        minHeight: 58,
+        opacity: disabled ? 0.58 : 1,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.sm
+      }}
     >
       <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
         <Text numberOfLines={1} style={{ color: trainPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 19 }}>
@@ -322,7 +327,7 @@ function DetailToggleRow({
         </Text>
         {meta ? <Text numberOfLines={1} style={trainTextStyles.subtle}>{meta}</Text> : null}
       </View>
-      <Text style={{ color: disabled ? trainPalette.textMuted : trainColorForTone(accentTone), fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{open ? "Hide" : "Show"}</Text>
+      <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.toneBlue, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{open ? "Hide" : "Show"}</Text>
     </Pressable>
   );
 }
@@ -347,7 +352,7 @@ function TrainInput({
       onChangeText={onChangeText}
       placeholder={placeholder}
       placeholderTextColor={trainPalette.textMuted}
-      style={[screenStyles.input, { backgroundColor: trainPalette.controlFill, borderColor: trainPalette.controlLine, color: trainPalette.textPrimary }]}
+      style={[screenStyles.input, { backgroundColor: trainPalette.controlFill, borderColor: trainPalette.controlLine, borderRadius: 5, color: trainPalette.textPrimary, fontFamily: fontFamilies.medium }]}
       value={value}
     />
   );
@@ -374,12 +379,14 @@ function TrainPanelPrimaryButton({
         screenStyles.button,
         {
           backgroundColor: disabled ? "rgba(255, 255, 255, 0.1)" : pressed ? trainPalette.actionFillPressed : trainPalette.actionFill,
-          borderColor: disabled ? "rgba(255, 255, 255, 0.16)" : trainPalette.actionBorder,
-          boxShadow: disabled ? "none" : `0 12px 28px ${trainPalette.actionShadow}`
+          borderColor: disabled ? trainPalette.controlLine : trainPalette.actionBorder,
+          borderRadius: 5,
+          boxShadow: "none",
+          minHeight: 52
         }
       ]}
     >
-      <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>
+      <Text style={{ color: disabled ? trainPalette.textMuted : colors.cornerBlack, fontSize: 14, fontWeight: "900", lineHeight: 18, textAlign: "center" }}>
         {children}
       </Text>
     </Pressable>
@@ -408,13 +415,15 @@ function TrainPanelQuietButton({
       style={({ pressed }) => [
         screenStyles.quietButton,
         {
-          backgroundColor: pressed || selected ? trainPalette.controlFillPressed : trainPalette.controlFill,
-          borderColor: selected ? trainTint("gold", "66") : trainPalette.controlLine,
-          boxShadow: "0 8px 22px rgba(0, 0, 0, 0.18)"
+          backgroundColor: pressed || selected ? trainPalette.controlFillPressed : "transparent",
+          borderColor: selected ? trainPalette.actionBorder : trainPalette.controlLine,
+          borderRadius: 5,
+          boxShadow: "none",
+          minHeight: 44
         }
       ]}
     >
-      <Text style={{ color: selected ? trainColorForTone("gold") : trainPalette.textBody, fontSize: 15, fontWeight: "700", lineHeight: 20, textAlign: "center" }}>
+      <Text style={{ color: selected ? trainPalette.toneBlue : trainPalette.textPrimary, fontSize: 14, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>
         {children}
       </Text>
     </Pressable>
@@ -542,8 +551,9 @@ export function WorkoutDetailPanel({
   const quickLogBlocked = Boolean(previewOnlyReason);
 
   return (
-    <View style={{ gap: spacing.lg }}>
-      <DashboardCard testID="train-workout-preview-card" title="Workout Details">
+    <View style={{ gap: 0 }}>
+      <View style={{ borderBottomColor: trainPalette.cardLine, borderBottomWidth: 1, gap: spacing.md, paddingBottom: spacing.xl, paddingTop: spacing.xl }} testID="train-workout-preview-card">
+        <Text style={{ color: trainPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>Workout Details</Text>
         <View style={{ gap: spacing.sm }}>
           {startWorkoutDisabledReason ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone("orange") }]}>{startWorkoutDisabledReason}</Text> : null}
           {previewOnlyReason ? <Text style={trainTextStyles.subtle}>{previewOnlyReason}</Text> : null}
@@ -581,7 +591,7 @@ export function WorkoutDetailPanel({
           ) : null}
           <DetailToggleRow disabled={quickLogBlocked} label="Quick Log" meta={quickLogBlocked ? "Available on the planned day" : "RPE, pain, actuals, done, or skipped"} onPress={() => setResultOpen((value) => !value)} open={resultOpen} />
         </View>
-      </DashboardCard>
+      </View>
       {resultOpen && !previewOnlyReason ? (
         <View style={{ gap: spacing.md }}>
           <View style={{ gap: spacing.xs }}>

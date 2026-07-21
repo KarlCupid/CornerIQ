@@ -4,7 +4,7 @@ import { Pressable, Text, View } from "react-native";
 import { glassStyles } from "../glass";
 import { accentColor, accentWash, type LuminousAccent, useLuminousScreenTheme } from "../luminousTheme";
 import { colors, radii, spacing } from "../theme";
-import { typography } from "../typography";
+import { fontFamilies, typography } from "../typography";
 import { EngineCard } from "./EngineCard";
 
 export interface FastTaskAction {
@@ -243,12 +243,14 @@ export function QuickActionRow({
 export function CollapsedDetailDisclosure({
   children,
   defaultOpen = false,
+  editorial = false,
   framed = true,
   summary,
   testID,
   title
 }: PropsWithChildren<{
   defaultOpen?: boolean | undefined;
+  editorial?: boolean | undefined;
   framed?: boolean | undefined;
   summary?: string | undefined;
   testID?: string | undefined;
@@ -268,20 +270,21 @@ export function CollapsedDetailDisclosure({
           accessibilityState={{ expanded: open }}
           onPress={() => setOpen((value) => !value)}
           style={{
-            ...glassStyles.control,
+            ...(editorial ? {} : glassStyles.control),
             alignItems: "center",
-            backgroundColor: theme.control,
-            borderColor: theme.controlBorder,
-            borderRadius: 20,
+            backgroundColor: editorial ? "rgba(39, 206, 241, 0.08)" : theme.control,
+            borderColor: editorial ? colors.blueIQ : theme.controlBorder,
+            borderRadius: editorial ? 5 : 20,
+            borderWidth: 1,
             justifyContent: "center",
             minHeight: 44,
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.sm
           }}
         >
-          <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "700" }}>{open ? `Hide ${title}` : `Show ${title}`}</Text>
+          <Text style={{ color: editorial ? colors.blueIQ : colors.canvas, fontFamily: editorial ? fontFamilies.bold : undefined, fontSize: 15, fontWeight: "700" }}>{open ? `Hide ${title}` : `Show ${title}`}</Text>
         </Pressable>
-        {summary ? <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>{summary}</Text> : null}
+        {summary ? <Text style={{ color: colors.wrap, fontFamily: editorial ? fontFamilies.regular : undefined, fontSize: 13, lineHeight: 19 }}>{summary}</Text> : null}
         {open ? <View style={{ gap: spacing.sm }} testID={testID}>{children}</View> : null}
       </View>
   );

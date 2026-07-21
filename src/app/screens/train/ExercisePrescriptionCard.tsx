@@ -1,11 +1,20 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { Text as NativeText, View, type TextProps, type TextStyle } from "react-native";
 import type { ExercisePrescription } from "../../../engine/core/types";
 import { movementTeachingForExercise } from "../../../engine/presentation/workoutMovementTeaching";
 import { plainTrainingCopy, plainWorkoutTitle } from "../../../engine/presentation/trainingCopy";
 import { CollapsedDetailDisclosure } from "../../../design/components/FastTask";
 import { colors, spacing } from "../../../design/theme";
+import { fontFamilies } from "../../../design/typography";
 import { screenStyles } from "../screenStyles";
+import { trainPalette } from "./trainPalette";
+
+function Text({ style, ...props }: TextProps) {
+  const flattened = (Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean).map((item) => item && typeof item === "object" ? item : {})) : style) as TextStyle | undefined;
+  const weight = flattened?.fontWeight;
+  const fontFamily = weight === "800" || weight === "900" || weight === "bold" ? fontFamilies.bold : weight === "600" || weight === "700" ? fontFamilies.semibold : fontFamilies.regular;
+  return <NativeText {...props} style={[style, { fontFamily }]} />;
+}
 
 function setCountLabel(count: number): string {
   return `${count} set${count === 1 ? "" : "s"}`;
@@ -29,7 +38,7 @@ function Badge({ label, tone }: { label: string; tone: "blue" | "orange" }) {
       style={{
         backgroundColor: tone === "orange" ? "rgba(255, 148, 72, 0.12)" : "rgba(39, 206, 241, 0.12)",
         borderColor: tone === "orange" ? "rgba(255, 148, 72, 0.38)" : "rgba(39, 206, 241, 0.38)",
-        borderRadius: 999,
+        borderRadius: 4,
         borderWidth: 1,
         paddingHorizontal: spacing.sm,
         paddingVertical: 4
@@ -66,12 +75,11 @@ export function ExercisePrescriptionCard({
   return (
     <View
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.045)",
-        borderColor: colors.line,
-        borderRadius: 16,
-        borderWidth: 1,
+        backgroundColor: "transparent",
+        borderBottomColor: trainPalette.cardLine,
+        borderBottomWidth: 1,
         gap: spacing.sm,
-        padding: spacing.md
+        paddingVertical: spacing.md
       }}
       testID={`exercise-prescription-card:${exercise.exerciseId}`}
     >
@@ -85,8 +93,8 @@ export function ExercisePrescriptionCard({
       </View>
       <Text style={screenStyles.subtle}>{doseText(exercise)} - Rest {plainTrainingCopy(exercise.restText)}</Text>
       <Text style={screenStyles.body}>{plainTrainingCopy(teaching.actionSentence)}</Text>
-      <Text style={{ color: colors.readyGreen, fontSize: 13, fontWeight: "900", lineHeight: 18 }}>Cue: {plainTrainingCopy(teaching.liveCue)}</Text>
-      <CollapsedDetailDisclosure defaultOpen={howToOpen} framed={false} summary="Setup, movement steps, and breathing." title="How to" testID={`exercise-how-to:${exercise.exerciseId}`}>
+      <Text style={{ color: trainPalette.actionFill, fontSize: 13, fontWeight: "900", lineHeight: 18 }}>Cue: {plainTrainingCopy(teaching.liveCue)}</Text>
+      <CollapsedDetailDisclosure defaultOpen={howToOpen} editorial framed={false} summary="Setup, movement steps, and breathing." title="How to" testID={`exercise-how-to:${exercise.exerciseId}`}>
         {teaching.setupSteps.length > 0 ? (
           <View style={{ gap: spacing.xs }}>
             <Text style={screenStyles.fieldLabel}>Setup</Text>
@@ -100,7 +108,7 @@ export function ExercisePrescriptionCard({
         {teaching.breathing ? <Text style={screenStyles.subtle}>Breathing: {plainTrainingCopy(teaching.breathing)}</Text> : null}
         {teaching.demoAssetKey ? <Text style={screenStyles.subtle}>Demo available: {teaching.demoAssetKey}</Text> : null}
       </CollapsedDetailDisclosure>
-      <CollapsedDetailDisclosure defaultOpen={helpOpen} framed={false} summary="Correction, easier option, feel checks, and stop rule." title="Need help?" testID={`exercise-need-help:${exercise.exerciseId}`}>
+      <CollapsedDetailDisclosure defaultOpen={helpOpen} editorial framed={false} summary="Correction, easier option, feel checks, and stop rule." title="Need help?" testID={`exercise-need-help:${exercise.exerciseId}`}>
         <Text style={screenStyles.body}>Common mistake: {plainTrainingCopy(teaching.commonMistake.problem)}</Text>
         <Text style={screenStyles.body}>Fix: {plainTrainingCopy(teaching.commonMistake.fix)}</Text>
         <Text style={screenStyles.body}>Easier: {plainWorkoutTitle(teaching.easierOption.label)} - {plainTrainingCopy(teaching.easierOption.instruction)}</Text>

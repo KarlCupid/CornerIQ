@@ -1,7 +1,7 @@
 import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ImageBackground, Pressable, Text, View } from "react-native";
-import fuelHero from "../../../../assets/backgrounds/tab-fuel-hero.png";
+import fuelHero from "../../../../assets/backgrounds/tab-fuel-hero-v2.png";
 import { accentColor, accentWash, type LuminousAccent, useLuminousScreenTheme } from "../../../design/components/LuminousScreen";
 import { alphaHex, glassStyles } from "../../../design/glass";
 import { colors, radii, spacing } from "../../../design/theme";

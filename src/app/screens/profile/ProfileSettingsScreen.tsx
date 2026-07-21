@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { useFormMessage } from "../../forms/useFormMessage";
-import { DashboardCard } from "../../../design/components/PerformanceVisuals";
+import { EngineCard } from "../../../design/components/EngineCard";
 import { colors, spacing } from "../../../design/theme";
 import { formatEquipmentAccessLabel } from "../../../engine/athlete/equipmentAccess";
 import type { ISODateString } from "../../../engine/core/types";
@@ -33,12 +33,13 @@ function equipmentLabel(item: string): string {
 
 function SettingsGroup({ children, subtitle, title }: React.PropsWithChildren<{ subtitle?: string | undefined; title: string }>) {
   return (
-    <DashboardCard title={title}>
+    <EngineCard>
       <View style={{ gap: spacing.sm }}>
+        <Text style={screenStyles.sectionTitle}>{title}</Text>
         {subtitle ? <Text style={screenStyles.subtle}>{subtitle}</Text> : null}
         {children}
       </View>
-    </DashboardCard>
+    </EngineCard>
   );
 }
 
@@ -74,9 +75,10 @@ export function ProfileSettingsScreen({
   return (
     <View style={{ gap: spacing.lg }}>
       {error ? (
-        <DashboardCard title="Settings message">
+        <EngineCard>
+          <Text style={screenStyles.sectionTitle}>Settings message</Text>
           <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text>
-        </DashboardCard>
+        </EngineCard>
       ) : null}
       <SettingsGroup title="Cycle support" subtitle="Optional and symptom-aware.">
         {cycleTrackingPreference === "enabled" && cyclePreference === "disabled" ? <Text style={screenStyles.subtle}>This hides cycle context but does not delete prior logs.</Text> : null}

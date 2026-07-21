@@ -1,0 +1,76 @@
+- generic [ref=f3e552]:
+  - generic "Local E2E mode banner" [ref=f3e553]: "Local E2E mode: no Supabase connection, demo data only. Scenario: default. Date: 2026-05-19. Disable EXPO_PUBLIC_CORNERIQ_E2E_LOCAL for normal app use."
+  - generic "CornerIQ onboarding screen" [ref=f3e616]:
+    - generic [ref=f3e618]:
+      - generic [ref=f3e619]:
+        - generic "Basic information setup header" [ref=f3e620]:
+          - img "Basic information setup header" [ref=f3e622]
+        - generic [ref=f3e623]:
+          - generic "CornerIQ setup" [ref=f3e624]: CornerIQ
+          - button "Sign out of onboarding" [ref=f3e626] [cursor=pointer]:
+            - generic [ref=f3e627]: 
+        - generic [ref=f3e628]:
+          - generic [ref=f3e629]: Step 1 of 6
+          - generic "17 percent complete" [ref=f3e630]
+        - generic [ref=f3e632]: Basic information
+        - generic [ref=f3e633]: Tell us the basics CornerIQ uses to personalize your training.
+      - generic [ref=f3e634]:
+        - generic [ref=f3e635]:
+          - generic [ref=f3e636]: 
+          - generic [ref=f3e637]: Local E2E welcome complete. Continue through demo onboarding.
+        - generic [ref=f3e638]:
+          - generic [ref=f3e639]:
+            - generic [ref=f3e640]:
+              - generic [ref=f3e641]: Preferred name
+              - textbox "Preferred name" [ref=f3e642]:
+                - /placeholder: What should we call you?
+            - generic [ref=f3e643]:
+              - generic [ref=f3e644]: Age
+              - textbox "Age" [ref=f3e645]: "25"
+            - generic [ref=f3e646]:
+              - generic [ref=f3e647]: Sex at birth
+              - generic [ref=f3e648]: Used only where training and fuel calculations differ.
+              - generic [ref=f3e649]:
+                - button "Male" [ref=f3e650] [cursor=pointer]
+                - button "Female" [ref=f3e653] [cursor=pointer]
+                - button "Prefer not to say" [ref=f3e656] [cursor=pointer]:
+                  - generic [ref=f3e657]:
+                    - generic [ref=f3e658]: Prefer not to say
+                    - generic [ref=f3e659]: 
+          - generic [ref=f3e661]:
+            - generic [ref=f3e662]: Measurements
+            - generic [ref=f3e663]:
+              - generic [ref=f3e664]: Current body weight (kg)
+              - generic [ref=f3e665]: Current scale value.
+              - generic [ref=f3e666]: "Example: 82"
+              - textbox "Current body weight (kg)" [ref=f3e667]:
+                - /placeholder: Current body weight kg
+                - text: "68"
+            - generic [ref=f3e668]:
+              - generic [ref=f3e669]: Typical walk-around body weight (kg)
+              - generic [ref=f3e670]: Normal training weight, not a target.
+              - generic [ref=f3e671]: "Example: 84"
+              - textbox "Typical walk-around body weight (kg)" [ref=f3e672]:
+                - /placeholder: Typical walk-around kg
+                - text: "68"
+            - generic [ref=f3e673]:
+              - generic [ref=f3e674]: Height (cm)
+              - generic [ref=f3e675]: Basic safety context.
+              - generic [ref=f3e676]: "Example: 178"
+              - textbox "Height (cm)" [ref=f3e677]:
+                - /placeholder: Height cm
+                - text: "170"
+            - generic [ref=f3e678]:
+              - generic [ref=f3e679]: Preferred display units
+              - generic [ref=f3e680]: Use the units you want for setup and future display. CornerIQ stores the engine values safely behind the scenes.
+              - generic [ref=f3e681]:
+                - button "Metric displays" [ref=f3e682] [cursor=pointer]:
+                  - generic [ref=f3e683]:
+                    - generic [ref=f3e684]: Metric displays
+                    - generic [ref=f3e685]: 
+                - button "Imperial displays" [ref=f3e687] [cursor=pointer]
+        - button "Next setup step" [ref=f3e691] [cursor=pointer]:
+          - generic [ref=f3e692]: 
+          - generic [ref=f3e693]: Next
+        - button "Create safe demo boxer" [ref=f3e694] [cursor=pointer]:
+          - generic [ref=f3e695]: "Development shortcut: create safe demo boxer"

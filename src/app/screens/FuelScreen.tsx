@@ -1,12 +1,13 @@
 import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Pressable, Text, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { Pressable, Text as NativeText, View, type TextProps, type TextStyle } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { FuelPlanStatusViewModel, FuelSafetyStateViewModel, FuelViewModel, RecentLogsViewModel } from "../../engine/core/types";
-import { EngineCard } from "../../design/components/EngineCard";
 import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
 import { TrendLineChart } from "../../design/components/PerformanceVisuals";
-import { PremiumCard } from "../../design/components/PremiumPrimitives";
-import { colors, radii, spacing } from "../../design/theme";
+import { colors, spacing } from "../../design/theme";
+import { fontFamilies } from "../../design/typography";
 import { buildFuelDashboardVisual, type FuelDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { plainFuelCopy } from "../../engine/presentation/fuelCopy";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
@@ -39,21 +40,44 @@ const fuelPalette = {
   actionFillPressed: "#20B9D9",
   actionBorder: "rgba(39, 206, 241, 0.58)",
   actionShadow: "rgba(39, 206, 241, 0.16)",
-  cardLine: "rgba(216, 228, 230, 0.14)",
-  controlFill: "rgba(216, 228, 230, 0.055)",
-  controlFillPressed: "rgba(216, 228, 230, 0.095)",
-  controlLine: "rgba(216, 228, 230, 0.16)",
-  textPrimary: "#F2EBE0",
-  textBody: "#D8E4E6",
-  textMuted: "#9FAFB4",
+  cardLine: "rgba(205, 239, 247, 0.14)",
+  controlFill: "rgba(224, 244, 252, 0.055)",
+  controlFillPressed: "rgba(39, 206, 241, 0.13)",
+  controlLine: "rgba(205, 239, 247, 0.18)",
+  textPrimary: "#F6FBFF",
+  textBody: "#D7E7F4",
+  textMuted: "#A9BDD0",
   toneBlue: "#27CEF1",
-  toneGold: "#FFD861",
-  toneGreen: "#38E28A",
-  toneMuted: "#9FAFB4",
-  toneOrange: "#FF9448",
-  tonePurple: "#9657F5",
-  toneRed: "#FF5265"
+  toneGold: "#78DFF3",
+  toneGreen: "#6FE5F6",
+  toneMuted: "#A9BDD0",
+  toneOrange: "#86E7F7",
+  tonePurple: "#27CEF1",
+  toneRed: "#FF6B75"
 } as const;
+
+function flattenEditorialStyle(style: unknown): TextStyle {
+  if (Array.isArray(style)) return Object.assign({}, ...style.map(flattenEditorialStyle));
+  return style && typeof style === "object" ? style as TextStyle : {};
+}
+
+function Text({ style, ...props }: TextProps) {
+  const weight = Number.parseInt(String(flattenEditorialStyle(style).fontWeight ?? "400"), 10);
+  const fontFamily = weight >= 900 ? fontFamilies.black : weight >= 800 ? fontFamilies.extraBold : weight >= 700 ? fontFamilies.bold : weight >= 600 ? fontFamilies.semibold : weight >= 500 ? fontFamilies.medium : fontFamilies.regular;
+  return <NativeText {...props} style={[style, { fontFamily }]} />;
+}
+
+function FuelEditorialSection({ children, testID }: React.PropsWithChildren<{ testID?: string | undefined }>) {
+  return <View style={{ backgroundColor: "transparent", borderBottomColor: fuelPalette.cardLine, borderBottomWidth: 1, gap: spacing.md, paddingVertical: spacing.lg }} testID={testID}>{children}</View>;
+}
+
+function EngineCard({ children }: React.PropsWithChildren) {
+  return <FuelEditorialSection>{children}</FuelEditorialSection>;
+}
+
+function PremiumCard({ children, testID }: React.PropsWithChildren<{ accent?: unknown; density?: unknown; testID?: string | undefined }>) {
+  return <FuelEditorialSection testID={testID}>{children}</FuelEditorialSection>;
+}
 
 const fuelTextStyles = {
   body: { ...screenStyles.body, color: fuelPalette.textBody },
@@ -203,7 +227,7 @@ function FuelTonePill({ label, tone: _tone = "muted" }: { label: string; tone?: 
       numberOfLines={2}
       style={{
         alignSelf: "flex-start",
-        color: colors.wrap,
+        color: fuelPalette.toneBlue,
         fontSize: 12,
         fontWeight: "800",
         lineHeight: 16,
@@ -244,29 +268,26 @@ function FuelActionButton({
       style={({ pressed }) => [
         {
           alignItems: "center",
-          borderCurve: "continuous",
-          borderRadius: primary ? radii.pill : radii.control,
+          borderRadius: 5,
           borderWidth: 1,
           flexBasis: block ? undefined : basis,
           flexGrow: 1,
           gap: spacing.xs,
           justifyContent: "center",
-          minHeight: block ? primary ? 82 : 50 : 50,
+          minHeight: primary ? 52 : 44,
           opacity: busy ? 0.58 : 1,
           paddingHorizontal: spacing.lg,
-          paddingVertical: block && primary ? spacing.md : spacing.sm,
+          paddingVertical: spacing.sm,
           width: block ? "100%" : undefined
         },
         primary
           ? {
               backgroundColor: pressed ? fuelPalette.actionFillPressed : fuelPalette.actionFill,
-              borderColor: fuelPalette.actionBorder,
-              boxShadow: `0 12px 28px ${fuelPalette.actionShadow}`
+              borderColor: fuelPalette.actionBorder
             }
           : {
               backgroundColor: pressed ? fuelPalette.controlFillPressed : fuelPalette.controlFill,
-              borderColor: fuelPalette.controlLine,
-              boxShadow: "0 8px 22px rgba(0, 0, 0, 0.18)"
+              borderColor: fuelPalette.controlLine
         }
       ]}
     >
@@ -274,9 +295,7 @@ function FuelActionButton({
       <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={2} style={{ color: primary ? colors.cornerBlack : fuelPalette.textBody, flexShrink: 1, fontSize: 15, fontWeight: primary ? "900" : "700", lineHeight: 20, textAlign: "center" }}>
         {label}
       </Text>
-      <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={2} style={{ color: primary ? "rgba(3, 7, 18, 0.72)" : fuelPalette.textMuted, flexShrink: 1, fontSize: 11, fontWeight: "700", lineHeight: 15, textAlign: "center" }}>
-        {summary}
-      </Text>
+      {!primary ? <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={{ color: fuelPalette.textMuted, flexShrink: 1, fontSize: 11, fontWeight: "700", lineHeight: 15, textAlign: "center" }}>{summary}</Text> : null}
     </Pressable>
   );
 }
@@ -351,28 +370,11 @@ function TodayFuelPlanCard({
     <PremiumCard accent="blue" density="regular">
       <View style={{ gap: spacing.md }} testID="fuel-hero-card">
         <View testID="fuel-today-plan-card">
-        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
-          <View
-            style={{
-              alignItems: "center",
-              backgroundColor: fuelTint(plan.tone, "18"),
-              borderColor: fuelTint(plan.tone, "55"),
-              borderRadius: radii.pill,
-              borderWidth: 1,
-              height: 62,
-              justifyContent: "center",
-              width: 62
-            }}
-          >
-            <DecorativeIcon color={colorForTone(plan.tone)} name={plan.tone === "orange" || plan.tone === "gold" ? "help-outline" : "restaurant-outline"} size={31} />
+          <View style={{ gap: spacing.xs }}>
+            <Text style={{ color: fuelPalette.toneBlue, fontSize: 12, fontWeight: "900", letterSpacing: 0.4, lineHeight: 16, textTransform: "uppercase" }}>01 / Today’s fuel</Text>
+            <Text style={{ color: fuelPalette.textPrimary, fontSize: 30, fontWeight: "900", lineHeight: 34 }}>Fuel status: {plan.label}</Text>
+            <Text style={{ color: fuelPalette.textBody, fontSize: 16, fontWeight: "600", lineHeight: 23 }}>{plan.sentence}</Text>
           </View>
-          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={{ color: fuelPalette.textPrimary, fontSize: 21, fontWeight: "900", lineHeight: 27 }}>
-              Fuel status: <Text style={{ color: colorForTone(plan.tone) }}>{plan.label}</Text>
-            </Text>
-            <Text style={{ color: fuelPalette.textBody, fontSize: 15, fontWeight: "600", lineHeight: 22 }}>{plan.sentence}</Text>
-          </View>
-        </View>
         </View>
         <View
           style={{
@@ -408,24 +410,22 @@ function FuelSignalRow({
     <View
       style={{
         alignItems: "center",
-        backgroundColor: fuelPalette.controlFill,
-        borderColor: fuelTint(tone, tone === "muted" ? "24" : "36"),
-        borderCurve: "continuous",
-        borderRadius: radii.tile,
-        borderWidth: 1,
+        backgroundColor: "transparent",
+        borderBottomColor: fuelPalette.cardLine,
+        borderBottomWidth: 1,
         flexDirection: "row",
         gap: spacing.md,
         minHeight: 66,
-        paddingHorizontal: spacing.md,
+        paddingHorizontal: 0,
         paddingVertical: spacing.sm
       }}
     >
       <View
         style={{
           alignItems: "center",
-          backgroundColor: fuelTint(tone, "16"),
-          borderColor: fuelTint(tone, "42"),
-          borderRadius: radii.pill,
+          backgroundColor: "rgba(39, 206, 241, 0.08)",
+          borderColor: fuelPalette.controlLine,
+          borderRadius: 4,
           borderWidth: 1,
           height: 38,
           justifyContent: "center",
@@ -521,11 +521,9 @@ function PriorityRow({
     <View
       style={{
         alignItems: "center",
-        backgroundColor: fuelPalette.controlFill,
-        borderColor: fuelTint(tone, "30"),
-        borderCurve: "continuous",
-        borderRadius: radii.tile,
-        borderWidth: 1,
+        backgroundColor: "transparent",
+        borderBottomColor: fuelPalette.cardLine,
+        borderBottomWidth: 1,
         flexDirection: "row",
         gap: spacing.md,
         minHeight: 62,
@@ -538,7 +536,7 @@ function PriorityRow({
           alignItems: "center",
           backgroundColor: fuelTint(tone, "18"),
           borderColor: fuelTint(tone, "42"),
-          borderRadius: radii.pill,
+          borderRadius: 4,
           borderWidth: 1,
           height: 36,
           justifyContent: "center",
@@ -599,7 +597,7 @@ function MacroGraphRow({ item }: { item: FuelDashboardVisual["macros"][number] }
         style={{
           backgroundColor: "rgba(255, 255, 255, 0.075)",
           borderColor: "rgba(255, 255, 255, 0.08)",
-          borderRadius: radii.pill,
+          borderRadius: 2,
           borderWidth: 1,
           height: 14,
           overflow: "hidden",
@@ -610,8 +608,7 @@ function MacroGraphRow({ item }: { item: FuelDashboardVisual["macros"][number] }
           <View
             style={{
               backgroundColor: color,
-              borderRadius: radii.pill,
-              boxShadow: `0 0 14px ${fuelTint(item.tone, "66")}`,
+              borderRadius: 2,
               height: "100%",
               width: `${fillPercent}%`
             }}
@@ -673,11 +670,9 @@ function FuelTimingCard({ viewModel }: { viewModel: FuelViewModel }) {
             key={`fuel-timing:${item.id}`}
             style={{
               alignItems: "flex-start",
-              backgroundColor: fuelPalette.controlFill,
-              borderColor: fuelPalette.cardLine,
-              borderCurve: "continuous",
-              borderRadius: radii.tile,
-              borderWidth: 1,
+              backgroundColor: "transparent",
+              borderBottomColor: fuelPalette.cardLine,
+              borderBottomWidth: 1,
               flexDirection: "row",
               gap: spacing.sm,
               padding: spacing.md
@@ -687,7 +682,7 @@ function FuelTimingCard({ viewModel }: { viewModel: FuelViewModel }) {
               style={{
                 alignItems: "center",
                 backgroundColor: fuelTint(item.id.includes("post") ? "purple" : "orange", "16"),
-                borderRadius: radii.pill,
+                borderRadius: 4,
                 height: 34,
                 justifyContent: "center",
                 width: 34
@@ -749,11 +744,9 @@ function WeightTrendInfoRow({
       accessibilityLabel={`${label}: ${value}. ${helper}`}
       style={{
         alignItems: "center",
-        backgroundColor: fuelPalette.controlFill,
-        borderColor: fuelTint(tone, tone === "muted" ? "26" : "3A"),
-        borderCurve: "continuous",
-        borderRadius: radii.tile,
-        borderWidth: 1,
+        backgroundColor: "transparent",
+        borderBottomColor: fuelPalette.cardLine,
+        borderBottomWidth: 1,
         flexDirection: "row",
         gap: spacing.md,
         minHeight: 74,
@@ -766,7 +759,7 @@ function WeightTrendInfoRow({
           alignItems: "center",
           backgroundColor: fuelTint(tone, "16"),
           borderColor: fuelTint(tone, "40"),
-          borderRadius: radii.pill,
+          borderRadius: 4,
           borderWidth: 1,
           height: 40,
           justifyContent: "center",
@@ -816,7 +809,7 @@ function WeightTrendCard({
               alignItems: "center",
               backgroundColor: fuelTint(trend.tone, "18"),
               borderColor: fuelTint(trend.tone, "45"),
-              borderRadius: radii.pill,
+              borderRadius: 4,
               borderWidth: 1,
               flexDirection: "row",
               gap: spacing.xs,
@@ -830,7 +823,7 @@ function WeightTrendCard({
             <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={1} style={{ color: colorForTone(trend.tone), flexShrink: 1, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{trend.label}</Text>
           </View>
         </View>
-        <TrendLineChart accent={trend.tone} height={154} points={trendPoints} testID="fuel-weight-trend-chart" width={320} />
+        <TrendLineChart accent="blue" editorial height={154} points={trendPoints} testID="fuel-weight-trend-chart" width={320} />
         <View style={{ gap: spacing.sm }}>
           <WeightTrendInfoRow
             helper={trendPointCount > 0 ? `Latest logged value: ${currentLabel}.` : "Log body weight manually if it feels safe and useful."}
@@ -852,8 +845,7 @@ function WeightTrendCard({
             alignItems: "flex-start",
             backgroundColor: fuelTint(trend.tone, "10"),
             borderColor: fuelTint(trend.tone, "2D"),
-            borderCurve: "continuous",
-            borderRadius: radii.tile,
+            borderRadius: 0,
             borderWidth: 1,
             flexDirection: "row",
             gap: spacing.sm,
@@ -887,8 +879,7 @@ function CutRunwayMetricTile({
       style={{
         backgroundColor: fuelPalette.controlFill,
         borderColor: fuelTint(tone, tone === "muted" ? "2A" : "3D"),
-        borderCurve: "continuous",
-        borderRadius: radii.tile,
+        borderRadius: 4,
         borderWidth: 1,
         flexBasis: 132,
         flexGrow: 1,
@@ -1000,7 +991,7 @@ function FuelDetailRow({
               alignItems: "center",
               backgroundColor: fuelTint(tone, "16"),
               borderColor: fuelTint(tone, "3D"),
-              borderRadius: radii.pill,
+              borderRadius: 4,
               borderWidth: 1,
               height: 38,
               justifyContent: "center",
@@ -1218,8 +1209,7 @@ function FuelStatusStrip({
       style={{
         backgroundColor: safety.active ? fuelTint(tone, "12") : theme.tile,
         borderColor: fuelTint(tone, "42"),
-        borderCurve: "continuous",
-        borderRadius: radii.tile,
+        borderRadius: 4,
         borderWidth: 1,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm
@@ -1270,7 +1260,7 @@ function FuelDetailsDisclosure({
               alignItems: "center",
               backgroundColor: fuelTint("orange", "16"),
               borderColor: fuelTint("orange", "42"),
-              borderRadius: radii.pill,
+              borderRadius: 4,
               borderWidth: 1,
               height: 38,
               justifyContent: "center",
@@ -1389,8 +1379,7 @@ function FuelLogActionSection({
                 alignItems: "center",
                 backgroundColor: pressed ? fuelPalette.controlFillPressed : fuelPalette.controlFill,
                 borderColor: fuelPalette.controlLine,
-                borderCurve: "continuous",
-                borderRadius: radii.control,
+                borderRadius: 5,
                 borderWidth: 1,
                 justifyContent: "center",
                 minHeight: 44,
@@ -1475,6 +1464,7 @@ function FuelOverview({
 }
 
 export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionSafetyReview, onFocusIntentApplied, preferredUnits = "metric", quickLogs, recentLogs, viewModel }: FuelScreenProps) {
+  const insets = useSafeAreaInsets();
   const [appliedFocusIntent, setAppliedFocusIntent] = React.useState<FuelFocusIntent | null>(null);
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const dashboard = buildFuelDashboardVisual(viewModel, recentLogs);
@@ -1514,8 +1504,10 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
   const openLogHydration = () => setAppliedFocusIntent("log_hydration");
 
   return (
-    <LuminousScreen accent="blue" testID="fuel-screen">
-      <ScreenHeader {...tabHeroHeaders.fuel} />
+    <>
+    <StatusBar backgroundColor="transparent" style="dark" translucent />
+    <LuminousScreen accent="blue" contentGap={0} immersiveHeader testID="fuel-screen">
+      <ScreenHeader {...tabHeroHeaders.fuel} immersive topInset={insets.top} />
       {showLogSection ? (
         <>
           <FuelLogActionSection busy={busy} onClose={closeLogSection} primaryLog={primaryLog} quickLogs={quickLogs} recentLogs={recentLogs} />
@@ -1540,5 +1532,6 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
         />
       )}
     </LuminousScreen>
+    </>
   );
 }

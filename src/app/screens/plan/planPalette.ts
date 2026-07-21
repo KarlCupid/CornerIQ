@@ -8,20 +8,20 @@ export const planPalette = {
   actionFill: "#27CEF1",
   actionFillPressed: "#20B9D9",
   actionShadow: "rgba(39, 206, 241, 0.16)",
-  cardLine: "rgba(216, 228, 230, 0.14)",
-  controlFill: "rgba(216, 228, 230, 0.055)",
-  controlFillPressed: "rgba(216, 228, 230, 0.095)",
-  controlLine: "rgba(216, 228, 230, 0.16)",
-  textBody: "#D8E4E6",
-  textMuted: "#9FAFB4",
-  textPrimary: "#F2EBE0",
+  cardLine: "rgba(205, 239, 247, 0.14)",
+  controlFill: "rgba(224, 244, 252, 0.055)",
+  controlFillPressed: "rgba(39, 206, 241, 0.13)",
+  controlLine: "rgba(205, 239, 247, 0.18)",
+  textBody: "#D7E7F4",
+  textMuted: "#A9BDD0",
+  textPrimary: "#F6FBFF",
   toneBlue: "#27CEF1",
-  toneGold: "#FFD861",
-  toneGreen: "#38E28A",
-  toneMuted: "#9FAFB4",
-  toneOrange: "#FF9448",
+  toneGold: "#78DFF3",
+  toneGreen: "#6FE5F6",
+  toneMuted: "#A9BDD0",
+  toneOrange: "#86E7F7",
   tonePurple: "#27CEF1",
-  toneRed: "#FF5265"
+  toneRed: "#FF6B75"
 } as const;
 
 export const planTextStyles = {

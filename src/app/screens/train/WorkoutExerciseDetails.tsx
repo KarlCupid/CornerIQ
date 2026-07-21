@@ -1,31 +1,18 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { Text as NativeText, View, type TextProps, type TextStyle } from "react-native";
 import type { DetailedTrainingSession } from "../../../engine/core/types";
-import { accentColor, accentWash, useLuminousScreenTheme } from "../../../design/components/LuminousScreen";
-import { glassStyles } from "../../../design/glass";
-import { colors, spacing } from "../../../design/theme";
+import { spacing } from "../../../design/theme";
+import { fontFamilies } from "../../../design/typography";
 import { plainSectionIntent, plainSectionName } from "../../../engine/presentation/trainingCopy";
 import { screenStyles } from "../screenStyles";
 import { ExercisePrescriptionCard } from "./ExercisePrescriptionCard";
+import { trainPalette } from "./trainPalette";
 
-function accentForSection(section: DetailedTrainingSession["sections"][number]): keyof typeof accentColor {
-  const searchable = `${section.name} ${section.intent} ${section.exercises.map((exercise) => `${exercise.name} ${exercise.category}`).join(" ")}`.toLowerCase();
-  if (/\b(warm|prep)\b/.test(searchable)) {
-    return "blue";
-  }
-  if (/\b(cooldown|reset|recovery|breathing)\b/.test(searchable)) {
-    return "green";
-  }
-  if (/\b(boxing|round|jab|guard|stance|footwork|ringcraft)\b/.test(searchable)) {
-    return "red";
-  }
-  if (/\b(mobility|range)\b/.test(searchable)) {
-    return "purple";
-  }
-  if (/\b(strength|support|power|durability)\b/.test(searchable)) {
-    return "orange";
-  }
-  return "blue";
+function Text({ style, ...props }: TextProps) {
+  const flattened = (Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean).map((item) => item && typeof item === "object" ? item : {})) : style) as TextStyle | undefined;
+  const weight = flattened?.fontWeight;
+  const fontFamily = weight === "800" || weight === "900" || weight === "bold" ? fontFamilies.bold : weight === "600" || weight === "700" ? fontFamilies.semibold : fontFamilies.regular;
+  return <NativeText {...props} style={[style, { fontFamily }]} />;
 }
 
 function WorkoutSectionCard({
@@ -35,39 +22,33 @@ function WorkoutSectionCard({
   index: number;
   section: DetailedTrainingSession["sections"][number];
 }) {
-  const theme = useLuminousScreenTheme();
-  const accent = accentForSection(section);
-  const blockColor = accentColor[accent];
-  const blockWash = accentWash[accent];
   return (
     <View
       style={{
-        ...glassStyles.card,
-        backgroundColor: theme.card,
-        borderColor: theme.cardBorder,
-        borderRadius: 20,
-        boxShadow: `0 18px 40px rgba(0, 0, 0, 0.34), 0 0 18px ${theme.strongGlow}`,
+        backgroundColor: "transparent",
+        borderBottomColor: trainPalette.cardLine,
+        borderBottomWidth: 1,
         gap: spacing.md,
-        padding: spacing.md
+        paddingVertical: spacing.lg
       }}
     >
       <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md }}>
         <View
           style={{
             alignItems: "center",
-            backgroundColor: blockWash,
-            borderColor: `${blockColor}66`,
-            borderRadius: 14,
+            backgroundColor: "rgba(39, 206, 241, 0.08)",
+            borderColor: trainPalette.actionFill,
+            borderRadius: 4,
             borderWidth: 1,
             height: 40,
             justifyContent: "center",
             width: 40
           }}
         >
-          <Text style={{ color: colors.canvas, fontSize: 14, fontWeight: "800", lineHeight: 18 }}>{String(index + 1).padStart(2, "0")}</Text>
+          <Text style={{ color: trainPalette.textPrimary, fontSize: 14, fontWeight: "800", lineHeight: 18 }}>{String(index + 1).padStart(2, "0")}</Text>
         </View>
         <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-          <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "800", lineHeight: 24 }}>{plainSectionName(section.name)}</Text>
+          <Text style={{ color: trainPalette.textPrimary, fontSize: 18, fontWeight: "800", lineHeight: 24 }}>{plainSectionName(section.name)}</Text>
           <Text style={screenStyles.subtle}>{section.durationMinutes} min - {plainSectionIntent(section.intent)}</Text>
         </View>
       </View>

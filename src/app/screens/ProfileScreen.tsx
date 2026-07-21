@@ -1,6 +1,8 @@
 import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Linking, Pressable, Text, TextInput, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { Linking, Pressable, Text as NativeText, TextInput, View, type TextProps, type TextStyle } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type {
   CycleViewModel,
   ISODateString,
@@ -12,13 +14,10 @@ import type {
   RecentLogsViewModel
 } from "../../engine/core/types";
 import { EmptyState } from "../../design/components/EmptyState";
+import { EditorialSurfaceProvider } from "../../design/components/EngineCard";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
-import { DashboardCard } from "../../design/components/PerformanceVisuals";
-import { GroupedMetricTiles } from "../../design/components/PremiumPrimitives";
-import { glassStyles } from "../../design/glass";
-import { useLuminousScreenTheme } from "../../design/luminousTheme";
-import { colors, radii, spacing } from "../../design/theme";
-import { typography } from "../../design/typography";
+import { colors, spacing } from "../../design/theme";
+import { fontFamilies, typography } from "../../design/typography";
 import { accountDeleteConfirmationMatches, appDataDeleteConfirmationMatches, type UserDataControlsHook } from "../../hooks/useUserDataControls";
 import { getReleaseLinkConfig } from "../../services/config/runtimeConfig";
 import type { ProfileSettingsDraft } from "../../services/supabase/onboardingService";
@@ -32,21 +31,63 @@ const profilePalette = {
   actionBorder: "rgba(39, 206, 241, 0.58)",
   actionFill: "#27CEF1",
   actionFillPressed: "#20B9D9",
-  cardLine: "rgba(216, 228, 230, 0.14)",
-  controlFill: "rgba(216, 228, 230, 0.055)",
-  controlFillPressed: "rgba(216, 228, 230, 0.095)",
-  controlLine: "rgba(216, 228, 230, 0.16)",
-  textBody: "#D8E4E6",
-  textMuted: "#9FAFB4",
-  textPrimary: "#F2EBE0",
+  cardLine: "rgba(205, 239, 247, 0.14)",
+  controlFill: "rgba(224, 244, 252, 0.055)",
+  controlFillPressed: "rgba(39, 206, 241, 0.13)",
+  controlLine: "rgba(205, 239, 247, 0.18)",
+  textBody: "#D7E7F4",
+  textMuted: "#A9BDD0",
+  textPrimary: "#F6FBFF",
   toneBlue: "#27CEF1",
-  toneGold: "#FFD861",
-  toneGreen: "#38E28A",
-  toneMuted: "#9FAFB4",
-  toneOrange: "#FF9448",
-  tonePurple: "#9657F5",
-  toneRed: "#FF5265"
+  toneGold: "#78DFF3",
+  toneGreen: "#6FE5F6",
+  toneMuted: "#A9BDD0",
+  toneOrange: "#86E7F7",
+  tonePurple: "#27CEF1",
+  toneRed: "#FF6B75"
 } as const;
+
+function flattenEditorialStyle(style: unknown): TextStyle {
+  if (Array.isArray(style)) return Object.assign({}, ...style.map(flattenEditorialStyle));
+  return style && typeof style === "object" ? style as TextStyle : {};
+}
+
+function Text({ style, ...props }: TextProps) {
+  const weight = Number.parseInt(String(flattenEditorialStyle(style).fontWeight ?? "400"), 10);
+  const fontFamily = weight >= 900 ? fontFamilies.black : weight >= 800 ? fontFamilies.extraBold : weight >= 700 ? fontFamilies.bold : weight >= 600 ? fontFamilies.semibold : weight >= 500 ? fontFamilies.medium : fontFamilies.regular;
+  return <NativeText {...props} style={[style, { fontFamily }]} />;
+}
+
+function DashboardCard({ children, footer, headerRight, testID, title }: React.PropsWithChildren<{ density?: unknown; footer?: React.ReactNode; headerRight?: React.ReactNode; testID?: string | undefined; title: string; titleVariant?: unknown }>) {
+  return (
+    <View style={{ backgroundColor: "transparent", borderBottomColor: profilePalette.cardLine, borderBottomWidth: 1, gap: spacing.md, paddingVertical: spacing.lg }} testID={testID}>
+      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
+        <Text style={{ color: profilePalette.toneBlue, flex: 1, fontSize: 12, fontWeight: "900", letterSpacing: 0.4, lineHeight: 16, textTransform: "uppercase" }}>{title}</Text>
+        {headerRight}
+      </View>
+      {children}
+      {footer}
+    </View>
+  );
+}
+
+function GroupedMetricTiles({ items, testID }: { items: readonly { icon?: keyof typeof Ionicons.glyphMap | undefined; label: string; meta?: string | undefined; tone?: ProfileVisualTone | undefined; value: string }[]; testID?: string | undefined }) {
+  return (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID={testID}>
+      {items.map((item) => {
+        const color = profileColorForTone(item.tone ?? "muted");
+        return (
+          <View accessibilityLabel={`${item.label}: ${item.value}${item.meta ? `. ${item.meta}` : ""}`} key={`profile-metric:${item.label}`} style={{ borderColor: profilePalette.controlLine, borderRadius: 4, borderWidth: 1, flexBasis: 138, flexGrow: 1, gap: spacing.xs, minHeight: 96, padding: spacing.md }}>
+            {item.icon ? <Ionicons color={color} name={item.icon} size={20} /> : null}
+            <Text style={{ color: profilePalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15, textTransform: "uppercase" }}>{item.label}</Text>
+            <Text style={{ color: profilePalette.textPrimary, fontSize: 17, fontWeight: "900", lineHeight: 21 }}>{item.value}</Text>
+            {item.meta ? <Text style={{ color: profilePalette.textMuted, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>{item.meta}</Text> : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
 const profileTextStyles = {
   body: { ...screenStyles.body, color: profilePalette.textBody },
@@ -157,12 +198,13 @@ function ProfileIconButton({
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => ({
-        ...glassStyles.control,
         alignItems: "center",
         backgroundColor: variant === "primary"
           ? pressed ? profilePalette.actionFillPressed : profilePalette.actionFill
           : pressed ? profilePalette.controlFillPressed : profilePalette.controlFill,
         borderColor: variant === "primary" ? profilePalette.actionBorder : profileTint(tone, "33"),
+        borderRadius: 5,
+        borderWidth: 1,
         boxShadow: "none",
         flexDirection: "row",
         gap: spacing.sm,
@@ -234,7 +276,7 @@ function AppInputRow({ item }: { item: ProfileAppInputViewModel }) {
           alignItems: "center",
           backgroundColor: profileTint(item.tone, "14"),
           borderColor: profileTint(item.tone, "38"),
-          borderRadius: radii.pill,
+          borderRadius: 4,
           borderWidth: 1,
           height: 30,
           justifyContent: "center",
@@ -293,7 +335,6 @@ function ProfileDisclosureSection({
   toggleTestID?: string | undefined;
   title: string;
 }>) {
-  const theme = useLuminousScreenTheme();
   const action = open ? "Hide" : "Show";
   const actionLabel = `${action} ${title}`;
   return (
@@ -304,11 +345,12 @@ function ProfileDisclosureSection({
         accessibilityState={{ expanded: open }}
         onPress={onToggle}
         style={({ pressed }) => ({
-          ...glassStyles.control,
           alignItems: "center",
           backgroundColor: pressed ? profilePalette.controlFillPressed : profilePalette.controlFill,
           borderColor: open ? profileTint(defaultTone, "42") : profilePalette.controlLine,
-          boxShadow: `0 8px 20px ${theme.strongGlow}`,
+          borderRadius: 5,
+          borderWidth: 1,
+          boxShadow: "none",
           flexDirection: "row",
           gap: spacing.sm,
           justifyContent: "space-between",
@@ -452,6 +494,7 @@ export function ProfileScreen({
   userDataControls,
   viewModel
 }: ProfileScreenProps) {
+  const insets = useSafeAreaInsets();
   const [fallbackDeleteConfirmation, setFallbackDeleteConfirmation] = React.useState("");
   const deleteConfirmation = userDataControls?.deleteConfirmation ?? fallbackDeleteConfirmation;
   const setDeleteConfirmation = userDataControls?.setDeleteConfirmation ?? setFallbackDeleteConfirmation;
@@ -502,8 +545,11 @@ export function ProfileScreen({
     : "Health notes, support path, and saved safety history.";
 
   return (
-    <LuminousScreen accent="blue" testID="profile-screen">
-      <ScreenHeader {...tabHeroHeaders.profile} />
+    <>
+    <StatusBar backgroundColor="transparent" style="dark" translucent />
+    <LuminousScreen accent="blue" contentGap={0} immersiveHeader testID="profile-screen">
+      <EditorialSurfaceProvider>
+      <ScreenHeader {...tabHeroHeaders.profile} immersive topInset={insets.top} />
 
       <View testID="profile-hero-card">
         <DashboardCard
@@ -513,7 +559,7 @@ export function ProfileScreen({
         >
           <View style={{ gap: spacing.md }}>
             <View style={{ gap: spacing.xs }}>
-              <Text style={{ color: profilePalette.textPrimary, fontSize: 21, fontWeight: "900", lineHeight: 26 }}>{viewModel.athleteSetup.contextLabel}</Text>
+              <Text style={{ color: profilePalette.textPrimary, fontSize: 30, fontWeight: "900", lineHeight: 34 }}>{viewModel.athleteSetup.contextLabel}</Text>
               {viewModel.athleteSetup.summaryLines.slice(0, 2).map((line) => (
                 <Text key={`profile-setup-line:${line}`} style={profileTextStyles.body}>{line}</Text>
               ))}
@@ -808,6 +854,8 @@ export function ProfileScreen({
         </DashboardCard>
         </ProfileDisclosureSection>
       </ProfileDisclosureSection>
+      </EditorialSurfaceProvider>
     </LuminousScreen>
+    </>
   );
 }

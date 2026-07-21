@@ -91,10 +91,10 @@ describe("fatigue-first UI copy density static checks", () => {
 
     for (const asset of [
       "tab-today-hero-v3.png",
-      "tab-train-hero.png",
-      "tab-fuel-hero.png",
-      "tab-plan-hero.png",
-      "tab-profile-hero.png"
+      "tab-train-hero-v2.png",
+      "tab-fuel-hero-v2.png",
+      "tab-plan-hero-v2.png",
+      "tab-profile-hero-v2.png"
     ]) {
       expect(heroSource).toContain(asset);
       expect(statSync(`assets/backgrounds/${asset}`).isFile()).toBe(true);
@@ -165,13 +165,37 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(todaySource).toContain("immersiveHeader");
     expect(todaySource).toContain("TodayEditorialSection");
     expect(todaySource).toContain('style="dark"');
+    const trainSource = readFileSync("src/app/screens/TrainScreen.tsx", "utf8");
+    const trainDetailSource = readFileSync("src/app/screens/train/WorkoutDetailPanel.tsx", "utf8");
+    const trainExerciseSource = readFileSync("src/app/screens/train/WorkoutExerciseDetails.tsx", "utf8");
+    expect(trainSource).toContain("immersiveHeader");
+    expect(trainSource).toContain("TrainEditorialSection");
+    expect(trainSource).toContain('contentGap={0}');
+    expect(trainSource).toContain('style="dark"');
+    expect(trainSource).not.toContain("DashboardCard");
+    expect(trainSource).not.toContain("GroupedMetricTiles");
+    expect(trainSource).not.toContain("PremiumTimelineRows");
+    expect(trainDetailSource).not.toContain("DashboardCard");
+    expect(trainExerciseSource).not.toContain("glassStyles");
+    const fuelSource = readFileSync("src/app/screens/FuelScreen.tsx", "utf8");
+    const planSource = readFileSync("src/app/screens/PlanScreen.tsx", "utf8");
+    const profileSource = readFileSync("src/app/screens/ProfileScreen.tsx", "utf8");
+    for (const source of [fuelSource, planSource, profileSource]) {
+      expect(source).toContain("immersiveHeader");
+      expect(source).toContain('contentGap={0}');
+      expect(source).toContain('style="dark"');
+    }
+    expect(fuelSource).toContain("FuelEditorialSection");
+    expect(planSource).toContain("PlanEditorialSection");
+    expect(planSource).toContain("EditorialSurfaceProvider");
+    expect(profileSource).toContain("EditorialSurfaceProvider");
 
     for (const asset of [
       "tab-today-hero-v3.png",
-      "tab-train-hero.png",
-      "tab-fuel-hero.png",
-      "tab-plan-hero.png",
-      "tab-profile-hero.png"
+      "tab-train-hero-v2.png",
+      "tab-fuel-hero-v2.png",
+      "tab-plan-hero-v2.png",
+      "tab-profile-hero-v2.png"
     ]) {
       expect(heroSource).toContain(asset);
       expect(statSync(`assets/backgrounds/${asset}`).isFile()).toBe(true);

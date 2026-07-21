@@ -12,7 +12,7 @@ export function StatusBadge({ label, tone: _tone = "neutral" }: { label: string;
         alignSelf: "flex-start",
         backgroundColor: "rgba(255, 255, 255, 0.075)",
         borderColor: "rgba(255, 255, 255, 0.16)",
-        borderRadius: 999,
+        borderRadius: 4,
         borderWidth: 1,
         justifyContent: "center",
         minHeight: 32,

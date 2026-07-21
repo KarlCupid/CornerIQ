@@ -434,14 +434,6 @@ async function expectTodayOverviewSurface(page: Page) {
 }
 
 async function openTab(page: Page, tabName: "Fuel" | "Profile" | "Train" | "Plan") {
-  if (tabName === "Profile") {
-    const todayTab = page.getByRole("tab", { name: "Today" });
-    if (await todayTab.count()) {
-      await todayTab.first().click();
-    }
-    await page.getByRole("button", { name: "Open account" }).click();
-    return;
-  }
   const tab = page.getByRole("tab", { name: tabName });
   if (await tab.count()) {
     await tab.first().click();

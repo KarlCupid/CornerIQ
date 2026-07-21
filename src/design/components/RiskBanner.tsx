@@ -1,8 +1,7 @@
 import React from "react";
 import type { PropsWithChildren } from "react";
 import { Text, View } from "react-native";
-import { useLuminousScreenTheme } from "../luminousTheme";
-import { colors, radii, spacing } from "../theme";
+import { colors, spacing } from "../theme";
 import { typography } from "../typography";
 import { StatusBadge, type StatusBadgeTone } from "./StatusBadge";
 
@@ -18,7 +17,6 @@ export function RiskBanner({
   title: string;
   tone?: Extract<StatusBadgeTone, "info" | "caution" | "critical"> | undefined;
 }>) {
-  const theme = useLuminousScreenTheme();
   const borderColor = tone === "critical" ? colors.redCorner : tone === "info" ? colors.blueIQ : colors.amberCaution;
   const resolvedStatusLabel = statusLabel ?? (tone === "critical" ? "Safety stop" : tone === "info" ? "Notice" : "Caution");
   return (
@@ -26,11 +24,11 @@ export function RiskBanner({
       accessibilityLabel={`${title}. ${message}`}
       accessibilityRole="alert"
       style={{
-        backgroundColor: theme.card,
+        backgroundColor: "rgba(224, 244, 252, 0.035)",
         borderColor,
-        borderRadius: radii.card,
+        borderRadius: 5,
         borderWidth: 1,
-        boxShadow: `0 18px 40px rgba(0, 0, 0, 0.34), 0 0 18px ${theme.strongGlow}`,
+        boxShadow: "none",
         gap: spacing.sm,
         padding: spacing.lg
       }}

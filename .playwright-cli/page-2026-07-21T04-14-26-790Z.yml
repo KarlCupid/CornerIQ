@@ -1,0 +1,271 @@
+- generic [ref=f3e552]:
+  - generic "Local E2E mode banner" [ref=f3e553]: "Local E2E mode: no Supabase connection, demo data only. Scenario: default. Date: 2026-05-19. Disable EXPO_PUBLIC_CORNERIQ_E2E_LOCAL for normal app use."
+  - generic [ref=f3e697]:
+    - generic [ref=f3e698]:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: CornerIQ
+                      - generic:
+                        - generic: Today
+                        - generic: Corner Brief
+                        - generic: A quick check-in before it points you into the day.
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: 01 / Readiness
+                          - generic: Today
+                        - generic:
+                          - generic: 
+                          - generic:
+                            - generic: Current status
+                            - generic: Caution
+                            - generic: Update check-in before guidance changes.
+                        - button:
+                          - generic: 
+                          - generic: Check in
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: Daily weight (optional)
+                        - generic: Log a morning scale reading when you have one. Skip it when you do not.
+                      - generic:
+                        - generic: Body weight
+                        - generic:
+                          - generic: Logged today
+                          - generic: "Today's body weight logged: 68 kg."
+                          - generic: "Why: Daily scale context improves trend confidence, but one value never becomes pressure to chase weight."
+                        - button:
+                          - generic: Update body weight
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: Training Today
+                          - generic: Easy roadwork
+                          - generic: Use the workout to stay sharp without adding extra fatigue.
+                        - generic: 53 min / Moderate
+                      - generic:
+                        - button:
+                          - generic: 
+                          - generic: View workout
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: 
+                        - generic:
+                          - generic: Fuel Status
+                          - generic: Fuel Today
+                          - generic: No active cut is running, but today's fuel is not confirmed.
+                      - generic:
+                        - generic: Missing fuel data stays unknown. Log food or water if anything changed.
+                        - button:
+                          - generic: 
+                          - generic: Log food
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: This Week
+                          - generic: This Week
+                          - generic: This week is about plan built 3 app sessions for standard balanced / full body strength.
+                        - generic: Week 1 - Build phase
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: Today - technical session (moderate)
+                            - generic: 45 min
+                        - generic:
+                          - generic:
+                            - generic: Wed - Easy roadwork
+                            - generic: 53 min
+                      - button:
+                        - generic: 
+                        - generic: View Plan
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: 0 logged days
+                          - generic: 0 min
+                        - generic:
+                          - generic:
+                            - generic: M
+                            - generic: T
+                            - generic: W
+                            - generic: T
+                            - generic: F
+                            - generic: S
+                            - generic: S
+                          - generic:
+                            - generic: Apr 22
+                            - generic: Apr 29
+                            - generic: May 6
+                            - generic: May 13
+                        - generic:
+                          - generic: Less
+                          - generic: More
+                      - generic: Only completed workout logs fill the grid. Missing days stay unknown until you log them.
+                  - generic:
+                    - generic:
+                      - generic:
+                        - button:
+                          - generic: 
+                          - generic:
+                            - generic: More today
+                            - generic: Status tiles, next action, quick logs, and recent logs.
+                          - generic: 
+                  - generic: "App note: Local E2E demo profile loaded. No Supabase writes occurred.. Existing plan stays visible."
+      - generic "profile screen screen" [ref=f3e919]:
+        - generic [ref=f3e920]:
+          - generic [ref=f3e921]:
+            - generic "Athlete Profile screen header" [ref=f3e922]:
+              - img "Athlete Profile screen header" [ref=f3e924]
+            - generic [ref=f3e925]:
+              - generic "CornerIQ" [ref=f3e926]
+              - generic [ref=f3e928]:
+                - generic [ref=f3e929]: Profile
+                - generic [ref=f3e930]: Athlete Profile
+                - generic [ref=f3e931]: Your setup, schedule, and controls.
+          - generic [ref=f3e934]:
+            - generic [ref=f3e935]:
+              - generic [ref=f3e936]: Athlete setup
+              - 'generic "Status: Ready" [ref=f3e937]': Ready
+            - generic [ref=f3e938]:
+              - generic [ref=f3e939]:
+                - generic [ref=f3e940]: Build - Week 1
+                - generic [ref=f3e941]: "Goal: Build."
+                - generic [ref=f3e942]: No active bout.
+              - generic [ref=f3e943]: As of 2026-05-19
+              - generic [ref=f3e944]: CornerIQ uses this setup to build your Plan, adjust Train, and guide Fuel.
+              - button "Edit setup" [ref=f3e945] [cursor=pointer]:
+                - generic [ref=f3e946]: 
+          - generic [ref=f3e948]:
+            - generic [ref=f3e949]: Setup snapshot
+            - generic [ref=f3e951]:
+              - 'generic "Equipment: Jump Rope, Bands" [ref=f3e952]':
+                - generic [ref=f3e953]: 
+                - generic [ref=f3e954]: Equipment
+                - generic [ref=f3e955]: Jump Rope, Bands
+              - 'generic "Schedule: 3 available days" [ref=f3e956]':
+                - generic [ref=f3e957]: 
+                - generic [ref=f3e958]: Schedule
+                - generic [ref=f3e959]: 3 available days
+              - 'generic "Units: Metric" [ref=f3e960]':
+                - generic [ref=f3e961]: 
+                - generic [ref=f3e962]: Units
+                - generic [ref=f3e963]: Metric
+              - 'generic "Cycle support: undecided" [ref=f3e964]':
+                - generic [ref=f3e965]: 
+                - generic [ref=f3e966]: Cycle support
+                - generic [ref=f3e967]: undecided
+          - generic [ref=f3e968]:
+            - generic [ref=f3e969]: Account essentials
+            - generic [ref=f3e971]:
+              - generic [ref=f3e972]: Privacy, terms, support, export, sign out, and clear account actions.
+              - generic [ref=f3e973]:
+                - button "Edit setup" [ref=f3e975] [cursor=pointer]:
+                  - generic [ref=f3e976]: 
+                - button "Change goal or schedule" [ref=f3e979] [cursor=pointer]:
+                  - generic [ref=f3e980]: 
+                - button "Shortcut privacy link" [ref=f3e983] [cursor=pointer]:
+                  - generic [ref=f3e984]: 
+                  - generic [ref=f3e985]: Open Privacy Policy
+                - button "Shortcut support link" [ref=f3e987] [cursor=pointer]:
+                  - generic [ref=f3e988]: 
+                  - generic [ref=f3e989]: Open Support
+                - button "Shortcut terms of use link" [ref=f3e991] [cursor=pointer]:
+                  - generic [ref=f3e992]: 
+                  - generic [ref=f3e993]: Open Terms of Use
+                - button "Shortcut data preview" [ref=f3e995] [cursor=pointer]:
+                  - generic [ref=f3e996]: 
+                  - generic [ref=f3e997]: Preview export
+                - button "Shortcut JSON bundle" [ref=f3e999] [cursor=pointer]:
+                  - generic [ref=f3e1000]: 
+                  - generic [ref=f3e1001]: Generate portable JSON export
+                - button "Shortcut account exit" [ref=f3e1003] [cursor=pointer]:
+                  - generic [ref=f3e1004]: 
+                  - generic [ref=f3e1005]: Sign out
+              - generic [ref=f3e1007]:
+                - generic [ref=f3e1008]: Delete account
+                - generic [ref=f3e1009]: "To permanently remove your CornerIQ account: preview/export your data, type DELETE ACCOUNT, then tap Delete account."
+                - generic [ref=f3e1010]: Delete app data removes user-owned app rows only. Delete account uses the trusted server-side account deletion function in normal signed-in mode. Local E2E never contacts Supabase.
+                - textbox "Shortcut identity removal confirmation" [ref=f3e1011]:
+                  - /placeholder: Type DELETE ACCOUNT to enable
+                - button "Shortcut identity removal" [disabled]:
+                  - generic [ref=f3e1012]: 
+                  - generic [ref=f3e1013]: Delete account
+                - generic [ref=f3e1015]: Delete app data only
+                - generic [ref=f3e1016]: This keeps your login but removes user-owned app rows. It requires an export preview and DELETE.
+                - generic [ref=f3e1017]: Preview export first to enable app-data deletion.
+                - textbox "Shortcut data removal confirmation" [ref=f3e1018]:
+                  - /placeholder: Type DELETE to enable
+                - button "Shortcut app data removal" [disabled]:
+                  - generic [ref=f3e1019]: 
+                  - generic [ref=f3e1020]: Delete app data only
+          - generic [ref=f3e1021]:
+            - button "Hide Profile details section" [ref=f3e1022] [cursor=pointer]:
+              - generic [ref=f3e1023]:
+                - generic [ref=f3e1024]: Hide Profile details
+                - generic [ref=f3e1025]: Setup details, health notes, privacy controls, and account actions.
+              - generic [ref=f3e1026]: 
+            - generic [ref=f3e1027]:
+              - button "Show Setup details section" [ref=f3e1029] [cursor=pointer]:
+                - generic [ref=f3e1030]:
+                  - generic [ref=f3e1031]: Show Setup details
+                  - generic [ref=f3e1032]: Inputs, units, schedule, and quick updates.
+                - generic [ref=f3e1033]: 
+              - button "Show Safety section" [ref=f3e1035] [cursor=pointer]:
+                - generic [ref=f3e1036]:
+                  - generic [ref=f3e1037]: Show Health & Safety
+                  - generic [ref=f3e1038]: Health notes, support path, and saved safety history.
+                - generic [ref=f3e1039]: 
+              - button "Show Data section" [ref=f3e1041] [cursor=pointer]:
+                - generic [ref=f3e1042]:
+                  - generic [ref=f3e1043]: Show Privacy & Data
+                  - generic [ref=f3e1044]: Export, privacy policy, terms, support, and delete controls.
+                - generic [ref=f3e1045]: 
+              - generic [ref=f3e1046]:
+                - button "Hide Account section" [ref=f3e1047] [cursor=pointer]:
+                  - generic [ref=f3e1048]:
+                    - generic [ref=f3e1049]: Hide Account
+                    - generic [ref=f3e1050]: Sign out and account session actions.
+                  - generic [ref=f3e1051]: 
+                - generic [ref=f3e1053]:
+                  - generic [ref=f3e1054]: Account
+                  - generic [ref=f3e1056]:
+                    - generic [ref=f3e1057]: Sign out of this device when you are done.
+                    - button "Sign out" [ref=f3e1058] [cursor=pointer]:
+                      - generic [ref=f3e1059]: 
+    - tablist [ref=f3e865]:
+      - tab "Today tab" [ref=f3e867] [cursor=pointer]:
+        - generic [ref=f3e868]:
+          - generic [ref=f3e869]: 
+          - generic [ref=f3e872]: 
+        - generic [ref=f3e875]: Today
+      - tab "Train tab" [ref=f3e877] [cursor=pointer]:
+        - generic [ref=f3e878]:
+          - generic [ref=f3e879]: 
+          - generic [ref=f3e882]: 
+        - generic [ref=f3e885]: Train
+      - tab "Fuel tab" [ref=f3e887] [cursor=pointer]:
+        - generic [ref=f3e888]:
+          - generic [ref=f3e889]: 
+          - generic [ref=f3e892]: 
+        - generic [ref=f3e895]: Fuel
+      - tab "Plan tab" [ref=f3e897] [cursor=pointer]:
+        - generic [ref=f3e898]:
+          - generic [ref=f3e899]: 
+          - generic [ref=f3e902]: 
+        - generic [ref=f3e905]: Plan
+      - tab "Profile tab" [active] [selected] [ref=f3e907] [cursor=pointer]:
+        - generic [ref=f3e908]:
+          - generic [ref=f3e909]: 
+          - generic [ref=f3e912]: 
+        - generic [ref=f3e915]: Profile

@@ -503,12 +503,14 @@ export function WorkoutLogContributionGrid({
 
 export function TrendLineChart({
   accent = "blue",
+  editorial = false,
   height = 128,
   points,
   testID,
   width = 280
 }: {
   accent?: VisualTone | undefined;
+  editorial?: boolean | undefined;
   height?: number | undefined;
   points: readonly TrendPoint[];
   testID?: string | undefined;
@@ -529,12 +531,14 @@ export function TrendLineChart({
           }
         }}
         style={{
-          ...glassStyles.tile,
+          ...(editorial ? {} : glassStyles.tile),
           alignItems: "center",
           alignSelf: "stretch",
-          backgroundColor: theme.tile,
+          backgroundColor: editorial ? "rgba(224, 244, 252, 0.035)" : theme.tile,
+          borderRadius: editorial ? 4 : undefined,
+          borderWidth: 1,
           borderColor: `${accentColor}2F`,
-          boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 28px rgba(0, 0, 0, 0.2), 0 0 18px ${toneWash[accent]}`,
+          boxShadow: editorial ? "none" : `inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 28px rgba(0, 0, 0, 0.2), 0 0 18px ${toneWash[accent]}`,
           gap: spacing.xs,
           minHeight: height,
           justifyContent: "center",
@@ -585,10 +589,12 @@ export function TrendLineChart({
     >
       <View
         style={{
-          ...glassStyles.tile,
-          backgroundColor: theme.tile,
+          ...(editorial ? {} : glassStyles.tile),
+          backgroundColor: editorial ? "rgba(224, 244, 252, 0.035)" : theme.tile,
+          borderRadius: editorial ? 4 : undefined,
+          borderWidth: 1,
           borderColor: `${accentColor}30`,
-          boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 26px rgba(0, 0, 0, 0.24), 0 0 18px ${toneWash[accent]}`,
+          boxShadow: editorial ? "none" : `inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 26px rgba(0, 0, 0, 0.24), 0 0 18px ${toneWash[accent]}`,
           height: plotHeight,
           overflow: "hidden",
           position: "relative",

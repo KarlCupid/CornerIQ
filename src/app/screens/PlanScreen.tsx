@@ -1,6 +1,7 @@
 import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View, type ImageSourcePropType, type ViewStyle } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text as NativeText, useWindowDimensions, View, type ImageSourcePropType, type TextProps, type TextStyle, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import agilityLadderIcon from "../../../assets/plan-calendar-icons/agility-ladder.png";
 import barbellIcon from "../../../assets/plan-calendar-icons/barbell.png";
@@ -20,12 +21,11 @@ import sparringIcon from "../../../assets/plan-calendar-icons/sparring.png";
 import stopwatchIcon from "../../../assets/plan-calendar-icons/stopwatch.png";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
-import { EngineCard } from "../../design/components/EngineCard";
+import { EditorialSurfaceProvider, EngineCard } from "../../design/components/EngineCard";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
-import { PremiumCard } from "../../design/components/PremiumPrimitives";
 import { RiskBanner } from "../../design/components/RiskBanner";
-import { glassStyles } from "../../design/glass";
-import { colors, radii, spacing } from "../../design/theme";
+import { colors, spacing } from "../../design/theme";
+import { fontFamilies } from "../../design/typography";
 import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
 import type { BuildGoalDraft, FightSetupDraft, ProtectedWorkoutDraft, RecurringProtectedWorkoutAnchorDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
@@ -87,6 +87,25 @@ const planCalendarIcons = {
 } satisfies Record<string, ImageSourcePropType>;
 
 type PlanCalendarIconName = keyof typeof planCalendarIcons;
+
+function flattenEditorialStyle(style: unknown): TextStyle {
+  if (Array.isArray(style)) return Object.assign({}, ...style.map(flattenEditorialStyle));
+  return style && typeof style === "object" ? style as TextStyle : {};
+}
+
+function Text({ style, ...props }: TextProps) {
+  const weight = Number.parseInt(String(flattenEditorialStyle(style).fontWeight ?? "400"), 10);
+  const fontFamily = weight >= 900 ? fontFamilies.black : weight >= 800 ? fontFamilies.extraBold : weight >= 700 ? fontFamilies.bold : weight >= 600 ? fontFamilies.semibold : weight >= 500 ? fontFamilies.medium : fontFamilies.regular;
+  return <NativeText {...props} style={[style, { fontFamily }]} />;
+}
+
+function PlanEditorialSection({ children, testID }: React.PropsWithChildren<{ testID?: string | undefined }>) {
+  return <View style={{ backgroundColor: "transparent", borderBottomColor: planPalette.cardLine, borderBottomWidth: 1, gap: spacing.md, paddingVertical: spacing.lg }} testID={testID}>{children}</View>;
+}
+
+function PremiumCard({ children, testID }: React.PropsWithChildren<{ accent?: unknown; density?: unknown; testID?: string | undefined }>) {
+  return <PlanEditorialSection testID={testID}>{children}</PlanEditorialSection>;
+}
 
 function DecorativeIcon(props: React.ComponentProps<typeof Ionicons>) {
   return <Ionicons {...props} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />;
@@ -478,7 +497,8 @@ function GeneratedSupportSummaryCard({
                 {
                   backgroundColor: pressed ? planPalette.actionFillPressed : planPalette.actionFill,
                   borderColor: planPalette.actionBorder,
-                  boxShadow: `0 12px 28px ${planPalette.actionShadow}`,
+                  borderRadius: 5,
+                  boxShadow: "none",
                   flexBasis: 150,
                   flexGrow: 1
                 }
@@ -499,7 +519,8 @@ function GeneratedSupportSummaryCard({
                 {
                   backgroundColor: pressed ? planPalette.actionFillPressed : planPalette.actionFill,
                   borderColor: planPalette.actionBorder,
-                  boxShadow: `0 12px 28px ${planPalette.actionShadow}`,
+                  borderRadius: 5,
+                  boxShadow: "none",
                   flexBasis: 160,
                   flexGrow: 1,
                   opacity: busy || !nextWeekActionsAvailable || preview.requiresReview ? 0.55 : 1
@@ -683,10 +704,10 @@ function PlanGoalWizardModal({
           accessibilityViewIsModal
           style={[
             {
-              ...glassStyles.cardDeep,
-              backgroundColor: "rgba(12, 18, 35, 0.98)",
-              borderColor: "rgba(255, 255, 255, 0.22)",
-              borderRadius: compact ? 28 : radii.card,
+              backgroundColor: "rgba(6, 19, 24, 0.99)",
+              borderColor: planPalette.controlLine,
+              borderRadius: 5,
+              borderWidth: 1,
               maxHeight: maxPanelHeight,
               maxWidth: 700,
               overflow: "hidden",
@@ -717,7 +738,7 @@ function PlanTonePill({ label, tone: _tone = "green" }: { label: string; tone?: 
       numberOfLines={2}
       style={{
         alignSelf: "flex-start",
-        color: colors.wrap,
+        color: planPalette.toneBlue,
         fontSize: 12,
         fontWeight: "800",
         lineHeight: 16,
@@ -757,13 +778,14 @@ function PlanButton({
         {
           backgroundColor: primary ? (pressed ? planPalette.actionFillPressed : planPalette.actionFill) : pressed ? planPalette.controlFillPressed : planPalette.controlFill,
           borderColor: primary ? planPalette.actionBorder : planPalette.controlLine,
-          boxShadow: disabled ? "none" : primary ? `0 12px 28px ${planPalette.actionShadow}` : "none",
+          borderRadius: 5,
+          boxShadow: "none",
           flexBasis: primary ? 190 : 150,
           flexDirection: "row",
           flexGrow: 1,
           flexShrink: 1,
           gap: spacing.xs,
-          minHeight: 52,
+          minHeight: primary ? 52 : 44,
           minWidth: 0,
           opacity: disabled ? 0.55 : 1,
           paddingHorizontal: primary ? spacing.md : spacing.sm
@@ -808,7 +830,7 @@ function PlanCutRunwayCard({ viewModel }: { viewModel: PlanViewModel }) {
               style={{
                 backgroundColor: planPalette.controlFill,
                 borderColor: planTint(metric.tone, metric.tone === "muted" ? "2A" : "3D"),
-                borderRadius: radii.tile,
+                borderRadius: 4,
                 borderWidth: 1,
                 flexBasis: 126,
                 flexGrow: 1,
@@ -841,7 +863,7 @@ function WeekReviewStrip({ viewModel }: { viewModel: PlanViewModel }) {
       style={{
         backgroundColor: planTint(tone, "12"),
         borderColor: planTint(tone, "42"),
-        borderRadius: radii.tile,
+        borderRadius: 4,
         borderWidth: 1,
         gap: 5,
         padding: spacing.md
@@ -920,7 +942,7 @@ function PlanObjectiveCard({
               alignItems: "center",
               backgroundColor: planTint("blue", "18"),
               borderColor: planTint("blue", "42"),
-              borderRadius: radii.pill,
+              borderRadius: 4,
               borderWidth: 1,
               height: 48,
               justifyContent: "center",
@@ -1015,14 +1037,12 @@ function PlanWeekSummaryCard({
       <View style={{ gap: spacing.md }} testID="plan-hero-card">
         <View style={{ alignItems: "center", flexDirection: "row", gap: 10 }}>
           <View style={{ flex: 1, gap: 2, minWidth: 120 }}>
-            <Text numberOfLines={2} style={{ color: planPalette.toneBlue, fontSize: 13, fontWeight: "900", lineHeight: 16 }}>
-              {viewModel.modeLabel}
-            </Text>
-            <Text numberOfLines={1} style={{ color: planPalette.textPrimary, fontSize: 23, fontWeight: "900", lineHeight: 28 }}>
+            <Text numberOfLines={1} style={{ color: planPalette.toneBlue, fontSize: 12, fontWeight: "900", letterSpacing: 0.4, lineHeight: 16, textTransform: "uppercase" }}>01 / This week</Text>
+            <Text numberOfLines={1} style={{ color: planPalette.textPrimary, fontSize: 30, fontWeight: "900", lineHeight: 34 }}>
               Week {viewModel.blockProgress.currentWeek}
             </Text>
             <Text numberOfLines={2} style={{ color: planPalette.textMuted, fontSize: 14, fontWeight: "600", lineHeight: 18 }}>
-              {viewModel.blockProgress.currentWeek} of {viewModel.blockProgress.totalWeeks} weeks
+              {viewModel.modeLabel} · {viewModel.blockProgress.currentWeek} of {viewModel.blockProgress.totalWeeks} weeks
             </Text>
           </View>
           <View style={{ backgroundColor: planPalette.cardLine, height: 72, width: 1 }} />
@@ -1069,7 +1089,7 @@ function PlanUpcomingSessionsCard({ viewModel }: { viewModel: PlanViewModel }) {
                       alignItems: "center",
                       backgroundColor: planTint(row.tone, "18"),
                       borderColor: planTint(row.tone, "70"),
-                      borderRadius: radii.pill,
+                      borderRadius: 4,
                       borderWidth: 1,
                       height: 36,
                       justifyContent: "center",
@@ -1153,9 +1173,10 @@ function WeekAtAGlanceContent({ viewModel }: { viewModel: PlanViewModel }) {
           <View
             key={`plan-week-day:${day.date}`}
             style={{
-              ...glassStyles.tile,
               backgroundColor: tone === "muted" ? planPalette.controlFill : planTint(tone, "10"),
               borderColor: tone === "muted" ? planPalette.controlLine : planTint(tone, "44"),
+              borderRadius: 4,
+              borderWidth: 1,
               flex: 1,
               gap: spacing.xs,
               justifyContent: "space-between",
@@ -1174,7 +1195,7 @@ function WeekAtAGlanceContent({ viewModel }: { viewModel: PlanViewModel }) {
                 alignItems: "center",
                 backgroundColor: tone === "muted" ? "rgba(255, 255, 255, 0.06)" : planTint(tone, "18"),
                 borderColor: tone === "muted" ? planPalette.controlLine : planTint(tone, "36"),
-                borderRadius: radii.pill,
+                borderRadius: 4,
                 borderWidth: 1,
                 height: 38,
                 justifyContent: "center",
@@ -1186,7 +1207,7 @@ function WeekAtAGlanceContent({ viewModel }: { viewModel: PlanViewModel }) {
             <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={[planTextStyles.subtle, { fontSize: 10, lineHeight: 12, textAlign: "center" }]}>
               {metric}
             </Text>
-            <View style={{ backgroundColor: planPalette.controlLine, borderRadius: radii.pill, height: 6, overflow: "hidden" }}>
+            <View style={{ backgroundColor: planPalette.controlLine, borderRadius: 2, height: 6, overflow: "hidden" }}>
               <View style={{ backgroundColor: color, height: "100%", width: planDayLoadWidth(day.compactTag, metric, day.fuelDemand) }} />
             </View>
           </View>
@@ -1221,7 +1242,7 @@ function PlanCalendarDayTile({
       style={{
         backgroundColor: tone === "muted" ? planPalette.controlFill : planTint(tone, "10"),
         borderColor: tone === "muted" ? planPalette.controlLine : planTint(tone, "3D"),
-        borderRadius: radii.tile,
+        borderRadius: 4,
         borderWidth: 1,
         flexBasis: 132,
         flexGrow: 1,
@@ -1240,7 +1261,7 @@ function PlanCalendarDayTile({
             alignItems: "center",
             backgroundColor: tone === "muted" ? "rgba(255, 255, 255, 0.06)" : planTint(tone, "18"),
             borderColor: tone === "muted" ? planPalette.controlLine : planTint(tone, "3D"),
-            borderRadius: radii.pill,
+            borderRadius: 4,
             borderWidth: 1,
             height: 46,
             justifyContent: "center",
@@ -1256,7 +1277,7 @@ function PlanCalendarDayTile({
       <Text numberOfLines={2} style={planTextStyles.subtle}>
         {detail}
       </Text>
-      <View style={{ backgroundColor: planPalette.controlLine, borderRadius: radii.pill, height: 7, marginTop: "auto", overflow: "hidden" }}>
+      <View style={{ backgroundColor: planPalette.controlLine, borderRadius: 2, height: 7, marginTop: "auto", overflow: "hidden" }}>
         <View style={{ backgroundColor: color, height: "100%", width: loadWidth }} />
       </View>
     </View>
@@ -1349,7 +1370,7 @@ function PlanWeekColorLegend() {
           <View
             style={{
               backgroundColor: planToneColors[item.tone],
-              borderRadius: radii.pill,
+              borderRadius: 2,
               height: 7,
               opacity: item.tone === "muted" ? 0.62 : 1,
               width: 7
@@ -1392,7 +1413,7 @@ function PlanWeekTicker({
       style={{
         backgroundColor: planPalette.controlFill,
         borderColor: planPalette.controlLine,
-        borderRadius: radii.card,
+        borderRadius: 4,
         borderWidth: 1,
         gap: spacing.md,
         padding: spacing.md
@@ -1548,6 +1569,7 @@ export function PlanScreen({
   onSaveTournamentSetup,
   viewModel
 }: PlanScreenProps) {
+  const insets = useSafeAreaInsets();
   const [activeWorkspace, setActiveWorkspace] = React.useState<PlanActiveWorkspace>("overview");
   const [previewDetailsOpen, setPreviewDetailsOpen] = React.useState(false);
   const [planCalendarOpen, setPlanCalendarOpen] = React.useState(false);
@@ -1652,8 +1674,11 @@ export function PlanScreen({
   }
 
   return (
-    <LuminousScreen accent="blue" testID="plan-screen">
-      <ScreenHeader {...tabHeroHeaders.plan} />
+    <>
+    <StatusBar backgroundColor="transparent" style="dark" translucent />
+    <LuminousScreen accent="blue" contentGap={0} immersiveHeader testID="plan-screen">
+      <EditorialSurfaceProvider>
+      <ScreenHeader {...tabHeroHeaders.plan} immersive topInset={insets.top} />
       <ThisWeeksPlanCard
         busy={busy}
         calendarOpen={planCalendarOpen}
@@ -1683,6 +1708,8 @@ export function PlanScreen({
       <PlanGoalWizardModal busy={goalBusy} onClose={closeActiveWorkspace} visible={goalWizardOpen}>
         {goalWizardContent}
       </PlanGoalWizardModal>
+      </EditorialSurfaceProvider>
     </LuminousScreen>
+    </>
   );
 }

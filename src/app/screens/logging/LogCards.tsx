@@ -43,14 +43,13 @@ const scaleValues: readonly ScaleValue[] = ["1", "2", "3", "4", "5"];
 const KG_PER_LB = 0.45359237;
 
 const fuelLogSurface = {
-  actionFill: "rgba(148, 88, 54, 0.34)",
-  actionBorder: "rgba(217, 160, 112, 0.54)",
-  actionShadow: "rgba(119, 69, 38, 0.28)",
-  controlFill: "rgba(244, 230, 207, 0.064)",
-  controlLine: "rgba(222, 190, 150, 0.18)",
-  textBody: "#D8D0C3",
-  textMuted: "#AFA595",
-  textPrimary: "#F4EFE8"
+  actionFill: "#27CEF1",
+  actionBorder: "rgba(39, 206, 241, 0.58)",
+  controlFill: "rgba(224, 244, 252, 0.055)",
+  controlLine: "rgba(205, 239, 247, 0.18)",
+  textBody: "#D7E7F4",
+  textMuted: "#A9BDD0",
+  textPrimary: "#F6FBFF"
 } as const;
 
 const todayLogSurface = {
@@ -85,6 +84,7 @@ function flattenEditorialStyle(style: unknown): TextStyle {
 
 function Text({ style, ...props }: TextProps) {
   const surface = React.useContext(QuickLogSurfaceContext);
+  const editorialSurface = surface === "today" || surface === "fuel";
   const flattened = flattenEditorialStyle(style);
   const todayColor =
     flattened.color === colors.canvas || flattened.color === colors.readyGreen
@@ -97,7 +97,7 @@ function Text({ style, ...props }: TextProps) {
   return (
     <NativeText
       {...props}
-      style={surface === "today" ? [style, { color: todayColor, fontFamily: editorialFontForStyle(flattened) }] : style}
+      style={editorialSurface ? [style, { color: todayColor, fontFamily: editorialFontForStyle(flattened) }] : style}
     />
   );
 }
@@ -131,7 +131,7 @@ const todayQuietTextStyle: TextStyle = {
 
 function ToggleButton({ active, busy, compact = false, label, onPress }: { active: boolean; busy: boolean; compact?: boolean | undefined; label: string; onPress: () => void }) {
   const surface = React.useContext(QuickLogSurfaceContext);
-  const todaySurface = surface === "today";
+  const todaySurface = surface === "today" || surface === "fuel";
   return (
     <Pressable
       accessibilityLabel={label}
@@ -219,7 +219,15 @@ function DailyLogFrame({
 
 function FrameOrPlain({ children, framed = true, surface = "default" }: React.PropsWithChildren<{ framed?: boolean | undefined; surface?: QuickLogSurface | undefined }>) {
   const content = <View style={{ gap: spacing.sm }}>{children}</View>;
-  return <QuickLogSurfaceContext.Provider value={surface}>{framed ? <EngineCard>{content}</EngineCard> : content}</QuickLogSurfaceContext.Provider>;
+  const editorial = surface === "today" || surface === "fuel";
+  return <QuickLogSurfaceContext.Provider value={surface}>{framed ? editorial ? <View style={{ borderBottomColor: todayLogSurface.controlLine, borderBottomWidth: 1, gap: spacing.sm, paddingVertical: spacing.lg }}>{content}</View> : <EngineCard>{content}</EngineCard> : content}</QuickLogSurfaceContext.Provider>;
+}
+
+function QuickLogCardFrame({ children, surface }: React.PropsWithChildren<{ surface: QuickLogSurface }>) {
+  if (surface === "today" || surface === "fuel") {
+    return <View style={{ borderBottomColor: todayLogSurface.controlLine, borderBottomWidth: 1, gap: spacing.sm, paddingVertical: spacing.lg }}>{children}</View>;
+  }
+  return <EngineCard>{children}</EngineCard>;
 }
 
 function InputLabel({ children }: { children: React.ReactNode }) {
@@ -242,7 +250,7 @@ function CompactField({
   value: string;
 }) {
   const surface = React.useContext(QuickLogSurfaceContext);
-  const todaySurface = surface === "today";
+  const todaySurface = surface === "today" || surface === "fuel";
   return (
     <View style={{ flexBasis: compact ? 132 : 148, flexGrow: 1, gap: spacing.xs, minWidth: compact ? 118 : 132 }}>
       <InputLabel>{label}</InputLabel>
@@ -284,7 +292,7 @@ function ScaleSegmentedControl({
   value: string;
 }) {
   const surface = React.useContext(QuickLogSurfaceContext);
-  const todaySurface = surface === "today";
+  const todaySurface = surface === "today" || surface === "fuel";
   return (
     <View style={[{ gap: spacing.xs }, style]}>
       <InputLabel>{label}</InputLabel>
@@ -547,13 +555,13 @@ export function HydrationLogCard({ actions, busy, compact = false, framed, onLog
                 ? {
                     backgroundColor: fuelLogSurface.actionFill,
                     borderColor: fuelLogSurface.actionBorder,
-                    borderRadius: radii.pill,
-                    boxShadow: `0 12px 28px ${fuelLogSurface.actionShadow}`
+                    borderRadius: 5,
+                    boxShadow: "none"
                   }
                 : surface === "today" ? todayActionStyle() : null
             ]}
           >
-            <Text style={[screenStyles.buttonText, fuelSurface ? { color: fuelLogSurface.textPrimary } : surface === "today" ? todayActionTextStyle : null]}>{busy ? "Saving water..." : actionLabel}</Text>
+            <Text style={[screenStyles.buttonText, fuelSurface ? todayActionTextStyle : surface === "today" ? todayActionTextStyle : null]}>{busy ? "Saving water..." : actionLabel}</Text>
           </Pressable>
           <Pressable
             accessibilityLabel={moreFieldsOpen ? "Hide more hydration fields" : "Show more hydration fields"}
@@ -589,7 +597,7 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions, surface = "de
 
   return (
     <QuickLogSurfaceContext.Provider value={surface}>
-    <EngineCard>
+    <QuickLogCardFrame surface={surface}>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Cycle</Text>
         <Text style={screenStyles.subtle}>Optional and private. Log enough for today; this is for symptoms and training context, not fertility tracking.</Text>
@@ -639,7 +647,7 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions, surface = "de
           <Text style={[screenStyles.buttonText, surface === "today" ? todayActionTextStyle : null]}>{busy ? "Saving cycle..." : "Log cycle"}</Text>
         </Pressable>
       </View>
-    </EngineCard>
+    </QuickLogCardFrame>
     </QuickLogSurfaceContext.Provider>
   );
 }
@@ -658,7 +666,7 @@ export function FoodQuickLogCard({ actions, busy, status, surface = "default" }:
   const fuelSurface = surface === "fuel";
   return (
     <QuickLogSurfaceContext.Provider value={surface}>
-    <EngineCard>
+    <QuickLogCardFrame surface={surface}>
       <View style={{ gap: spacing.sm }}>
         <Text style={[screenStyles.sectionTitle, fuelSurface ? { color: fuelLogSurface.textPrimary, fontWeight: "800" } : null]}>Log food</Text>
         <Text style={[screenStyles.body, fuelSurface ? { color: fuelLogSurface.textBody } : null]}>Add a meal, snack, or day total.</Text>
@@ -724,13 +732,13 @@ export function FoodQuickLogCard({ actions, busy, status, surface = "default" }:
                 ? {
                     backgroundColor: fuelLogSurface.actionFill,
                     borderColor: fuelLogSurface.actionBorder,
-                    borderRadius: radii.pill,
-                    boxShadow: `0 12px 28px ${fuelLogSurface.actionShadow}`
+                    borderRadius: 5,
+                    boxShadow: "none"
                   }
                 : null
             ]}
           >
-            <Text style={[screenStyles.buttonText, fuelSurface ? { color: fuelLogSurface.textPrimary } : null]}>{busy ? "Saving food..." : "Log food"}</Text>
+            <Text style={[screenStyles.buttonText, fuelSurface ? todayActionTextStyle : null]}>{busy ? "Saving food..." : "Log food"}</Text>
           </Pressable>
           <Pressable
             accessibilityLabel={moreFieldsOpen ? "Hide more food fields" : "Show more food fields"}
@@ -748,12 +756,12 @@ export function FoodQuickLogCard({ actions, busy, status, surface = "default" }:
           </Pressable>
         </View>
       </View>
-    </EngineCard>
+    </QuickLogCardFrame>
     </QuickLogSurfaceContext.Provider>
   );
 }
 
-export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
+export function ProtectedWorkoutLogCard({ actions, busy, surface = "default" }: QuickLogCardProps) {
   const [logKind, setLogKind] = useState<"completed" | "planned">("completed");
   const [type, setType] = useState<"technical_session" | "pads_mitts" | "bag_work" | "sparring" | "roadwork" | "coach_assigned_strength" | "recovery_day">("technical_session");
   const [durationMinutes, setDurationMinutes] = useState("");
@@ -771,16 +779,17 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
     coach_assigned_strength: "assigned strength",
     recovery_day: "recovery day"
   };
-  return (
-    <EngineCard>
+  const editorial = surface === "today";
+  const editorialInputStyle = editorial ? { backgroundColor: todayLogSurface.controlFill, borderColor: todayLogSurface.controlLine, borderRadius: 5, color: todayLogSurface.textPrimary, fontFamily: fontFamilies.medium } : null;
+  const content = (
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Training log</Text>
         <Text style={screenStyles.body}>Log the signals CornerIQ can use. Completed sessions update history; planned sessions become fixed boxing commitments.</Text>
         <View
           style={{
-            backgroundColor: "rgba(255, 255, 255, 0.05)",
-            borderColor: "rgba(255, 255, 255, 0.14)",
-            borderRadius: radii.tile,
+            backgroundColor: editorial ? "transparent" : "rgba(255, 255, 255, 0.05)",
+            borderColor: editorial ? todayLogSurface.controlLine : "rgba(255, 255, 255, 0.14)",
+            borderRadius: editorial ? 5 : radii.tile,
             borderWidth: 1,
             gap: spacing.sm,
             padding: spacing.md
@@ -807,16 +816,16 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
           ))}
         </View>
         <InputLabel>Duration (minutes)</InputLabel>
-        <TextInput keyboardType="number-pad" onChangeText={setDurationMinutes} placeholder="Duration minutes" placeholderTextColor={colors.wrap} style={screenStyles.input} value={durationMinutes} />
+        <TextInput keyboardType="number-pad" onChangeText={setDurationMinutes} placeholder="Duration minutes" placeholderTextColor={editorial ? todayLogSurface.textMuted : colors.wrap} style={[screenStyles.input, editorialInputStyle]} value={durationMinutes} />
         <InputLabel>Session RPE (1-10)</InputLabel>
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.subtle}>Use RPE instead of easy/moderate/hard labels: 1-3 easy, 4-6 moderate, 7-8 hard, 9-10 max.</Text>
-          <TextInput keyboardType="number-pad" onChangeText={setSessionRpe} placeholder="Session RPE 1-10" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sessionRpe} />
+          <TextInput keyboardType="number-pad" onChangeText={setSessionRpe} placeholder="Session RPE 1-10" placeholderTextColor={editorial ? todayLogSurface.textMuted : colors.wrap} style={[screenStyles.input, editorialInputStyle]} value={sessionRpe} />
         </View>
         <InputLabel>Rounds completed or planned (optional)</InputLabel>
-        <TextInput keyboardType="number-pad" onChangeText={setRounds} placeholder="Rounds optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={rounds} />
+        <TextInput keyboardType="number-pad" onChangeText={setRounds} placeholder="Rounds optional" placeholderTextColor={editorial ? todayLogSurface.textMuted : colors.wrap} style={[screenStyles.input, editorialInputStyle]} value={rounds} />
         <InputLabel>Note: pain, quality, missed work, or schedule context (optional)</InputLabel>
-        <TextInput onChangeText={setNote} placeholder="Pain, quality, missed work, or reason optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={note} />
+        <TextInput onChangeText={setNote} placeholder="Pain, quality, missed work, or reason optional" placeholderTextColor={editorial ? todayLogSurface.textMuted : colors.wrap} style={[screenStyles.input, editorialInputStyle]} value={note} />
         <Pressable
           accessibilityLabel={busy ? "Saving training log" : logKind === "completed" ? "Log completed session" : "Save planned session"}
           accessibilityRole="button"
@@ -847,11 +856,15 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
               );
             })
           }
-          style={screenStyles.button}
+          style={[screenStyles.button, editorial ? todayActionStyle() : null]}
         >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving training..." : logKind === "completed" ? "Log completed session" : "Save planned session"}</Text>
+          <Text style={[screenStyles.buttonText, editorial ? todayActionTextStyle : null]}>{busy ? "Saving training..." : logKind === "completed" ? "Log completed session" : "Save planned session"}</Text>
         </Pressable>
       </View>
-    </EngineCard>
+  );
+  return (
+    <QuickLogSurfaceContext.Provider value={surface}>
+      {editorial ? content : <EngineCard>{content}</EngineCard>}
+    </QuickLogSurfaceContext.Provider>
   );
 }

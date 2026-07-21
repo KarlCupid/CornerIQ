@@ -1,0 +1,386 @@
+- generic [ref=f2e4]:
+  - generic "Local E2E mode banner" [ref=f2e5]: "Local E2E mode: no Supabase connection, demo data only. Scenario: default. Date: 2026-05-19. Disable EXPO_PUBLIC_CORNERIQ_E2E_LOCAL for normal app use."
+  - generic [ref=f2e149]:
+    - generic [ref=f2e150]:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: CornerIQ
+                      - generic:
+                        - generic: Today
+                        - generic: Corner Brief
+                        - generic: A quick check-in before it points you into the day.
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: 01 / Readiness
+                          - generic: Today
+                        - generic:
+                          - generic: 
+                          - generic:
+                            - generic: Current status
+                            - generic: Caution
+                            - generic: Update check-in before guidance changes.
+                        - button:
+                          - generic: 
+                          - generic: Check in
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: Daily weight (optional)
+                        - generic: Log a morning scale reading when you have one. Skip it when you do not.
+                      - generic:
+                        - generic: Body weight
+                        - generic:
+                          - generic: Logged today
+                          - generic: "Today's body weight logged: 68 kg."
+                          - generic: "Why: Daily scale context improves trend confidence, but one value never becomes pressure to chase weight."
+                        - button:
+                          - generic: Update body weight
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: Training Today
+                          - generic: Easy roadwork
+                          - generic: Use the workout to stay sharp without adding extra fatigue.
+                        - generic: 53 min / Moderate
+                      - generic:
+                        - button:
+                          - generic: 
+                          - generic: View workout
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: 
+                        - generic:
+                          - generic: Fuel Status
+                          - generic: Fuel Today
+                          - generic: No active cut is running, but today's fuel is not confirmed.
+                      - generic:
+                        - generic: Missing fuel data stays unknown. Log food or water if anything changed.
+                        - button:
+                          - generic: 
+                          - generic: Log food
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: This Week
+                          - generic: This Week
+                          - generic: This week is about plan built 3 app sessions for standard balanced / full body strength.
+                        - generic: Week 1 - Build phase
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: Today - technical session (moderate)
+                            - generic: 45 min
+                        - generic:
+                          - generic:
+                            - generic: Wed - Easy roadwork
+                            - generic: 53 min
+                      - button:
+                        - generic: 
+                        - generic: View Plan
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: 0 logged days
+                          - generic: 0 min
+                        - generic:
+                          - generic:
+                            - generic: M
+                            - generic: T
+                            - generic: W
+                            - generic: T
+                            - generic: F
+                            - generic: S
+                            - generic: S
+                          - generic:
+                            - generic: Apr 22
+                            - generic: Apr 29
+                            - generic: May 6
+                            - generic: May 13
+                        - generic:
+                          - generic: Less
+                          - generic: More
+                      - generic: Only completed workout logs fill the grid. Missing days stay unknown until you log them.
+                  - generic:
+                    - generic:
+                      - generic:
+                        - button:
+                          - generic: 
+                          - generic:
+                            - generic: More today
+                            - generic: Status tiles, next action, quick logs, and recent logs.
+                          - generic: 
+                  - generic: "App note: Local E2E demo profile loaded. No Supabase writes occurred.. Existing plan stays visible."
+      - generic "train screen screen" [ref=f2e371]:
+        - generic [ref=f2e372]:
+          - generic [ref=f2e373]:
+            - generic "Session Brief screen header" [ref=f2e374]:
+              - img "Session Brief screen header" [ref=f2e376]
+            - generic [ref=f2e377]:
+              - generic "CornerIQ" [ref=f2e378]
+              - generic [ref=f2e380]:
+                - generic [ref=f2e381]: Train
+                - generic [ref=f2e382]: Session Brief
+                - generic [ref=f2e383]: Your boxing session and the work around it.
+          - generic [ref=f2e385]:
+            - generic [ref=f2e386]: Past workout to resolve
+            - generic [ref=f2e387]:
+              - generic [ref=f2e388]:
+                - generic [ref=f2e389]: Leg strength
+                - generic [ref=f2e390]: This support workout was planned for 2026-05-18. Resolve that planned day, move it to today, or leave it unknown.
+                - generic [ref=f2e391]: Lift - 52 min - Moderate
+                - generic [ref=f2e392]: Today's workout and future previews stay separate below.
+              - generic [ref=f2e393]:
+                - button "Did it" [ref=f2e395] [cursor=pointer]
+                - button "Missed it" [ref=f2e398] [cursor=pointer]
+                - button "Do it today" [ref=f2e401] [cursor=pointer]
+                - button "Not sure" [ref=f2e404] [cursor=pointer]
+          - generic [ref=f2e407]:
+            - generic [ref=f2e408]:
+              - generic [ref=f2e409]: 01 / Today's session
+              - generic [ref=f2e410]: Easy roadwork
+              - generic [ref=f2e411]: "Function: Build repeatable breathing and round-to-round recovery while keeping posture and movement controlled."
+            - generic [ref=f2e412]:
+              - 'generic "Status: 53 min" [ref=f2e413]':
+                - generic [ref=f2e414]: 
+                - generic [ref=f2e415]: 53 min
+              - 'generic "Status: Moderate" [ref=f2e416]':
+                - generic [ref=f2e417]: 
+                - generic [ref=f2e418]: Moderate
+              - 'generic "Status: Non-contact" [ref=f2e419]':
+                - generic [ref=f2e420]: 
+                - generic [ref=f2e421]: Non-contact
+            - button "View session" [active] [ref=f2e422] [cursor=pointer]:
+              - generic [ref=f2e423]:
+                - generic [ref=f2e424]: 
+                - generic [ref=f2e425]: View session
+            - button "View details " [ref=f2e427] [cursor=pointer]:
+              - generic [ref=f2e428]: View details
+              - generic [ref=f2e429]: 
+            - generic [ref=f2e430]: "Future preview: scheduled for 2026-05-20. Keep it on that date unless you move it from Plan."
+          - generic [ref=f2e431]:
+            - generic [ref=f2e432]: Session Plan
+            - generic [ref=f2e433]:
+              - generic [ref=f2e434]:
+                - generic [ref=f2e435]: "01"
+                - generic [ref=f2e436]: Warm-up
+                - generic [ref=f2e437]: 8 min
+              - generic [ref=f2e438]:
+                - generic [ref=f2e439]: "02"
+                - generic [ref=f2e440]: aerobic base work
+                - generic [ref=f2e441]: 35 min
+              - generic [ref=f2e442]:
+                - generic [ref=f2e443]: "03"
+                - generic [ref=f2e444]: Cooldown
+                - generic [ref=f2e445]: 10 min
+          - generic [ref=f2e446]:
+            - generic [ref=f2e447]: Session signals
+            - generic [ref=f2e448]:
+              - 'generic "Duration: 53 min" [ref=f2e449]':
+                - generic [ref=f2e450]:
+                  - generic [ref=f2e451]: 
+                  - generic [ref=f2e452]: Duration
+                - generic [ref=f2e453]: 53 min
+              - 'generic "Intensity: Moderate" [ref=f2e454]':
+                - generic [ref=f2e455]:
+                  - generic [ref=f2e456]: 
+                  - generic [ref=f2e457]: Intensity
+                - generic [ref=f2e458]: Moderate
+              - 'generic "Fuel: Eat before" [ref=f2e459]':
+                - generic [ref=f2e460]:
+                  - generic [ref=f2e461]: 
+                  - generic [ref=f2e462]: Fuel
+                - generic [ref=f2e463]: Eat before
+              - 'generic "Readiness: Caution" [ref=f2e464]':
+                - generic [ref=f2e465]:
+                  - generic [ref=f2e466]: 
+                  - generic [ref=f2e467]: Readiness
+                - generic [ref=f2e468]: Caution
+          - generic [ref=f2e533]:
+            - button "Hide details" [ref=f2e535] [cursor=pointer]
+            - generic [ref=f2e537]:
+              - generic [ref=f2e538]: Before You Start
+              - generic [ref=f2e539]:
+                - generic [ref=f2e540]:
+                  - generic [ref=f2e541]: Fuel check
+                  - generic [ref=f2e542]: Use normal meals and fluids before training; add carbs if the session runs long.
+                  - generic [ref=f2e543]: No food log today.
+                - generic [ref=f2e544]:
+                  - generic [ref=f2e545]: Hydration check
+                  - generic [ref=f2e546]: Hydration logging supports normal confidence.
+                  - generic [ref=f2e547]: Use a real water/sodium log if you want the engine to raise confidence.
+                - generic [ref=f2e548]:
+                  - generic [ref=f2e549]: Readiness
+                  - generic [ref=f2e550]: "Amber readiness: keep the start controlled, cap effort before strain, and downshift if symptoms appear."
+                - generic [ref=f2e551]:
+                  - generic [ref=f2e552]: Downshift if
+                  - generic [ref=f2e553]: Downshift if dizziness, fainting, chest pain, unusual pain, coordination drop, or abnormal fatigue appears.
+                  - generic [ref=f2e554]: Make the next block easier before technique breaks.
+                - generic [ref=f2e555]:
+                  - generic [ref=f2e556]: Stop if
+                  - generic [ref=f2e557]: Stop if symptoms sharpen or range decreases.
+                  - generic [ref=f2e558]: Safety beats completing the prescription.
+                - generic [ref=f2e559]:
+                  - generic [ref=f2e560]: Coach's note
+                  - generic [ref=f2e561]: Keep speed, posture, timing, and breathing clean.
+            - generic [ref=f2e564]:
+              - generic [ref=f2e565]: Workout Details
+              - generic [ref=f2e566]:
+                - generic [ref=f2e567]: "Future preview: scheduled for 2026-05-20. Keep it on that date unless you move it from Plan."
+                - generic [ref=f2e568]: Local E2E demo profile loaded. No Supabase writes occurred.
+                - button "Hide Exercise Details" [ref=f2e569] [cursor=pointer]:
+                  - generic [ref=f2e570]:
+                    - generic [ref=f2e571]: Exercise Details
+                    - generic [ref=f2e572]: Recipe summary with optional full rows
+                  - generic [ref=f2e573]: Hide
+                - generic [ref=f2e574]:
+                  - generic [ref=f2e575]:
+                    - generic [ref=f2e576]: Workout recipe
+                    - generic [ref=f2e577]: Short recipe view. Open full rows only when you need every set, load, swap, and stop note.
+                  - generic [ref=f2e578]:
+                    - generic [ref=f2e579]:
+                      - generic [ref=f2e580]: Duration
+                      - generic [ref=f2e581]: 53 min
+                    - generic [ref=f2e582]:
+                      - generic [ref=f2e583]: Blocks
+                      - generic [ref=f2e584]: "3"
+                    - generic [ref=f2e585]:
+                      - generic [ref=f2e586]: Moves
+                      - generic [ref=f2e587]: "3"
+                    - generic [ref=f2e588]:
+                      - generic [ref=f2e589]: Equipment
+                      - generic [ref=f2e590]: no equipment
+                  - generic [ref=f2e591]:
+                    - generic [ref=f2e592]:
+                      - generic [ref=f2e593]:
+                        - generic [ref=f2e594]: "01"
+                        - generic [ref=f2e595]: Warm-up
+                        - generic [ref=f2e596]: 8 min
+                      - generic [ref=f2e597]: Raise temperature and cap effort before conditioning so movement stays repeatable.
+                      - generic [ref=f2e598]:
+                        - generic [ref=f2e599]: Easy walk or step
+                        - generic [ref=f2e601]: Ankle circles
+                        - generic [ref=f2e603]: Hip hinges
+                    - generic [ref=f2e605]:
+                      - generic [ref=f2e606]:
+                        - generic [ref=f2e607]: "02"
+                        - generic [ref=f2e608]: aerobic base work
+                        - generic [ref=f2e609]: 35 min
+                      - generic [ref=f2e610]: Keep the pace controlled.
+                      - generic [ref=f2e611]: run aerobic base
+                    - generic [ref=f2e614]:
+                      - generic [ref=f2e615]:
+                        - generic [ref=f2e616]: "03"
+                        - generic [ref=f2e617]: Cooldown
+                        - generic [ref=f2e618]: 10 min
+                      - generic [ref=f2e619]: Finish easy.
+                      - generic [ref=f2e620]: Hip and ankle mobility flow
+                  - button "Show full exercise rows" [ref=f2e623] [cursor=pointer]
+                - button "Show Why This Session" [ref=f2e625] [cursor=pointer]:
+                  - generic [ref=f2e626]:
+                    - generic [ref=f2e627]: Why This Session
+                    - generic [ref=f2e628]: Aim, quality cue, and decision signal
+                  - generic [ref=f2e629]: Show
+                - button "Show Adjust Today" [ref=f2e630] [cursor=pointer]:
+                  - generic [ref=f2e631]:
+                    - generic [ref=f2e632]: Adjust Today
+                    - generic [ref=f2e633]: Concrete downshift and stop rules
+                  - generic [ref=f2e634]: Show
+                - button "Show Quick Log" [disabled]:
+                  - generic [ref=f2e635]:
+                    - generic [ref=f2e636]: Quick Log
+                    - generic [ref=f2e637]: Available on the planned day
+                  - generic [ref=f2e638]: Show
+            - generic [ref=f2e640]:
+              - generic [ref=f2e641]: Log Other Training
+              - generic [ref=f2e642]: Add boxing class, roadwork, lifting, or coach-assigned work outside the player.
+              - generic [ref=f2e643]: Duration and RPE update training load. Rounds and notes help protect future boxing volume, pain decisions, and schedule conflicts.
+              - button "Show training log" [ref=f2e644] [cursor=pointer]
+            - generic [ref=f2e646]:
+              - generic [ref=f2e647]: Training Schedule Debug
+              - button "Show debug" [ref=f2e649] [cursor=pointer]
+          - generic [ref=f2e469]: Local E2E demo profile loaded. No Supabase writes occurred.
+          - generic [ref=f2e470]:
+            - generic [ref=f2e471]: This Week
+            - generic [ref=f2e472]: "Theme: full body strength"
+            - generic [ref=f2e473]:
+              - generic [ref=f2e475]:
+                - generic [ref=f2e476]: "120"
+                - generic [ref=f2e477]: "90"
+                - generic [ref=f2e478]: "60"
+                - generic [ref=f2e479]: "30"
+              - generic [ref=f2e495]:
+                - generic [ref=f2e496]: Mon
+                - generic [ref=f2e497]: Tue
+                - generic [ref=f2e498]: Wed
+                - generic [ref=f2e499]: Thu
+                - generic [ref=f2e500]: Fri
+                - generic [ref=f2e501]: Sat
+                - generic [ref=f2e502]: Sun
+              - generic [ref=f2e503]: 7-day support view
+            - generic [ref=f2e504]:
+              - generic [ref=f2e505]:
+                - generic [ref=f2e506]: Mon
+                - generic [ref=f2e507]: Open
+                - generic [ref=f2e508]: No support session
+              - generic [ref=f2e509]:
+                - generic [ref=f2e510]: Tue
+                - generic [ref=f2e511]: Open
+                - generic [ref=f2e512]: No support session
+              - generic [ref=f2e513]:
+                - generic [ref=f2e514]: Wed
+                - generic [ref=f2e515]: Easy roadwork
+                - generic [ref=f2e516]: 53 min - Moderate
+              - generic [ref=f2e517]:
+                - generic [ref=f2e518]: Thu
+                - generic [ref=f2e519]: Open
+                - generic [ref=f2e520]: No support session
+              - generic [ref=f2e521]:
+                - generic [ref=f2e522]: Fri
+                - generic [ref=f2e523]: Open
+                - generic [ref=f2e524]: No support session
+              - generic [ref=f2e525]:
+                - generic [ref=f2e526]: Sat
+                - generic [ref=f2e527]: Jab in and out
+                - generic [ref=f2e528]: 33 min - Moderate
+              - generic [ref=f2e529]:
+                - generic [ref=f2e530]: Sun
+                - generic [ref=f2e531]: Open
+                - generic [ref=f2e532]: No support session
+    - tablist [ref=f2e317]:
+      - tab "Today tab" [ref=f2e319] [cursor=pointer]:
+        - generic [ref=f2e320]:
+          - generic [ref=f2e321]: 
+          - generic [ref=f2e324]: 
+        - generic [ref=f2e327]: Today
+      - tab "Train tab" [selected] [ref=f2e329] [cursor=pointer]:
+        - generic [ref=f2e330]:
+          - generic [ref=f2e331]: 
+          - generic [ref=f2e334]: 
+        - generic [ref=f2e337]: Train
+      - tab "Fuel tab" [ref=f2e339] [cursor=pointer]:
+        - generic [ref=f2e340]:
+          - generic [ref=f2e341]: 
+          - generic [ref=f2e344]: 
+        - generic [ref=f2e347]: Fuel
+      - tab "Plan tab" [ref=f2e349] [cursor=pointer]:
+        - generic [ref=f2e350]:
+          - generic [ref=f2e351]: 
+          - generic [ref=f2e354]: 
+        - generic [ref=f2e357]: Plan
+      - tab "Profile tab" [ref=f2e359] [cursor=pointer]:
+        - generic [ref=f2e360]:
+          - generic [ref=f2e361]: 
+          - generic [ref=f2e364]: 
+        - generic [ref=f2e367]: Profile
