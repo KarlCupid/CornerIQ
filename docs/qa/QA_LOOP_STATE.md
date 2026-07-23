@@ -8,17 +8,17 @@ The full-codebase technical and scientific audit is tracked separately through `
 
 | Field | Value |
 | --- | --- |
-| Current QA phase | fixed_needs_verification |
-| Last commit tested | 2026-07-23 release fix pass in the uncommitted working tree on top of `053465cc17a0e294f99d4b0a22ccbd56f2bfcc57` (`053465c`); exact candidate SHA will be recorded by generated release evidence after commit. |
-| Last QA run result | Fix-pass typecheck, lint, quality, beta preflight, Expo Doctor, 915 tests with one opt-in live DB test skipped, coverage, and the complete 11-journey agent QA bundle passed. Plan confirmation isolation, Balanced review semantics, workout-player status-bar selection, Profile equipment formatting, and the missing Expo native dependency are fixed. Exact-SHA GitHub Actions, an EAS iOS artifact, and physical-device acceptance remain to be completed. |
+| Current QA phase | needs_human_review |
+| Last commit tested | 2026-07-23 release candidate `94b8682f55c0491997aef52321047631a05071fa` (`94b8682`) on `codex/development`. |
+| Last QA run result | Exact-SHA local evidence passes typecheck, lint, quality, beta preflight, Expo Doctor, 915 tests with one opt-in live DB test skipped, coverage, and the complete 11-journey agent QA bundle. Exact-SHA GitHub Quality and CodeQL both pass. Plan/Profile fixes are verified. EAS iOS internal distribution is blocked before upload by missing suitable ad-hoc credentials and an expired Apple session; physical-device acceptance and credentialed live Supabase auth/persistence remain open. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last generated release evidence path | qa-artifacts/release-evidence/current-release-evidence.md (generated artifact; not stored in this committed state file) |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
-| Current open blocker count | 0 in the requested non-paywall scope. RevenueCat/App Store purchase configuration is explicitly deferred by the release owner. |
+| Current open blocker count | 2 external: Apple/EAS signing credentials for an installable iOS preview, and a populated dedicated Supabase smoke account. RevenueCat/App Store purchase configuration is explicitly deferred by the release owner. |
 | Current open high count | 2 external-evidence items: live auth/persistence smoke needs a populated dedicated Supabase smoke account, and physical-iPhone acceptance requires a real device. |
-| Current required-medium count | 1: exact-candidate GitHub Actions evidence. The dependency notices are reviewed and the remaining moderate Expo build-tool notices are accepted for a controlled framework upgrade. |
-| Next recommended action | Commit and push the verified candidate without merging, require exact-SHA Quality/CodeQL passes, create the EAS iOS preview artifact, and run the physical-iPhone checklist. |
-| Launch readiness decision | not_ready |
+| Current required-medium count | 0. Exact-candidate GitHub Actions passes; remaining moderate Expo build-tool notices are accepted for a controlled framework upgrade. |
+| Next recommended action | Refresh the Apple/EAS signing session without sharing credentials, create the ad-hoc iOS preview, run the physical-iPhone checklist, and populate a dedicated Supabase smoke account to complete live auth/persistence/runtime-RLS checks. |
+| Launch readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
 
@@ -37,7 +37,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | quality | automated_pass | Passed on 2026-07-23. |
 | coverage | automated_pass | Passed on 2026-07-23: statements 87.79, functions 89.70, lines 87.79, branches 83.49. |
 | production preflight | automated_pass | Normal and beta preflight pass. Apple paid-build/RevenueCat checks are outside this owner-approved candidate scope and remain deferred rather than represented as completed. |
-| GitHub Actions quality | needs_fix | GitHub returned no combined status and no PR-triggered workflow run for `053465c`; exact-commit remote evidence is required. |
+| GitHub Actions quality | verified | Exact candidate `94b8682f55c0491997aef52321047631a05071fa` passed push-triggered Quality run `30052197047` and CodeQL run `30052197035` on 2026-07-23. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
 | agent QA CI | verified | The final corrected bundle passes static checks, typecheck, 915 tests (1 opt-in live smoke skipped), lint, production preflight, 11 Playwright journeys, engine-output review, deterministic analysis, and bundle generation. The browser audit covers eight mobile Plan-wizard states. |
 | Expo Doctor | verified | 18/18 checks pass after declaring `expo-asset` directly and adding its Expo config plugin. |
@@ -245,7 +245,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | EAS project initialized | automated_pass | `app.json` links EAS project `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`; `npx eas-cli project:info --non-interactive` verified `@karlcupid/corneriq` on 2026-06-03. |
-| preview build artifact exists | fixed_needs_verification | EAS authentication and project linkage pass; an exact candidate iOS preview build will be started after the candidate commit is clean and pushed. |
+| preview build artifact exists | blocked | Exact candidate `94b8682` was submitted to the EAS preview flow, but EAS stopped before upload because no credentials suitable for internal distribution exist. Interactive recovery reached the saved Apple ID, found its local Apple session expired, and required the account password; the run was stopped without collecting or exposing credentials. |
 | paid Apple build configuration | deferred | Explicitly excluded from this pass by the release owner; no RevenueCat/App Store Connect purchase configuration was touched. |
 | live purchase and restore | deferred | Explicitly excluded from this pass by the release owner because it is attached to live builds. |
 | private distribution list controlled | human_review_required | Managed outside git. |
