@@ -221,7 +221,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
   return (
     <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }}>
       <NavigationContainer ref={navigationRef}>
-        <StatusBar style="dark" />
+        <StatusBar style={playerScreenVisible ? "light" : "dark"} />
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,

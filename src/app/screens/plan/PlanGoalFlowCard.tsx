@@ -986,7 +986,7 @@ export function PlanGoalFlowCard({
     await saveWithPlanRegeneration(async () => {
       await onSaveBuildGoal({
         primaryFocus,
-        subFocus,
+        ...(primaryFocus === "balanced" ? {} : { subFocus }),
         trainingDose,
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
@@ -1122,7 +1122,11 @@ export function PlanGoalFlowCard({
         `Training dose: ${trainingDoseLabel(trainingDose)}`
       ];
     }
-    return [`Primary focus: ${primaryFocusLabel(primaryFocus)}`, `Specific target: ${subFocusLabel(subFocus)}`, `Training dose: ${trainingDoseLabel(trainingDose)}`];
+    return [
+      `Primary focus: ${primaryFocusLabel(primaryFocus)}`,
+      ...(primaryFocus === "balanced" ? [] : [`Specific target: ${subFocusLabel(subFocus)}`]),
+      `Training dose: ${trainingDoseLabel(trainingDose)}`
+    ];
   }, [allowanceKg, amateurOrPro, boutDate, contractedWeightKg, dailyWeighIns, effectiveBodyMassContext.currentWeightLabel, mode, numberOfPotentialBouts, possibleBoutDates, primaryFocus, recoveryDurationDays, recoveryFocus, status, strategyMode, subFocus, tournamentEndDate, tournamentStartDate, trainingDose, weighInType]);
 
   const availabilitySummary = selectedAvailableDays.length > 0
@@ -1146,7 +1150,7 @@ export function PlanGoalFlowCard({
         ? mode === "build" ? "Choose your support dose and main workout goal." : mode === "tournament" ? "Add the timing and strategy details that shape this tournament." : "Add the confirmed information for this fight."
         : "Review your plan details before we generate it.";
   const confirmationContent = (
-    <View accessibilityLabel="Plan generation wizard" style={{ padding: spacing.lg }} testID="plan-generation-wizard">
+    <View accessibilityLabel="Plan generation wizard" style={{ backgroundColor: wizardPalette.canvas, padding: spacing.lg }} testID="plan-generation-wizard">
       <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
         <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
           <Text style={{ color: colors.blueIQ, fontFamily: fontFamilies.black, fontSize: 12, letterSpacing: 0.4, lineHeight: 16 }}>CREATE A NEW PLAN</Text>

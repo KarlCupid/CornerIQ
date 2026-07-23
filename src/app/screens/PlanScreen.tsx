@@ -671,20 +671,21 @@ function PlanGoalWizardModal({
     <Modal
       animationType="fade"
       onRequestClose={closeIfReady}
-      presentationStyle="overFullScreen"
-      transparent
+      presentationStyle="fullScreen"
       visible
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{
           alignItems: "center",
+          backgroundColor: "#03060F",
           flex: 1,
           justifyContent: "center",
           paddingBottom: modalPaddingBottom,
           paddingHorizontal: spacing.lg,
           paddingTop: modalPaddingTop
         }}
+        testID="plan-goal-wizard-backdrop"
       >
         <Pressable
           accessibilityElementsHidden
@@ -692,7 +693,7 @@ function PlanGoalWizardModal({
           importantForAccessibility="no-hide-descendants"
           onPress={closeIfReady}
           style={{
-            backgroundColor: "rgba(3, 6, 15, 0.88)",
+            backgroundColor: "transparent",
             bottom: 0,
             left: 0,
             position: "absolute",
@@ -720,10 +721,12 @@ function PlanGoalWizardModal({
           testID="plan-goal-wizard-modal"
         >
           <ScrollView
-            contentContainerStyle={{ flexGrow: 1 }}
+            contentContainerStyle={{ backgroundColor: "#F7F3EC", flexGrow: 1 }}
             keyboardShouldPersistTaps="handled"
             ref={scrollRef}
             showsVerticalScrollIndicator={false}
+            style={{ backgroundColor: "#F7F3EC" }}
+            testID="plan-goal-wizard-scroll"
           >
             {children}
           </ScrollView>

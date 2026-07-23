@@ -8,17 +8,17 @@ The full-codebase technical and scientific audit is tracked separately through `
 
 | Field | Value |
 | --- | --- |
-| Current QA phase | needs_human_review |
-| Last commit tested | 2026-06-30 AI comprehension fix pass in the uncommitted working tree on top of `e7fc92e9cf57ea861e09ad4f290e93ec01b1f92c` (`e7fc92e`). |
-| Last QA run result | 2026-06-30 AI comprehension fix verification: `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, `cmd /c npm run preflight:beta`, and `cmd /c npm run qa:agent:ci` passed. The fix pass addressed Train date/action disambiguation, fixed coach/team sparring framing, Fuel command tone, icon glyph page-text cleanup, and engine-output confidence formatting. `qa:agent:ci` passed static checks, typecheck, full unit suite, lint, production preflight, browser audit, engine-output review, deterministic analysis, and bundle generation. |
+| Current QA phase | fixed_needs_verification |
+| Last commit tested | 2026-07-23 release fix pass in the uncommitted working tree on top of `053465cc17a0e294f99d4b0a22ccbd56f2bfcc57` (`053465c`); exact candidate SHA will be recorded by generated release evidence after commit. |
+| Last QA run result | Fix-pass typecheck, lint, quality, beta preflight, Expo Doctor, 915 tests with one opt-in live DB test skipped, coverage, and the complete 11-journey agent QA bundle passed. Plan confirmation isolation, Balanced review semantics, workout-player status-bar selection, Profile equipment formatting, and the missing Expo native dependency are fixed. Exact-SHA GitHub Actions, an EAS iOS artifact, and physical-device acceptance remain to be completed. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last generated release evidence path | qa-artifacts/release-evidence/current-release-evidence.md (generated artifact; not stored in this committed state file) |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
-| Current open blocker count | 0 |
-| Current open high count | 0 |
-| Current required-medium count | 0 AI comprehension Medium fix findings remain open after the verified fix pass; physical iPhone, live Supabase/email confirmation, GitHub Actions on the eventual pushed commit, and real boxer review remain human-required. |
-| Next recommended action | Have the release owner review the fixed Train/Fuel/Plan/Onboarding comprehension surfaces, then complete physical iPhone, live Supabase/email, and GitHub Actions evidence. Apple paid-build warnings for paywall/RevenueCat iOS env remain intentionally uncleared in this automated pass. |
-| Launch readiness decision | needs_human_review |
+| Current open blocker count | 0 in the requested non-paywall scope. RevenueCat/App Store purchase configuration is explicitly deferred by the release owner. |
+| Current open high count | 2 external-evidence items: live auth/persistence smoke needs a populated dedicated Supabase smoke account, and physical-iPhone acceptance requires a real device. |
+| Current required-medium count | 1: exact-candidate GitHub Actions evidence. The dependency notices are reviewed and the remaining moderate Expo build-tool notices are accepted for a controlled framework upgrade. |
+| Next recommended action | Commit and push the verified candidate without merging, require exact-SHA Quality/CodeQL passes, create the EAS iOS preview artifact, and run the physical-iPhone checklist. |
+| Launch readiness decision | not_ready |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
 
@@ -30,16 +30,18 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| npm install | automated_pass | `cmd /c npm install` passed on 2026-06-30; npm reported dependencies up to date and 13 existing audit advisories (1 low, 12 moderate). |
-| typecheck | automated_pass | `cmd /c npm run typecheck` passed on 2026-06-30 directly, inside `quality`, and inside `qa:agent:ci`. |
-| tests | automated_pass | `cmd /c npm test` passed on 2026-06-30 after focused regression runs; 845 tests passed and 1 live DB smoke test skipped. Coverage included the AI comprehension copy and evidence-format fixes. |
-| lint | automated_pass | `cmd /c npm run lint` passed on 2026-06-30 directly and inside `qa:agent:ci`. |
-| quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-30; embedded typecheck and tests passed with 845 tests passed and 1 skipped. |
-| coverage | automated_pass | `cmd /c npm run test:coverage` passed on 2026-06-19; statements 90.22, functions 90.51, lines 90.22, branches 85.38. |
-| production preflight | automated_pass | `cmd /c npm run preflight:production` inside `qa:agent:ci` and `cmd /c npm run preflight:beta` passed on 2026-06-30; Apple paid-build warnings remain for paywall and RevenueCat iOS env values. |
-| GitHub Actions quality | human_review_required | Exact Quality run evidence is required for the pushed commit. |
+| npm install | automated_pass | `cmd /c npm install` passed on 2026-07-23; npm reported 1 low development notice and 10 moderate production-tree notices. |
+| typecheck | automated_pass | Passed directly, inside `quality`, and inside `qa:agent:ci` on 2026-07-23. |
+| tests | automated_pass | 915 tests passed and one opt-in live DB smoke test was skipped on 2026-07-23. |
+| lint | automated_pass | Passed inside `qa:agent:ci` on 2026-07-23. |
+| quality | automated_pass | Passed on 2026-07-23. |
+| coverage | automated_pass | Passed on 2026-07-23: statements 87.79, functions 89.70, lines 87.79, branches 83.49. |
+| production preflight | automated_pass | Normal and beta preflight pass. Apple paid-build/RevenueCat checks are outside this owner-approved candidate scope and remain deferred rather than represented as completed. |
+| GitHub Actions quality | needs_fix | GitHub returned no combined status and no PR-triggered workflow run for `053465c`; exact-commit remote evidence is required. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
-| agent QA CI | automated_pass | `cmd /c npm run qa:agent:ci` passed on 2026-06-30 for the AI comprehension fix working tree on top of `e7fc92e`: static checks, typecheck, full unit suite (845 passed, 1 skipped), lint, production preflight, 11 Playwright browser tests, engine-output review, deterministic analysis, AI brief, and bundle generation all passed. |
+| agent QA CI | verified | The final corrected bundle passes static checks, typecheck, 915 tests (1 opt-in live smoke skipped), lint, production preflight, 11 Playwright journeys, engine-output review, deterministic analysis, and bundle generation. The browser audit covers eight mobile Plan-wizard states. |
+| Expo Doctor | verified | 18/18 checks pass after declaring `expo-asset` directly and adding its Expo config plugin. |
+| dependency audit | accepted_launch_limitation | The high PostCSS advisory is fixed by resolving `postcss@8.5.12`; `npm audit --audit-level=high --omit=dev` exits 0. Ten moderate notices remain in Expo's build-time `xcode@3.0.1 -> uuid@7.0.3` chain; forcing npm's suggested breaking Expo change is deferred to a controlled SDK upgrade. |
 
 ### B. Auth and account
 
@@ -119,6 +121,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Progress visible | automated_pass | Train audit checks the default Progress section is compact with latest workout/key change only, and dense rows stay behind "Show details". |
 | progression copy not overconfident | human_review_required | Automation checks no exact load inference; real boxer interpretation remains human-only. |
 | no fake numeric load inference | automated_pass | Train progression audit. |
+| workout-player native status bar | fixed_needs_verification | `AppTabs` now switches the Expo status bar to light icons while the full-screen player is visible, with a component regression test. Physical iPhone verification remains required. |
 
 ### G. Plan
 
@@ -128,6 +131,9 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Next Week visible | automated_pass | Plan audit checks a concise top card with goal, planned support count, fixed boxing context, and status; dense detail is collapsed. |
 | Block History visible | automated_pass | Plan audit and static checks cover Block History while avoiding duplicate-prone user-facing string keys. |
 | Adjustments visible | automated_pass | New Plan audit. |
+| generation wizard branch coverage | automated_pass | 2026-07-23 Playwright audit covers confirmation, goal, schedule, Build details/review, Fight Camp type, single-fight details, and tournament details at `390x844`. |
+| generation wizard confirmation isolation | verified | The modal, scroll container, and confirmation canvas now use opaque surfaces; focused Playwright CSS assertions and the mobile screenshot show no underlying Plan content bleeding through. |
+| balanced build review semantics | verified | Balanced no longer renders `Specific target` and no longer persists the hidden `subFocus`; component and Playwright regressions cover both behaviors. |
 | Fixed boxing schedule understandable | human_review_required | Automation checks fixed boxing schedule labels and visible coach/team sparring example. The 2026-06-30 fix pass changed scheduled/generic sparring labels to coach/team sparring already set outside CornerIQ and clarified that CornerIQ only places non-contact support around fixed outside-app boxing. Real boxer interpretation remains human-only. |
 | Mark unavailable understandable | human_review_required | Automation checks request framing; real boxer interpretation remains human-only. |
 | Request deload understandable | human_review_required | Automation checks request framing; real boxer interpretation remains human-only. |
@@ -156,6 +162,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | DELETE-gated deletion copy | automated_pass | New data controls audit. |
 | no accidental destructive action | automated_pass | Delete button disabled until preview plus DELETE. |
 | no secret values | automated_pass | Deterministic scan. |
+| equipment label formatting | verified | Legacy camel-case and comma-packed values normalize through the engine boundary; Profile now renders `Jump Rope, Bands`. Engine tests and focused page-text QA pass. |
 
 ### I. Error and recovery
 
@@ -209,15 +216,15 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| migrations aligned | human_review_required | Remote Supabase alignment was not run in the 2026-06-26 automated hardening pass and must be verified before release. Local tests now cover revision-isolated active lifecycle behavior around duplicate active plan intents, duplicate active blocks for a user/plan revision, date lookup ambiguity, and avoiding superseded generated state when a new revision has no active block. |
-| dry run up to date | human_review_required | Rerun remote `db push --dry-run` after applying/confirming the current migration set, including `20260625080657_generated_session_active_slot_reconciliation.sql`, `20260626062900_revision_isolated_plan_lifecycle.sql`, and `20260626120000_outside_engine_workout_support.sql`. |
+| migrations aligned | verified | `supabase migration list --linked` shows local and remote aligned through `20260718092403`. No migrations were applied during this verification pass. |
+| dry run up to date | verified | `supabase db push --linked --dry-run` reports `Remote database is up to date` when the stale local DB-password override is omitted in favor of the authenticated CLI link. |
 | local clean migration apply | human_review_required | Not rerun in the 2026-06-26 local automated hardening pass; current migration set still needs clean local/remote migration evidence before release. |
 | local schema lint | automated_pass | `cmd /c npm exec supabase -- db lint --local --level error --fail-on error` passed on 2026-06-19 after local database startup. |
 | generated database types | automated_pass | `cmd /c npm exec supabase -- gen types typescript --local` passed on 2026-06-19 and generated types matched `src/services/supabase/database.types.ts`. |
-| live smoke passes | blocked | `cmd /c npm run smoke:live-db` ran with live env names present after remote migration alignment, but Supabase sign-in failed with `invalid_credentials`; the configured smoke email/password pair must sign in before this gate can pass. |
+| live smoke passes | blocked | The opt-in live test was invoked, but stopped before auth or any write because `CORNERIQ_SMOKE_EMAIL` is blank/missing. A dedicated valid smoke account is required; no credentials were invented and no live rows were changed. |
 | support intake removed from live app | automated_pass | In-app feedback persistence was removed from launch runtime; migration `012` is now applied in production. |
 | data export/delete scope works | human_review_required | Full account deletion live smoke passed on 2026-06-18; portable export and app-data-only deletion still need final live data check if the release owner wants those separately evidenced. |
-| RLS/user-owned behavior remains safe | human_review_required | `cmd /c npm exec supabase -- db lint --linked --level error --fail-on error` passed after remote migration alignment, but cross-user RLS smoke still requires a valid live account path. |
+| RLS/user-owned behavior remains safe | fixed_needs_verification | Linked schema lint passes. Read-only metadata checks find no public tables with RLS disabled, no exposed RLS tables without policies, no public `SECURITY DEFINER` functions, and no user-owned policies lacking `auth.uid()`. Runtime cross-user RLS still needs the dedicated smoke account. |
 | real auth/email confirmation reviewed | human_review_required | Live auth check only. |
 
 ### M. Physical mobile / iPhone
@@ -238,7 +245,9 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | EAS project initialized | automated_pass | `app.json` links EAS project `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`; `npx eas-cli project:info --non-interactive` verified `@karlcupid/corneriq` on 2026-06-03. |
-| preview build artifact exists | automated_pass | Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes from a floating Supabase dynamic import. The dependency/config fix is applied locally and fresh build `c21c5692-011e-4c85-949f-355d0e1f753f` finished on 2026-06-03 with APK artifact `https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk`. |
+| preview build artifact exists | fixed_needs_verification | EAS authentication and project linkage pass; an exact candidate iOS preview build will be started after the candidate commit is clean and pushed. |
+| paid Apple build configuration | deferred | Explicitly excluded from this pass by the release owner; no RevenueCat/App Store Connect purchase configuration was touched. |
+| live purchase and restore | deferred | Explicitly excluded from this pass by the release owner because it is attached to live builds. |
 | private distribution list controlled | human_review_required | Managed outside git. |
 | app icon/splash/store metadata accepted or fixed | human_review_required | Release owner required. |
 | private distribution channel confirmed | human_review_required | Release owner required. |

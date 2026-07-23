@@ -36,7 +36,7 @@ const LEGACY_PLAN_INTENT_VERSION = "plan_generation_intent_v1";
 const LEGACY_GENERATED_SESSION_SCHEMA_VERSION = "generated_training_session_v1";
 
 vi.mock("expo-status-bar", () => ({
-  StatusBar: () => React.createElement("StatusBar")
+  StatusBar: (props: { style?: "auto" | "inverted" | "light" | "dark" | undefined }) => React.createElement("StatusBar", props)
 }));
 
 vi.mock("expo-audio", () => ({
@@ -3246,6 +3246,8 @@ describe("minimal app screens", () => {
       await press(startPreviewButtons[startPreviewButtons.length - 1]);
     });
     output = JSON.stringify(renderer.toJSON());
+    const appStatusBar = (renderer.root.findAllByType("StatusBar") as TestInstance[])[0];
+    expect((appStatusBar?.props as { style?: string } | undefined)?.style).toBe("light");
     expect(output).toContain("WORKOUT PREVIEW");
     expect(output).toContain("workout-player-preview");
     expect(output).toContain("WHY");
@@ -5455,6 +5457,7 @@ describe("minimal app screens", () => {
     expect(confirmation).toContain("4 days each week");
     expect(confirmation).toContain("Bands · Jump Rope");
     expect(confirmation).toContain("Open amateur");
+    expect(confirmation).not.toContain("Specific target");
 
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
@@ -5469,6 +5472,7 @@ describe("minimal app screens", () => {
         trainingDose: "standard"
       })
     );
+    expect(onSaveBuildGoal.mock.calls[0]?.[0]).not.toHaveProperty("subFocus");
     expect(visibleModalCount(renderer)).toBe(0);
   });
 

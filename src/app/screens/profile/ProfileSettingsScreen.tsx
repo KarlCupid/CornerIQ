@@ -53,7 +53,7 @@ export function ProfileSettingsScreen({
 }: ProfileSettingsScreenProps) {
   const [cyclePreference, setCyclePreference] = useState(cycleTrackingPreference);
   const [units, setUnits] = useState(preferredUnits);
-  const [equipment, setEquipment] = useState(equipmentAccess.join(", "));
+  const [equipment, setEquipment] = useState(equipmentAccess.map(formatEquipmentAccessLabel).join(", "));
   const [equipmentOpen, setEquipmentOpen] = useState(false);
   const { message: error, runWithMessage } = useFormMessage("Profile settings could not be saved.");
   const equipmentItems = equipment.split(",").map((item) => item.trim()).filter(Boolean);

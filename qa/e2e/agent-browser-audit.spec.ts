@@ -715,7 +715,9 @@ async function auditProfileSafety(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("profile-athlete-section")).toContainText(/Ready|Needs details|Health note/);
   await openProfileSection(page, "Setup details");
   await expect(page.getByTestId("profile-app-inputs-card")).toContainText("App inputs");
+  await expect(page.getByTestId("profile-app-inputs-card")).toContainText(/Manual logs adjust daily training; wearables are optional/i);
   await expect(page.getByTestId("profile-quick-updates-card")).toContainText("Quick updates");
+  await capture(page, testInfo, "Profile setup details", "13a-profile-setup-details.png", { scopeTestId: "profile-setup-details-section" });
   await openSection(page, "Safety");
   await expectVisibleText(page, "Training history");
   await expectVisibleText(page, "Fuel safety history");
@@ -855,6 +857,69 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   expect(firstViewText).not.toMatch(/generated training|protected anchors?|protected schedule|protected boxing|protected sparring|protected work/i);
   expectNoCoachOrReviewerControls(firstViewText);
   await capture(page, testInfo, "Plan screen", "20-plan-screen.png", { scopeTestId: "plan-screen" });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByTestId("plan-hero-card").getByRole("button", { name: "Adjust plan" }).click();
+  await expect(page.getByTestId("plan-goal-wizard-modal")).toBeVisible();
+  await expect(page.getByTestId("plan-goal-wizard-modal")).toContainText("Is this still right?");
+  await expect(page.getByTestId("plan-wizard-confirmation")).toContainText("Build phase");
+  await expect(page.getByRole("button", { name: "Save build goal" })).toBeVisible();
+  await expect(page.getByTestId("plan-goal-wizard-backdrop")).toHaveCSS("background-color", "rgb(3, 6, 15)");
+  await expect(page.getByTestId("plan-goal-wizard-modal")).toHaveCSS("background-color", "rgb(247, 243, 236)");
+  await expect(page.getByTestId("plan-goal-wizard-scroll")).toHaveCSS("background-color", "rgb(247, 243, 236)");
+  await capture(page, testInfo, "Plan wizard confirmation", "22-plan-wizard-confirmation.png", { fullPage: false, scopeTestId: "plan-goal-wizard-modal" });
+
+  await page.getByRole("button", { name: "Review step by step" }).click();
+  await expect(page.getByTestId("plan-wizard-goal-step")).toBeVisible();
+  await expect(page.getByTestId("plan-wizard-goal-step")).toContainText("Build phase");
+  await expect(page.getByTestId("plan-wizard-goal-step")).toContainText("Fight camp");
+  await capture(page, testInfo, "Plan wizard goal", "22a-plan-wizard-goal.png", { fullPage: false, scopeTestId: "plan-goal-wizard-modal" });
+
+  await page.getByRole("button", { name: "Next plan wizard step" }).click();
+  await expect(page.getByTestId("plan-wizard-schedule-step")).toBeVisible();
+  await expect(page.getByTestId("plan-wizard-protected-schedule-mode")).toContainText("Keep");
+  await expect(page.getByTestId("plan-wizard-protected-schedule-mode")).toContainText("Replace");
+  await expect(page.getByTestId("plan-wizard-protected-schedule-mode")).toContainText("Clear");
+  await capture(page, testInfo, "Plan wizard schedule", "22b-plan-wizard-schedule.png", { fullPage: false, scopeTestId: "plan-goal-wizard-modal" });
+
+  await page.getByRole("button", { name: "Next plan wizard step" }).click();
+  await expect(page.getByTestId("plan-wizard-details-step")).toBeVisible();
+  await expect(page.getByTestId("plan-wizard-details-step")).toContainText("Support workout dose");
+  await expect(page.getByTestId("plan-wizard-details-step")).toContainText("Main workout goal");
+  await capture(page, testInfo, "Plan wizard build details", "22c-plan-wizard-build-details.png", { fullPage: false, scopeTestId: "plan-goal-wizard-modal" });
+
+  await page.getByRole("button", { name: "Next plan wizard step" }).click();
+  await expect(page.getByTestId("plan-wizard-review-step")).toBeVisible();
+  await expect(page.getByTestId("plan-wizard-review-step")).toContainText("Plan action");
+  await expect(page.getByTestId("plan-wizard-review-step")).toContainText("Start new plan");
+  await expect(page.getByTestId("plan-wizard-review-step")).toContainText("Amend current plan");
+  await expect(page.getByTestId("plan-wizard-review-step")).not.toContainText("Specific target");
+  await capture(page, testInfo, "Plan wizard review", "22d-plan-wizard-review.png", { fullPage: false, scopeTestId: "plan-goal-wizard-modal" });
+  await page.getByRole("button", { name: "Close" }).click();
+
+  await page.getByTestId("plan-hero-card").getByRole("button", { name: "Adjust plan" }).click();
+  await page.getByRole("button", { name: "Review step by step" }).click();
+  await page.getByRole("button", { name: "Fight camp" }).click();
+  await expect(page.getByTestId("plan-wizard-fight-format")).toContainText("Single fight");
+  await expect(page.getByTestId("plan-wizard-fight-format")).toContainText("Tournament");
+  await page.getByTestId("plan-wizard-fight-format").getByRole("button", { name: "Single fight" }).click();
+  await capture(page, testInfo, "Plan wizard fight camp type", "22e-plan-wizard-fight-format.png", { fullPage: false, scopeTestId: "plan-goal-wizard-modal" });
+  await page.getByRole("button", { name: "Next plan wizard step" }).click();
+  await page.getByRole("button", { name: "Next plan wizard step" }).click();
+  await expect(page.getByTestId("plan-wizard-details-step")).toContainText("Fight date");
+  await expect(page.getByTestId("plan-wizard-details-step")).toContainText("Weigh-in target");
+  await capture(page, testInfo, "Plan wizard single fight details", "22f-plan-wizard-single-fight.png", { fullPage: false, scopeTestId: "plan-goal-wizard-modal" });
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.getByTestId("plan-wizard-fight-format").getByRole("button", { name: "Tournament" }).click();
+  await page.getByRole("button", { name: "Next plan wizard step" }).click();
+  await page.getByRole("button", { name: "Next plan wizard step" }).click();
+  await expect(page.getByTestId("plan-wizard-details-step")).toContainText("Daily weigh-ins");
+  await expect(page.getByTestId("plan-wizard-details-step")).toContainText("Possible bouts");
+  await capture(page, testInfo, "Plan wizard tournament details", "22g-plan-wizard-tournament.png", { fullPage: false, scopeTestId: "plan-goal-wizard-modal" });
+  await page.getByRole("button", { name: "Close" }).click();
+
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole("button", { name: "Edit existing training" }).click();
   await expect(page.getByTestId("plan-active-workspace")).toContainText("Existing training schedule");
   await expect(page.getByRole("button", { name: "Add one-off workout" })).toBeVisible();

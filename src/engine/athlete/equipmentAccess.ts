@@ -103,6 +103,7 @@ export interface NormalizedEquipmentAccess {
 export function normalizeEquipmentToken(value: string): string {
   return value
     .trim()
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
     .toLowerCase()
     .replace(/['"]/g, "")
     .replace(/&/g, " and ")
@@ -129,7 +130,7 @@ export function normalizeEquipmentAccessDetails(values: readonly string[] | null
   const known: CanonicalEquipmentId[] = [];
   const unknownNotes: string[] = [];
 
-  for (const rawValue of values ?? []) {
+  for (const rawValue of (values ?? []).flatMap((value) => value.split(","))) {
     const trimmed = rawValue.trim();
     if (!trimmed) {
       continue;
@@ -199,6 +200,10 @@ export function hasNoKnownRealEquipment(values: readonly string[] | null | undef
 }
 
 export function formatEquipmentAccessLabel(value: string): string {
+  const items = value.split(",").map((item) => item.trim()).filter(Boolean);
+  if (items.length > 1) {
+    return items.map(formatEquipmentAccessLabel).join(", ");
+  }
   const canonical = canonicalEquipmentId(value);
   const display = canonical ?? value;
   return display
