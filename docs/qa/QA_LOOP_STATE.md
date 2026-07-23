@@ -9,7 +9,7 @@ The full-codebase technical and scientific audit is tracked separately through `
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_fix |
-| Last commit tested | 2026-07-23 release candidate `94b8682f55c0491997aef52321047631a05071fa` (`94b8682`) on `codex/development`. |
+| Last commit tested | 2026-07-23 Supabase smoke-fix candidate `89d3eca86ad9d40e3be80f801b18b4f3155c8286` (`89d3eca`) on `codex/development`. |
 | Last QA run result | Production auth succeeded with the dedicated smoke account, but the live persistence smoke exposed non-ISO database timestamp mapping and a missing `conservative_start` preview constraint. Both fixes are implemented locally; typecheck, lint, beta preflight, and quality pass with 917 tests plus one opt-in live test skipped. The production migration is intentionally not applied without release-owner approval. App Store Connect/TestFlight is healthy with processed builds and the existing internal Expo group. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last generated release evidence path | qa-artifacts/release-evidence/current-release-evidence.md (generated artifact; not stored in this committed state file) |
@@ -32,12 +32,12 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | --- | --- | --- |
 | npm install | automated_pass | `cmd /c npm install` passed on 2026-07-23; npm reported 1 low development notice and 10 moderate production-tree notices. |
 | typecheck | automated_pass | Passed directly, inside `quality`, and inside `qa:agent:ci` on 2026-07-23. |
-| tests | automated_pass | 915 tests passed and one opt-in live DB smoke test was skipped on 2026-07-23. |
+| tests | automated_pass | 917 tests passed and one opt-in live DB smoke test was skipped on 2026-07-23. |
 | lint | automated_pass | Passed inside `qa:agent:ci` on 2026-07-23. |
 | quality | automated_pass | Passed on 2026-07-23. |
 | coverage | automated_pass | Passed on 2026-07-23: statements 87.79, functions 89.70, lines 87.79, branches 83.49. |
 | production preflight | automated_pass | Normal and beta preflight pass. Apple paid-build/RevenueCat checks are outside this owner-approved candidate scope and remain deferred rather than represented as completed. |
-| GitHub Actions quality | verified | Exact candidate `94b8682f55c0491997aef52321047631a05071fa` passed push-triggered Quality run `30052197047` and CodeQL run `30052197035` on 2026-07-23. |
+| GitHub Actions quality | verified | Exact smoke-fix candidate `89d3eca86ad9d40e3be80f801b18b4f3155c8286` passed push-triggered Quality run `30054264378` and CodeQL run `30054264373` on 2026-07-23. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
 | agent QA CI | verified | The final corrected bundle passes static checks, typecheck, 915 tests (1 opt-in live smoke skipped), lint, production preflight, 11 Playwright journeys, engine-output review, deterministic analysis, and bundle generation. The browser audit covers eight mobile Plan-wizard states. |
 | Expo Doctor | verified | 18/18 checks pass after declaring `expo-asset` directly and adding its Expo config plugin. |
