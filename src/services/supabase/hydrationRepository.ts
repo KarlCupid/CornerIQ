@@ -2,7 +2,7 @@ import { ElectrolyteLogSchema, WaterLogSchema } from "../../engine/core/schemas"
 import type { ElectrolyteLog, ISODateString, WaterLog } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
-import { assertUserId, numericValue, parseWithSchema, readDataOrThrow, toJson } from "./repositoryTypes";
+import { assertUserId, isoDateTimeValue, numericValue, parseWithSchema, readDataOrThrow, toJson } from "./repositoryTypes";
 
 export type WaterLogRow = Pick<TableRow<"water_logs">, "created_at" | "log_date" | "liters"> & Partial<Pick<TableRow<"water_logs">, "id">>;
 export type ElectrolyteLogRow = Pick<TableRow<"electrolyte_logs">, "created_at" | "log_date" | "sodium_mg"> &
@@ -22,11 +22,19 @@ export interface CreateElectrolyteLogInput {
 }
 
 export function mapWaterLogRow(row: WaterLogRow): WaterLog {
-  return parseWithSchema(WaterLogSchema, { id: row.id, date: row.log_date, liters: numericValue(row.liters, "water_logs.liters"), recordedAt: row.created_at }, "water_logs");
+  return parseWithSchema(
+    WaterLogSchema,
+    { id: row.id, date: row.log_date, liters: numericValue(row.liters, "water_logs.liters"), recordedAt: isoDateTimeValue(row.created_at, "water_logs.created_at") },
+    "water_logs"
+  );
 }
 
 export function mapElectrolyteLogRow(row: ElectrolyteLogRow): ElectrolyteLog {
-  return parseWithSchema(ElectrolyteLogSchema, { id: row.id, date: row.log_date, sodiumMg: numericValue(row.sodium_mg, "electrolyte_logs.sodium_mg"), recordedAt: row.created_at }, "electrolyte_logs");
+  return parseWithSchema(
+    ElectrolyteLogSchema,
+    { id: row.id, date: row.log_date, sodiumMg: numericValue(row.sodium_mg, "electrolyte_logs.sodium_mg"), recordedAt: isoDateTimeValue(row.created_at, "electrolyte_logs.created_at") },
+    "electrolyte_logs"
+  );
 }
 
 export function createHydrationRepository(client: CornerSupabaseClient) {

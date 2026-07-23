@@ -2,7 +2,7 @@ import { ProtectedWorkoutSchema } from "../../engine/core/schemas";
 import type { ProtectedWorkout } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
-import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
+import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
 export type ProtectedWorkoutRow = Pick<TableRow<"protected_workouts">, "created_at" | "id" | "workout_type" | "workout_date" | "workout_payload">;
 
@@ -19,7 +19,7 @@ export function mapProtectedWorkoutRow(row: ProtectedWorkoutRow): ProtectedWorko
       id: row.id,
       type: row.workout_type,
       date: row.workout_date,
-      recordedAt: row.created_at,
+      recordedAt: isoDateTimeValue(row.created_at, "protected_workouts.created_at"),
       protected: true
     },
     "protected_workouts"

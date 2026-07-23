@@ -1,6 +1,6 @@
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
-import { assertUserId, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
+import { assertUserId, isoDateTimeValue, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
 
 export type AthleteCoachRelationshipStatus = "pending" | "active" | "revoked";
 
@@ -41,8 +41,8 @@ export function mapAthleteCoachRelationshipRow(row: AthleteCoachRelationshipRow)
     coachUserId: row.coach_user_id,
     status: relationshipStatus(row.status, "athlete_coach_relationships.status"),
     permissions: payloadObject(row.permissions, "athlete_coach_relationships.permissions"),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
+    createdAt: isoDateTimeValue(row.created_at, "athlete_coach_relationships.created_at"),
+    updatedAt: isoDateTimeValue(row.updated_at, "athlete_coach_relationships.updated_at")
   };
 }
 

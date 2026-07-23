@@ -12,7 +12,7 @@ export function mapFightOpportunityRow(row: FightOpportunityRow): FightOpportuni
     ...payload,
     id: row.id,
     status: row.status,
-    recordedAt: row.created_at,
+    recordedAt: isoDateTimeValue(row.created_at, "fight_opportunities.created_at"),
     boutDate: row.bout_date,
     weighInType: row.weigh_in_type,
     ...(row.weigh_in_datetime ? { weighInDateTime: isoDateTimeValue(row.weigh_in_datetime, "fight_opportunities.weigh_in_datetime") } : {})

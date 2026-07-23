@@ -2,7 +2,7 @@ import { CycleLogSchema } from "../../engine/core/schemas";
 import type { CycleLog, CycleSymptom, ISODateString } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
-import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
+import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
 export type CycleLogRow = Pick<TableRow<"cycle_logs">, "created_at" | "log_date" | "cycle_payload"> & Partial<Pick<TableRow<"cycle_logs">, "id">>;
 export type CycleSymptomLogRow = Pick<TableRow<"cycle_symptom_logs">, "created_at" | "log_date" | "symptom_payload"> &
@@ -27,7 +27,7 @@ export function mapCycleLogRow(row: CycleLogRow): CycleLog {
       ...payload,
       id: row.id,
       date: row.log_date,
-      recordedAt: row.created_at
+      recordedAt: isoDateTimeValue(row.created_at, "cycle_logs.created_at")
     },
     "cycle_logs"
   );
@@ -44,7 +44,7 @@ export function mapCycleSymptomLogRow(row: CycleSymptomLogRow): CycleLog {
       ...payload,
       id: row.id,
       date: row.log_date,
-      recordedAt: row.created_at
+      recordedAt: isoDateTimeValue(row.created_at, "cycle_symptom_logs.created_at")
     },
     "cycle_symptom_logs"
   );

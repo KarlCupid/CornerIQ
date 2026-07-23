@@ -12,6 +12,7 @@ const launchMigrationNames = [
   "20260626120000_outside_engine_workout_support.sql"
 ] as const;
 const chunk09HardeningMigrationName = "20260628123000_chunk09_rls_grants_privacy_hardening.sql";
+const nextWeekVolumeStrategyMigrationName = "20260723233725_align_next_week_volume_strategy.sql";
 
 function readSource(path: string): string {
   return readFileSync(path, "utf8");
@@ -69,6 +70,15 @@ function hasPrivilege(privileges: readonly string[], privilegeName: "delete" | "
 }
 
 describe("Supabase migration static checks", () => {
+  it("keeps the persisted next-week strategy contract aligned with the engine", () => {
+    const source = readMigration(nextWeekVolumeStrategyMigrationName);
+
+    expect(source).toContain("drop constraint if exists training_next_week_previews_volume_strategy_known");
+    expect(source).toContain("add constraint training_next_week_previews_volume_strategy_known");
+    expect(source).toContain("'conservative_start'");
+    expect(source).toContain("'hold_for_review'");
+  });
+
   it("keeps launch hardening migrations present in the local migration set", () => {
     const localMigrationNames = new Set(readdirSync(migrationDir));
 

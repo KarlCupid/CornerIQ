@@ -7,7 +7,7 @@ import { mapAthleteProfileRow } from "../../services/supabase/athleteRepository"
 import { createBodyMassRepository, mapBodyMassLogRow } from "../../services/supabase/bodyMassRepository";
 import { createCoachRelationshipRepository } from "../../services/supabase/coachRelationshipRepository";
 import { createCycleRepository, mapCycleSymptomLogRow } from "../../services/supabase/cycleRepository";
-import { createHydrationRepository } from "../../services/supabase/hydrationRepository";
+import { createHydrationRepository, mapElectrolyteLogRow, mapWaterLogRow } from "../../services/supabase/hydrationRepository";
 import { loadAthleteJourney } from "../../services/supabase/loadAthleteJourney";
 import { createReadinessRepository } from "../../services/supabase/readinessRepository";
 import {
@@ -38,6 +38,7 @@ import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixt
 import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "../../engine/core/types";
 import { createEngineRunRepository, generatedTrainingSessionKey, mapGeneratedSessionToRow } from "../../services/supabase/engineRunRepository";
 import { createTrainingPlanIntentRepository, mapTrainingPlanIntentRow } from "../../services/supabase/trainingPlanIntentRepository";
+import { mapTrainingProgressionDecisionRow, mapTrainingWeekSummaryRow } from "../../services/supabase/trainingProgressionRepository";
 import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
 import { GENERATED_SESSION_SCHEMA_VERSION_V2, PLAN_INTENT_VERSION_V2 } from "../../engine/training/compiledWeekProjection";
 import { TRAINING_COMPILER_CONTRACT_VERSION } from "../../engine/training/compiler/types";
@@ -967,7 +968,13 @@ describe("Supabase repositories", () => {
       "2026-05-20T02:48:34.495Z"
     );
     expect(mapFoodLogRow({ log_date: "2026-05-19", meal_payload: { calories: 2200, proteinGrams: 130, carbohydrateGrams: 260, fatGrams: 70, confidence: "medium" } }).calories).toBe(2200);
-    expect(mapCycleSymptomLogRow({ created_at: "2026-05-19T07:00:00.000Z", log_date: "2026-05-19", symptom_payload: { symptoms: ["cramps"] } }).symptoms).toContain("cramps");
+    expect(mapCycleSymptomLogRow({ created_at: "2026-05-19 07:00:00+00", log_date: "2026-05-19", symptom_payload: { symptoms: ["cramps"] } }).recordedAt).toBe(
+      "2026-05-19T07:00:00.000Z"
+    );
+    expect(mapWaterLogRow({ created_at: "2026-05-19 07:00:00+00", log_date: "2026-05-19", liters: 2 }).recordedAt).toBe("2026-05-19T07:00:00.000Z");
+    expect(mapElectrolyteLogRow({ created_at: "2026-05-19 07:00:00+00", log_date: "2026-05-19", sodium_mg: 500 }).recordedAt).toBe(
+      "2026-05-19T07:00:00.000Z"
+    );
     expect(mapWearableSignalRow({ signal_type: "sleep_duration", signal_value: 7.5, signal_unit: "h", source_platform: "apple_health", recorded_at: "2026-05-20 02:48:34.495071+00" }).recordedAt).toBe(
       "2026-05-20T02:48:34.495Z"
     );
@@ -982,13 +989,13 @@ describe("Supabase repositories", () => {
     ).toBe("2026-05-20T02:48:34.495Z");
     expect(
       mapProtectedWorkoutRow({
-        created_at: "2026-05-19T07:00:00.000Z",
+        created_at: "2026-05-19 07:00:00+00",
         id: "protected_1",
         workout_type: "technical_session",
         workout_date: "2026-05-19",
         workout_payload: { durationMinutes: 45, intensity: "moderate" }
-      }).protected
-    ).toBe(true);
+      }).recordedAt
+    ).toBe("2026-05-19T07:00:00.000Z");
     expect(
       mapFightOpportunityRow({
         created_at: "2026-05-19T07:00:00.000Z",
@@ -1329,6 +1336,54 @@ describe("Supabase repositories", () => {
     expect(calls).not.toEqual(expect.arrayContaining([{ method: "gte", column: "current_scheduled_date", value: fixtureAsOfDate }]));
   });
 
+  it("normalizes database timestamp text before validating progression history", () => {
+    expect(
+      mapTrainingWeekSummaryRow({
+        id: "summary_1",
+        training_block_id: "block_1",
+        week_start_date: "2026-05-18",
+        week_end_date: "2026-05-24",
+        week_index: 1,
+        completion_count: 2,
+        skipped_count: 0,
+        prescribed_only_count: 0,
+        partial_result_count: 0,
+        completed_result_count: 2,
+        pain_flag_count: 0,
+        average_session_rpe: 6,
+        average_exercise_rpe: 6,
+        hard_days_completed: 1,
+        protected_anchor_count: 1,
+        generated_support_count: 1,
+        underfueling_flag: false,
+        high_cycle_symptom_flag: false,
+        safety_flag_count: 0,
+        summary_payload: { summary: "Week completed.", reasons: [] },
+        summary_lifecycle: "final",
+        summary_generated_at: "2026-05-24 18:00:00+00",
+        finalized_at: "2026-05-24 18:00:00+00",
+        plan_revision_id: "plan_1"
+      }).generatedAt
+    ).toBe("2026-05-24T18:00:00.000Z");
+    expect(
+      mapTrainingProgressionDecisionRow({
+        id: "decision_1",
+        week_index: 1,
+        decision: "repeat",
+        reason: "Hold the current dose.",
+        next_week_phase: "build_strength",
+        decision_payload: {
+          confidence: { level: "medium", score: 0.7, reasons: ["Manual evidence available."], missingInputs: [] },
+          safetyFlags: []
+        },
+        created_at: "2026-05-24 18:00:00+00",
+        decision_lifecycle: "final",
+        plan_revision_id: "plan_1",
+        generated_at: "2026-05-24 18:00:00+00"
+      }).generatedAt
+    ).toBe("2026-05-24T18:00:00.000Z");
+  });
+
   it("generated training session reads can use active week bounds before asOfDate", async () => {
     const { calls, client } = createGeneratedSessionListClient([
       generatedSessionRow({ id: "monday_scoped", date: "2026-05-18", title: "Monday scoped support", trainingBlockId: "training_block_current" }),
@@ -1491,6 +1546,17 @@ describe("Supabase repositories", () => {
     expect(mapTrainingPlanIntentRow(row)).toMatchObject({
       id: "plan_conditioning_week_1",
       planRevisionId: "plan_conditioning_week_1"
+    });
+    const databaseTimestampRow = {
+      ...row,
+      requested_at: "2026-05-19 09:00:00+00",
+      created_at: "2026-05-19 09:00:00+00",
+      updated_at: "2026-05-19 09:00:00+00"
+    };
+    expect(mapTrainingPlanIntentRow(databaseTimestampRow)).toMatchObject({
+      requestedAt: "2026-05-19T09:00:00.000Z",
+      createdAt: "2026-05-19T09:00:00.000Z",
+      updatedAt: "2026-05-19T09:00:00.000Z"
     });
   });
 

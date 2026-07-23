@@ -9,7 +9,7 @@ import {
 } from "../../engine/training/trainingBlockHistoryTypes";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
-import { assertUserId, numericValue, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
+import { assertUserId, isoDateTimeValue, numericValue, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
 
 export interface UpsertTrainingWeekSummaryInput {
   userId: string;
@@ -151,8 +151,18 @@ export function mapTrainingWeekSummaryRow(row: TrainingWeekSummaryRow): Training
       summary: typeof payload.summary === "string" ? payload.summary : "Week summary persisted without display copy.",
       reasons: Array.isArray(payload.reasons) ? payload.reasons.filter((reason): reason is string => typeof reason === "string") : [],
       lifecycle: row.summary_lifecycle ?? (typeof payload.lifecycle === "string" ? payload.lifecycle : "final"),
-      generatedAt: row.summary_generated_at ?? (typeof payload.generatedAt === "string" ? payload.generatedAt : row.finalized_at ?? undefined),
-      finalizedAt: row.finalized_at ?? (typeof payload.finalizedAt === "string" ? payload.finalizedAt : null),
+      generatedAt: row.summary_generated_at
+        ? isoDateTimeValue(row.summary_generated_at, "training_week_summaries.summary_generated_at")
+        : typeof payload.generatedAt === "string"
+          ? isoDateTimeValue(payload.generatedAt, "training_week_summaries.summary_payload.generatedAt")
+          : row.finalized_at
+            ? isoDateTimeValue(row.finalized_at, "training_week_summaries.finalized_at")
+            : undefined,
+      finalizedAt: row.finalized_at
+        ? isoDateTimeValue(row.finalized_at, "training_week_summaries.finalized_at")
+        : typeof payload.finalizedAt === "string"
+          ? isoDateTimeValue(payload.finalizedAt, "training_week_summaries.summary_payload.finalizedAt")
+          : null,
       ...(row.plan_revision_id ?? (typeof payload.planRevisionId === "string" ? payload.planRevisionId : null) ? { planRevisionId: row.plan_revision_id ?? (payload.planRevisionId as string) } : {})
     },
     "training_week_summaries"
@@ -171,7 +181,11 @@ export function mapTrainingProgressionDecisionRow(row: TrainingProgressionDecisi
       nextWeekPhase: row.next_week_phase,
       confidence: payload.confidence,
       safetyFlags: Array.isArray(payload.safetyFlags) ? payload.safetyFlags : [],
-      generatedAt: row.generated_at ?? (typeof payload.generatedAt === "string" ? payload.generatedAt : row.created_at),
+      generatedAt: row.generated_at
+        ? isoDateTimeValue(row.generated_at, "training_progression_decisions.generated_at")
+        : typeof payload.generatedAt === "string"
+          ? isoDateTimeValue(payload.generatedAt, "training_progression_decisions.decision_payload.generatedAt")
+          : isoDateTimeValue(row.created_at, "training_progression_decisions.created_at"),
       decisionLifecycle: row.decision_lifecycle ?? (typeof payload.decisionLifecycle === "string" ? payload.decisionLifecycle : "final"),
       ...(row.plan_revision_id ?? (typeof payload.planRevisionId === "string" ? payload.planRevisionId : null) ? { planRevisionId: row.plan_revision_id ?? (payload.planRevisionId as string) } : {})
     },

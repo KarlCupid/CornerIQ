@@ -2,7 +2,7 @@ import { TournamentDetailsSchema } from "../../engine/core/schemas";
 import type { TournamentDetails } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
-import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
+import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
 export type TournamentPlanRow = Pick<TableRow<"tournament_plans">, "created_at" | "id" | "tournament_start_date" | "tournament_end_date" | "plan_payload">;
 
@@ -15,7 +15,7 @@ export function mapTournamentPlanRow(row: TournamentPlanRow): TournamentDetails 
       id: row.id,
       tournamentStartDate: row.tournament_start_date,
       tournamentEndDate: row.tournament_end_date,
-      recordedAt: row.created_at
+      recordedAt: isoDateTimeValue(row.created_at, "tournament_plans.created_at")
     },
     "tournament_plans"
   );

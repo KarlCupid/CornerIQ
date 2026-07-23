@@ -8,17 +8,17 @@ The full-codebase technical and scientific audit is tracked separately through `
 
 | Field | Value |
 | --- | --- |
-| Current QA phase | needs_human_review |
+| Current QA phase | needs_fix |
 | Last commit tested | 2026-07-23 release candidate `94b8682f55c0491997aef52321047631a05071fa` (`94b8682`) on `codex/development`. |
-| Last QA run result | Exact-SHA local evidence passes typecheck, lint, quality, beta preflight, Expo Doctor, 915 tests with one opt-in live DB test skipped, coverage, and the complete 11-journey agent QA bundle. Exact-SHA GitHub Quality and CodeQL both pass. Plan/Profile fixes are verified. EAS iOS internal distribution is blocked before upload by missing suitable ad-hoc credentials and an expired Apple session; physical-device acceptance and credentialed live Supabase auth/persistence remain open. |
+| Last QA run result | Production auth succeeded with the dedicated smoke account, but the live persistence smoke exposed non-ISO database timestamp mapping and a missing `conservative_start` preview constraint. Both fixes are implemented locally; typecheck, lint, beta preflight, and quality pass with 917 tests plus one opt-in live test skipped. The production migration is intentionally not applied without release-owner approval. App Store Connect/TestFlight is healthy with processed builds and the existing internal Expo group. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last generated release evidence path | qa-artifacts/release-evidence/current-release-evidence.md (generated artifact; not stored in this committed state file) |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
-| Current open blocker count | 2 external: Apple/EAS signing credentials for an installable iOS preview, and a populated dedicated Supabase smoke account. RevenueCat/App Store purchase configuration is explicitly deferred by the release owner. |
-| Current open high count | 2 external-evidence items: live auth/persistence smoke needs a populated dedicated Supabase smoke account, and physical-iPhone acceptance requires a real device. |
+| Current open blocker count | 1 production release blocker: apply the reviewed preview-strategy migration with explicit approval, then rerun the production smoke to completion. Physical-iPhone acceptance remains release-owner work; RevenueCat/App Store purchase configuration remains explicitly deferred. |
+| Current open high count | 1 release blocker: production persistence smoke does not yet pass. Physical-iPhone acceptance remains human-only. |
 | Current required-medium count | 0. Exact-candidate GitHub Actions passes; remaining moderate Expo build-tool notices are accepted for a controlled framework upgrade. |
-| Next recommended action | Release owner will handle Apple/EAS signing, device registration, the iOS candidate, and physical-iPhone acceptance manually. Populate a dedicated Supabase smoke account to complete live auth/persistence/runtime-RLS checks. |
-| Launch readiness decision | needs_human_review |
+| Next recommended action | Review and explicitly approve production application of `20260723233725_align_next_week_volume_strategy.sql`, then rerun the dedicated-account production smoke. After it passes, create the EAS production/TestFlight candidate; the release owner will handle physical-iPhone acceptance. |
+| Launch readiness decision | needs_fix |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
 
@@ -216,12 +216,12 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| migrations aligned | verified | `supabase migration list --linked` shows local and remote aligned through `20260718092403`. No migrations were applied during this verification pass. |
-| dry run up to date | verified | `supabase db push --linked --dry-run` reports `Remote database is up to date` when the stale local DB-password override is omitted in favor of the authenticated CLI link. |
+| migrations aligned | fixed_needs_verification | Production is aligned through `20260718092403`; local migration `20260723233725_align_next_week_volume_strategy.sql` is intentionally pending explicit approval. |
+| dry run up to date | fixed_needs_verification | `supabase db push --linked --dry-run` reports that only `20260723233725_align_next_week_volume_strategy.sql` would be applied. No production migration was applied. |
 | local clean migration apply | human_review_required | Not rerun in the 2026-06-26 local automated hardening pass; current migration set still needs clean local/remote migration evidence before release. |
 | local schema lint | automated_pass | `cmd /c npm exec supabase -- db lint --local --level error --fail-on error` passed on 2026-06-19 after local database startup. |
 | generated database types | automated_pass | `cmd /c npm exec supabase -- gen types typescript --local` passed on 2026-06-19 and generated types matched `src/services/supabase/database.types.ts`. |
-| live smoke passes | blocked | The opt-in live test was invoked, but stopped before auth or any write because `CORNERIQ_SMOKE_EMAIL` is blank/missing. A dedicated valid smoke account is required; no credentials were invented and no live rows were changed. |
+| live smoke passes | fixed_needs_verification | Dedicated-account production authentication succeeded. The smoke then exposed timestamp normalization and preview-constraint compatibility failures. Local fixes and focused tests pass; the production migration and a complete rerun remain required. Guarded cleanup ran. |
 | support intake removed from live app | automated_pass | In-app feedback persistence was removed from launch runtime; migration `012` is now applied in production. |
 | data export/delete scope works | human_review_required | Full account deletion live smoke passed on 2026-06-18; portable export and app-data-only deletion still need final live data check if the release owner wants those separately evidenced. |
 | RLS/user-owned behavior remains safe | fixed_needs_verification | Linked schema lint passes. Read-only metadata checks find no public tables with RLS disabled, no exposed RLS tables without policies, no public `SECURITY DEFINER` functions, and no user-owned policies lacking `auth.uid()`. Runtime cross-user RLS still needs the dedicated smoke account. |
@@ -245,7 +245,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | EAS project initialized | automated_pass | `app.json` links EAS project `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`; `npx eas-cli project:info --non-interactive` verified `@karlcupid/corneriq` on 2026-06-03. |
-| preview build artifact exists | human_review_required | Exact candidate `94b8682` reached the EAS preview credential check, but no artifact was uploaded because no suitable internal-distribution credentials or registered iPhone exist. The saved Apple session is expired; the run was stopped without collecting or exposing credentials. The release owner will handle the iOS candidate and device pass manually. |
+| preview build artifact exists | human_review_required | Existing CornerIQ TestFlight builds 2 through 9 show Complete processing and are attached to the internal `Team (Expo)` group. No exact-candidate build has been created for the current fixes. The production EAS profile is the correct TestFlight path; the release owner will handle physical-device acceptance. |
 | paid Apple build configuration | deferred | Explicitly excluded from this pass by the release owner; no RevenueCat/App Store Connect purchase configuration was touched. |
 | live purchase and restore | deferred | Explicitly excluded from this pass by the release owner because it is attached to live builds. |
 | private distribution list controlled | human_review_required | Managed outside git. |

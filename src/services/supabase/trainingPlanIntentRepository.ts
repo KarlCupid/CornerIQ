@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { PlanGenerationIntent, PlanGenerationPrimaryFocus } from "../../engine/training/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
-import { RepositoryError, assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
+import { RepositoryError, assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
 const SupportWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 const PlanGenerationIntentPayloadSchema = z.object({
@@ -115,7 +115,7 @@ export function mapTrainingPlanIntentRow(row: TrainingPlanIntentRow): PersistedT
       currentLimitations: row.current_limitations,
       userPreferences: row.user_preferences,
       planStartDate: row.plan_start_date,
-      requestedAt: row.requested_at,
+      requestedAt: isoDateTimeValue(row.requested_at, "training_plan_intents.requested_at"),
       seed: typeof payload.seed === "string" ? payload.seed : row.plan_revision_id,
       source: row.source,
       status: row.status
@@ -126,9 +126,9 @@ export function mapTrainingPlanIntentRow(row: TrainingPlanIntentRow): PersistedT
     ...parsed,
     rowId: row.id,
     planRevisionId: row.plan_revision_id,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    ...(row.superseded_at ? { supersededAt: row.superseded_at } : {}),
+    createdAt: isoDateTimeValue(row.created_at, "training_plan_intents.created_at"),
+    updatedAt: isoDateTimeValue(row.updated_at, "training_plan_intents.updated_at"),
+    ...(row.superseded_at ? { supersededAt: isoDateTimeValue(row.superseded_at, "training_plan_intents.superseded_at") } : {}),
     ...(row.superseded_reason ? { supersededReason: row.superseded_reason } : {})
   };
 }

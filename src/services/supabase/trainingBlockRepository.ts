@@ -139,8 +139,8 @@ export function mapTrainingPlanAdjustmentRow(row: TrainingPlanAdjustmentRow): Pe
       command,
       status: adjustmentStatusValue(row.status, "training_plan_adjustments.status"),
       engineResponse,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at
+      createdAt: isoDateTimeValue(row.created_at, "training_plan_adjustments.created_at"),
+      updatedAt: isoDateTimeValue(row.updated_at, "training_plan_adjustments.updated_at")
     },
     "training_plan_adjustments"
   );

@@ -6,6 +6,17 @@ Purpose: stable runbook and historical status for CornerIQ Supabase release evid
 
 This document must not be treated as proof that the linked remote database is aligned for a future commit.
 
+## 2026-07-23 Production Smoke And Pending Fix
+
+An explicit opt-in smoke used the dedicated review account against the production project (`fohdypahnobcchfmcrrn`). Authentication succeeded and the test reached authenticated reads, manual-log persistence, journey loading, and deterministic engine projection. It then failed before completing the full workflow for two concrete compatibility reasons:
+
+- Postgres timestamp text from existing production rows was passed directly into strict ISO date-time schemas by several repository mappers.
+- The engine's valid `conservative_start` no-plan preview strategy was missing from the production `training_next_week_previews_volume_strategy_known` constraint.
+
+The smoke test's guarded cleanup ran. No credentials or secret values were printed or stored.
+
+The local fix normalizes database timestamps at repository boundaries and adds `20260723233725_align_next_week_volume_strategy.sql`. Focused typecheck and repository/migration tests pass. A linked dry-run reports that this new migration is the only pending production migration. The migration has **not** been applied: production remains unchanged pending explicit release-owner approval, after which the live smoke must be rerun to completion.
+
 ## 2026-07-18 Development Migration Verification
 
 The workspace was confirmed linked to the active `CornerIQ Development` project (`llsmdsraunsweqmvefhj`). The production `CornerIQ` project (`fohdypahnobcchfmcrrn`) was not targeted or modified.
