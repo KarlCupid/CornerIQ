@@ -112,11 +112,33 @@ function hasBoxingRoundStructure(block: TrainingSessionBlock): boolean {
   );
 }
 
+function isPrimaryFocusLedger(input: {
+  primaryFocus: CompiledTrainingWeek["planIntent"]["primaryFocus"];
+  ledgerId: string;
+}): boolean {
+  switch (input.primaryFocus) {
+    case "strength":
+    case "balanced":
+      return input.ledgerId === "strength_sets";
+    case "conditioning":
+      return ["aerobic_minutes", "tempo_minutes", "interval_repetitions", "alactic_efforts", "boxing_conditioning_rounds"].includes(input.ledgerId);
+    case "power":
+      return input.ledgerId === "explosive_repetitions";
+    case "boxing_skill":
+      return input.ledgerId === "boxing_technical_rounds";
+    case "mobility_recovery":
+      return input.ledgerId === "mobility_minutes";
+  }
+}
+
 export function validateCompiledWeek(input: {
   week: Omit<CompiledTrainingWeek, "validation" | "materialFingerprint" | "contentFingerprint" | "planInstanceFingerprint">;
 }): WeeklyValidationResult {
   const failures: string[] = [];
   const warnings: string[] = [];
+  const intentionalReduction =
+    input.week.sessionIntents.some((intent) => intent.progressionIntent === "regress") ||
+    input.week.compiledSessions.some((session) => session.readinessOverlay?.applied || session.safetyConstraintIds.length > 0);
 
   for (const ledger of input.week.adaptationBudget.targetLedgers) {
     if (ledger.unresolvedDeficit > 0 && !ledger.deficitReason) {
@@ -127,7 +149,14 @@ export function validateCompiledWeek(input: {
   for (const ledger of input.week.adaptationBudget.targetLedgers) {
     const actual = actualDose[ledger.id];
     if (typeof actual === "number" && ledger.allocatedToGeneratedSessions > 0 && actual < ledger.allocatedToGeneratedSessions) {
-      failures.push(`${ledger.id} generated ${actual}/${ledger.allocatedToGeneratedSessions} ${ledger.unit} allocated by the adaptation budget.`);
+      const message = `${ledger.id} generated ${actual}/${ledger.allocatedToGeneratedSessions} ${ledger.unit} allocated by the adaptation budget.`;
+      if (intentionalReduction) {
+        warnings.push(`${message} The shortfall is explained by a progression or safety adjustment.`);
+      } else if (!isPrimaryFocusLedger({ primaryFocus: input.week.planIntent.primaryFocus, ledgerId: ledger.id })) {
+        warnings.push(`${message} This supporting target was deprioritized to preserve the primary focus and available session capacity.`);
+      } else {
+        failures.push(message);
+      }
     }
   }
 
@@ -185,16 +214,24 @@ export function validateCompiledWeek(input: {
   }
 
   if (input.week.planIntent.primaryFocus === "strength" && input.week.compiledSessions.every((session) => session.primaryAdaptation !== "strength")) {
-    failures.push("Strength focus produced no strength session.");
+    const message = "Strength focus produced no strength session.";
+    if (intentionalReduction) warnings.push(`${message} The primary session was replaced by a progression or safety adjustment.`);
+    else failures.push(message);
   }
   if (input.week.planIntent.primaryFocus === "conditioning" && input.week.compiledSessions.every((session) => session.primaryAdaptation !== "conditioning")) {
-    failures.push("Conditioning focus produced no conditioning session.");
+    const message = "Conditioning focus produced no conditioning session.";
+    if (intentionalReduction) warnings.push(`${message} The primary session was replaced by a progression or safety adjustment.`);
+    else failures.push(message);
   }
   if (input.week.planIntent.primaryFocus === "power" && input.week.compiledSessions.every((session) => session.primaryAdaptation !== "power")) {
-    failures.push("Power focus produced no power session.");
+    const message = "Power focus produced no power session.";
+    if (intentionalReduction) warnings.push(`${message} The primary session was replaced by a progression or safety adjustment.`);
+    else failures.push(message);
   }
 
+  const status: WeeklyValidationResult["status"] = failures.length > 0 ? "invalid" : warnings.length > 0 ? "valid_with_adjustments" : "valid";
   return {
+    status,
     passed: failures.length === 0,
     failures,
     warnings

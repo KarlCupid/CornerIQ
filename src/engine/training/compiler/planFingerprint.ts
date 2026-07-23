@@ -8,6 +8,7 @@ function budgetForContent(week: CompiledWeekWithoutFingerprints) {
     ...week.adaptationBudget,
     fixedTrainingContribution: {
       strengthSets: week.adaptationBudget.fixedTrainingContribution.strengthSets,
+      strengthPatternSets: week.adaptationBudget.fixedTrainingContribution.strengthPatternSets,
       aerobicMinutes: week.adaptationBudget.fixedTrainingContribution.aerobicMinutes,
       tempoWorkMinutes: week.adaptationBudget.fixedTrainingContribution.tempoWorkMinutes,
       intervalRepetitions: week.adaptationBudget.fixedTrainingContribution.intervalRepetitions,
@@ -37,7 +38,12 @@ export function materialForCompiledWeek(week: CompiledWeekWithoutFingerprints): 
         type: anchor.type,
         durationMinutes: anchor.durationMinutes,
         intensity: anchor.intensity,
-        rounds: anchor.rounds ?? null
+        rounds: anchor.rounds ?? null,
+        components: anchor.components ?? [],
+        primaryComponent: anchor.primaryComponent ?? null,
+        boxingFormat: anchor.boxingFormat ?? null,
+        strengthArea: anchor.strengthArea ?? null,
+        conditioningFormat: anchor.conditioningFormat ?? null
       }))
     },
     plan: {

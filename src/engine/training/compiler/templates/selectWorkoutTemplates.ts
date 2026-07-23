@@ -1,5 +1,6 @@
 import { hasAllEquipmentCapabilities } from "../../../athlete/equipmentAccess";
 import { generatedSupportWeekdayForDate } from "../../supportAvailability";
+import { selectCompilerBoxingCurriculum } from "../../boxingDevelopmentCurriculum";
 import type { ProtectedWorkout } from "../../types";
 import { remainingTarget, targetMovementPatternsForStrengthBudget } from "../resolveWeeklyAdaptationBudget";
 import type {
@@ -54,19 +55,12 @@ function boundedDuration(planIntent: PlanIntent, templateItem: WorkoutTemplate, 
   return Math.min(planIntent.maxSessionDurationMinutes, Math.max(templateItem.minDurationMinutes, Math.min(templateItem.maxDurationMinutes, desired)));
 }
 
-function boxingTheme(planIntent: PlanIntent): BoxingSkillSubFocus {
-  const validThemes: readonly string[] = [
-    "jab_system",
-    "entries_exits",
-    "defense_after_punching",
-    "footwork_ringcraft",
-    "counter_timing",
-    "pressure_control",
-    "outside_movement",
-    "bag_skill",
-    "shadowboxing_mechanics"
-  ];
-  return validThemes.includes(planIntent.subFocus) ? (planIntent.subFocus as BoxingSkillSubFocus) : "jab_system";
+function boxingTheme(planIntent: PlanIntent, athlete: AthleteTrainingProfile): BoxingSkillSubFocus {
+  return selectCompilerBoxingCurriculum({
+    trainingLevel: athlete.trainingLevel,
+    goalMode: planIntent.goalMode,
+    requestedSubFocus: planIntent.subFocus
+  }).boxingTheme;
 }
 
 function preferredStrengthTemplate(planIntent: PlanIntent): string {
@@ -119,7 +113,7 @@ function preferredPowerTemplate(planIntent: PlanIntent): string {
 }
 
 function preferredBoxingTemplate(planIntent: PlanIntent, athlete: AthleteTrainingProfile): string {
-  switch (boxingTheme(planIntent)) {
+  switch (boxingTheme(planIntent, athlete)) {
     case "entries_exits":
       return "boxing_entry_exit";
     case "defense_after_punching":
@@ -216,7 +210,7 @@ function focusAdjustedTemplateIds(input: {
     templateIds = replaceFirst(templateIds, (templateId) => templateId.includes("conditioning") || templateId.includes("aerobic"), "alactic_speed");
   }
 
-  if (hasHardFixedBoxingOnSelectedSupportDay(input)) {
+  if (hardFixedBoxingReducesSupportCapacity(input)) {
     const leadingTemplates = templateIds.slice(0, input.targetCount);
     const hasRecovery = leadingTemplates.some((templateId) => templateId.includes("mobility") || templateId.includes("recovery"));
     if (!hasRecovery && input.targetCount > 0) {
@@ -237,6 +231,22 @@ function hasHardFixedBoxingOnSelectedSupportDay(input: {
 }): boolean {
   const selected = new Set(input.planIntent.selectedSupportDays);
   return input.athlete.fixedBoxingSchedule.some((anchor) => hardAnchor(anchor) && selected.has(generatedSupportWeekdayForDate(anchor.date)));
+}
+
+function hardFixedBoxingReducesSupportCapacity(input: {
+  athlete: AthleteTrainingProfile;
+  planIntent: PlanIntent;
+  targetCount: number;
+}): boolean {
+  const selected = new Set(input.planIntent.selectedSupportDays);
+  const hardFixedDays = new Set(
+    input.athlete.fixedBoxingSchedule
+      .filter((anchor) => hardAnchor(anchor))
+      .map((anchor) => generatedSupportWeekdayForDate(anchor.date))
+      .filter((weekday) => selected.has(weekday))
+  );
+  const safeSupportDayCount = selected.size - hardFixedDays.size;
+  return safeSupportDayCount < input.targetCount;
 }
 
 function templateAllowed(input: { template: WorkoutTemplate; athlete: AthleteTrainingProfile; planIntent: PlanIntent }): boolean {
@@ -336,16 +346,17 @@ function energySystemFor(templateItem: WorkoutTemplate): EnergySystemIntent | un
   return templateItem.blocks.flatMap((templateBlock) => templateBlock.slots).find((slot) => slot.energySystemIntent)?.energySystemIntent;
 }
 
-function boxingThemeFor(input: { template: WorkoutTemplate; planIntent: PlanIntent }): BoxingSkillSubFocus | undefined {
+function boxingThemeFor(input: { template: WorkoutTemplate; planIntent: PlanIntent; athlete: AthleteTrainingProfile }): BoxingSkillSubFocus | undefined {
   const explicit = input.template.blocks.flatMap((templateBlock) => templateBlock.slots).find((slot) => slot.boxingTheme)?.boxingTheme;
   if (input.template.category === "boxing_skill" || input.template.category === "taper") {
-    return explicit ?? boxingTheme(input.planIntent);
+    return explicit ?? boxingTheme(input.planIntent, input.athlete);
   }
   return explicit;
 }
 
 function selectedTemplate(input: {
   template: WorkoutTemplate;
+  athlete: AthleteTrainingProfile;
   planIntent: PlanIntent;
   budget: WeeklyAdaptationBudget;
   selectedSoFar: readonly SelectedWorkoutTemplate[];
@@ -363,7 +374,7 @@ function selectedTemplate(input: {
     targetDurationMinutes: boundedDuration(input.planIntent, input.template, role),
     movementPatterns: movementPatternsFor({ template: input.template, role, budget: input.budget }),
     energySystemIntent: energySystemFor(input.template),
-    boxingTheme: boxingThemeFor({ template: input.template, planIntent: input.planIntent }),
+    boxingTheme: boxingThemeFor({ template: input.template, planIntent: input.planIntent, athlete: input.athlete }),
     rationale: [
       ...input.fallbackRationale,
       `${input.template.title} selected from ${input.planIntent.primaryFocus.replaceAll("_", " ")} distribution.`
@@ -398,6 +409,7 @@ export function selectWorkoutTemplates(input: {
     selected.push(
       selectedTemplate({
         template: templateItem,
+        athlete: input.athlete,
         planIntent: input.planIntent,
         budget: input.budget,
         selectedSoFar: selected,
@@ -418,6 +430,7 @@ export function selectWorkoutTemplates(input: {
     selected.push(
       selectedTemplate({
         template: templateItem,
+        athlete: input.athlete,
         planIntent: input.planIntent,
         budget: input.budget,
         selectedSoFar: selected,

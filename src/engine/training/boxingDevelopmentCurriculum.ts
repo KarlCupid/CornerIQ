@@ -1,6 +1,7 @@
 import type { AthleteProfile } from "../athlete/types";
 import type { PhaseState } from "../phase/phaseTypes";
 import type { GeneratedSessionFamily, PlanGenerationPrimaryFocus } from "./types";
+import type { AthleteTrainingLevel, BoxingSkillSubFocus, PlanSubFocus, TrainingGoalMode } from "./compiler/types";
 
 export type BoxingCurriculumSkillLevel = "novice" | "intermediate" | "advanced";
 export type BoxingCurriculumPhaseFit = "build" | "camp" | "fight_week" | "tournament" | "recovery" | "deload";
@@ -347,4 +348,75 @@ export function curriculumAwareFamilySequence(input: {
     }
   }
   return ordered;
+}
+
+const compilerSubFocusTheme: Partial<Record<PlanSubFocus, BoxingDevelopmentThemeId>> = {
+  jab_system: "jab_system",
+  entries_exits: "entries_exits",
+  defense_after_punching: "defense_after_punching",
+  footwork_ringcraft: "ringcraft_angle_control",
+  counter_timing: "counter_timing",
+  pressure_control: "pressure_control",
+  outside_movement: "outside_boxer_movement",
+  bag_skill: "round_skill_quality",
+  shadowboxing_mechanics: "stance_guard_foundation"
+};
+
+const compilerTheme: Record<BoxingDevelopmentThemeId, BoxingSkillSubFocus> = {
+  stance_guard_foundation: "shadowboxing_mechanics",
+  jab_system: "jab_system",
+  entries_exits: "entries_exits",
+  defense_after_punching: "defense_after_punching",
+  ringcraft_angle_control: "footwork_ringcraft",
+  counter_timing: "counter_timing",
+  pressure_control: "pressure_control",
+  outside_boxer_movement: "outside_movement",
+  inside_position_without_contact: "defense_after_punching",
+  round_skill_quality: "pressure_control",
+  fight_week_sharpness: "counter_timing",
+  tournament_reset: "shadowboxing_mechanics",
+  recovery_skill_touch: "shadowboxing_mechanics"
+};
+
+function compilerPhase(goalMode: TrainingGoalMode): BoxingCurriculumPhaseFit {
+  if (goalMode === "fight_camp") return "camp";
+  if (goalMode === "tournament") return "tournament";
+  if (goalMode === "recovery_reset") return "recovery";
+  return "build";
+}
+
+function defaultCompilerTheme(level: AthleteTrainingLevel): BoxingDevelopmentThemeId {
+  if (level === "novice") return "stance_guard_foundation";
+  if (level === "advanced") return "round_skill_quality";
+  return "jab_system";
+}
+
+export function selectCompilerBoxingCurriculum(input: {
+  trainingLevel: AthleteTrainingLevel;
+  goalMode: TrainingGoalMode;
+  requestedSubFocus: PlanSubFocus;
+}): { theme: BoxingDevelopmentCurriculumTheme; boxingTheme: BoxingSkillSubFocus } {
+  const fit = compilerPhase(input.goalMode);
+  if (input.requestedSubFocus === "bag_skill") {
+    const bagTheme = boxingDevelopmentCurriculum.find((item) => item.themeId === "round_skill_quality")!;
+    return { theme: bagTheme, boxingTheme: "bag_skill" };
+  }
+  const requestedThemeId = compilerSubFocusTheme[input.requestedSubFocus];
+  const eligible = boxingDevelopmentCurriculum.filter((item) => {
+    const levelEligible =
+      input.trainingLevel === "advanced" ||
+      item.skillLevel === "novice" ||
+      (input.trainingLevel === "intermediate" && item.skillLevel === "intermediate");
+    return levelEligible && item.phaseFit.includes(fit);
+  });
+  const phaseFallback = fit === "tournament" ? "tournament_reset" : fit === "recovery" ? "recovery_skill_touch" : defaultCompilerTheme(input.trainingLevel);
+  const requestedTheme = requestedThemeId
+    ? boxingDevelopmentCurriculum.find((item) => item.themeId === requestedThemeId && item.phaseFit.includes(fit))
+    : undefined;
+  const theme =
+    requestedTheme ??
+    eligible.find((item) => item.themeId === phaseFallback) ??
+    eligible[0] ??
+    boxingDevelopmentCurriculum.find((item) => item.themeId === "recovery_skill_touch")!;
+  return { theme, boxingTheme: compilerTheme[theme.themeId] };
 }

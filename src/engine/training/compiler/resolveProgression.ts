@@ -1,4 +1,5 @@
 import type { ExerciseResultRecord } from "../types";
+import { daysBetween } from "../../core/dates";
 import { findExerciseDefinition } from "../library/exerciseDefinitions";
 import type { MovementPattern, SessionIntent, TrainingAdaptation } from "./types";
 
@@ -46,6 +47,10 @@ function recentRelevantResults(input: { intent: SessionIntent; history: readonly
   const patterns = new Set(input.intent.movementPatterns);
   return input.history
     .filter((result) => result.resultStatus !== "prescribed_only")
+    .filter((result) => {
+      const ageDays = daysBetween(resultRecordedAt(result), input.intent.date);
+      return ageDays >= 0 && ageDays <= 42;
+    })
     .filter((result) => resultAdaptation(result) === input.intent.primaryAdaptation || (resultMovementPattern(result) ? patterns.has(resultMovementPattern(result)!) : false))
     .sort((left, right) => resultRecordedAt(left).localeCompare(resultRecordedAt(right)));
 }

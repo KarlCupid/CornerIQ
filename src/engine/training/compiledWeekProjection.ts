@@ -270,6 +270,9 @@ export function projectCompiledWeekToGeneratedSessions(input: {
   weekIndex?: number | undefined;
   trainingBlockId?: string | undefined;
 }): readonly GeneratedTrainingSession[] {
+  if (input.week.validation.status === "invalid") {
+    return [];
+  }
   return input.week.compiledSessions.map((session, index) => {
     const intent = input.week.sessionIntents.find((item) => item.id === session.sessionIntentId) ?? input.week.sessionIntents[index]!;
     const canonicalWorkoutSession = canonicalWorkoutSessionFromCompiledSession({ session, intent });

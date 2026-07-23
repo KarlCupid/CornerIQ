@@ -12,6 +12,7 @@ import type {
   WeeklyAdaptationBudget
 } from "./types";
 import { existingTrainingComponents, existingTrainingHasComponent } from "../existingTraining";
+import { selectCompilerBoxingCurriculum } from "../boxingDevelopmentCurriculum";
 
 interface MutableBudgetCore {
   strength: WeeklyAdaptationBudget["strength"];
@@ -27,6 +28,7 @@ interface MutableBudgetCore {
 
 interface FixedContribution {
   strengthSets: number;
+  strengthPatternSets: WeeklyAdaptationBudget["fixedTrainingContribution"]["strengthPatternSets"];
   aerobicMinutes: number;
   tempoWorkMinutes: number;
   intervalRepetitions: number;
@@ -35,6 +37,52 @@ interface FixedContribution {
   boxingConditioningRounds: number;
   hardDayCount: number;
   sourceIds: readonly string[];
+}
+
+type ExistingComponent = ReturnType<typeof existingTrainingComponents>[number];
+
+function componentShares(anchor: ProtectedWorkout): ReadonlyMap<ExistingComponent, number> {
+  const components = existingTrainingComponents(anchor);
+  if (components.length === 0) return new Map();
+  if (components.length === 1) return new Map([[components[0]!, 1]]);
+  if (anchor.primaryComponent && components.includes(anchor.primaryComponent)) {
+    const secondaryShare = 0.4 / (components.length - 1);
+    return new Map(components.map((component) => [component, component === anchor.primaryComponent ? 0.6 : secondaryShare]));
+  }
+  const equalShare = 1 / components.length;
+  return new Map(components.map((component) => [component, equalShare]));
+}
+
+function componentMinutes(anchor: ProtectedWorkout, component: ExistingComponent): number {
+  return anchor.durationMinutes * (componentShares(anchor).get(component) ?? 0);
+}
+
+function strengthPatternDistribution(anchor: ProtectedWorkout, sets: number): FixedContribution["strengthPatternSets"] {
+  const weights = anchor.strengthArea === "lower_body"
+    ? [0.3, 0.2, 0.3, 0, 0, 0.2]
+    : anchor.strengthArea === "upper_body"
+      ? [0, 0.1, 0, 0.3, 0.35, 0.25]
+      : anchor.strengthArea === "trunk"
+        ? [0, 0, 0, 0.1, 0.15, 0.75]
+        : [0.18, 0.18, 0.18, 0.15, 0.16, 0.15];
+  const raw = weights.map((weight) => weight * sets);
+  const distributed = raw.map(Math.floor);
+  let remaining = sets - distributed.reduce((sum, value) => sum + value, 0);
+  const order = raw
+    .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
+    .sort((left, right) => right.fraction - left.fraction || left.index - right.index);
+  for (let index = 0; remaining > 0; index += 1, remaining -= 1) {
+    const target = order[index % order.length]!.index;
+    distributed[target] = (distributed[target] ?? 0) + 1;
+  }
+  const [squat, hinge, unilateral, push, pull, trunk] = distributed;
+  return { squat: squat ?? 0, hinge: hinge ?? 0, unilateral: unilateral ?? 0, push: push ?? 0, pull: pull ?? 0, trunk: trunk ?? 0 };
+}
+
+function addStrengthPatterns(target: FixedContribution["strengthPatternSets"], addition: FixedContribution["strengthPatternSets"]): void {
+  for (const pattern of Object.keys(target) as (keyof FixedContribution["strengthPatternSets"])[]) {
+    target[pattern] += addition[pattern];
+  }
 }
 
 const mobilityRegionBySubFocus: Record<string, readonly MobilityRecoverySubFocus[]> = {
@@ -96,10 +144,11 @@ function fixedContributionFor(anchors: readonly ProtectedWorkout[]): FixedContri
   const sourceIds: string[] = [];
   const hardDates = new Set<string>();
   let strengthSets = 0;
+  const strengthPatternSets: FixedContribution["strengthPatternSets"] = { squat: 0, hinge: 0, unilateral: 0, push: 0, pull: 0, trunk: 0 };
   let aerobicMinutes = 0;
   let tempoWorkMinutes = 0;
   let intervalRepetitions = 0;
-  const alacticEfforts = 0;
+  let alacticEfforts = 0;
   let boxingTechnicalRounds = 0;
   let boxingConditioningRounds = 0;
 
@@ -110,22 +159,40 @@ function fixedContributionFor(anchors: readonly ProtectedWorkout[]): FixedContri
     }
     const components = existingTrainingComponents(anchor);
     if (components.includes("strength")) {
-      strengthSets += Math.max(6, Math.round(anchor.durationMinutes / 6));
+      const sets = Math.max(2, Math.round(componentMinutes(anchor, "strength") / 6));
+      strengthSets += sets;
+      addStrengthPatterns(strengthPatternSets, strengthPatternDistribution(anchor, sets));
     }
     if (components.includes("conditioning")) {
-      if (anchor.intensity === "hard" || anchor.intensity === "max") {
-        tempoWorkMinutes += Math.max(10, Math.round(anchor.durationMinutes * 0.7));
-        intervalRepetitions += 4;
-      } else {
-        aerobicMinutes += anchor.durationMinutes;
+      const minutes = Math.max(1, Math.round(componentMinutes(anchor, "conditioning")));
+      switch (anchor.conditioningFormat) {
+        case "intervals":
+          intervalRepetitions += Math.max(3, Math.round(minutes / 5));
+          break;
+        case "short_bursts":
+          alacticEfforts += Math.max(5, Math.round(minutes / 2));
+          break;
+        case "timed_rounds":
+          intervalRepetitions += Math.max(3, Math.round(minutes / 4));
+          break;
+        case "circuit":
+          tempoWorkMinutes += Math.max(8, Math.round(minutes * 0.65));
+          break;
+        case "steady_cardio":
+          aerobicMinutes += minutes;
+          break;
+        default:
+          if (anchor.intensity === "hard" || anchor.intensity === "max") tempoWorkMinutes += Math.max(8, Math.round(minutes * 0.7));
+          else aerobicMinutes += minutes;
       }
     }
     if (components.includes("boxing")) {
-      if (anchor.intensity === "hard") boxingConditioningRounds += roundAnchorCount(anchor);
-      else boxingTechnicalRounds += roundAnchorCount(anchor);
+      const rounds = anchor.rounds ?? Math.max(1, Math.round(componentMinutes(anchor, "boxing") / 3));
+      if (anchor.intensity === "hard" || anchor.intensity === "max") boxingConditioningRounds += rounds;
+      else boxingTechnicalRounds += rounds;
     }
     if (components.includes("sparring")) {
-      boxingConditioningRounds += roundAnchorCount(anchor);
+      boxingConditioningRounds += anchor.rounds ?? Math.max(1, Math.round(componentMinutes(anchor, "sparring") / 3));
     }
     if (components.length > 0) {
       continue;
@@ -133,7 +200,11 @@ function fixedContributionFor(anchors: readonly ProtectedWorkout[]): FixedContri
     switch (anchor.type) {
       case "coach_assigned_strength":
       case "strength":
-        strengthSets += Math.max(6, Math.round(anchor.durationMinutes / 6));
+        {
+          const sets = Math.max(2, Math.round(anchor.durationMinutes / 6));
+          strengthSets += sets;
+          addStrengthPatterns(strengthPatternSets, strengthPatternDistribution(anchor, sets));
+        }
         break;
       case "roadwork":
       case "conditioning":
@@ -172,6 +243,7 @@ function fixedContributionFor(anchors: readonly ProtectedWorkout[]): FixedContri
 
   return {
     strengthSets,
+    strengthPatternSets,
     aerobicMinutes,
     tempoWorkMinutes,
     intervalRepetitions,
@@ -322,20 +394,12 @@ function applyConditioningSubFocus(budget: MutableBudgetCore, subFocus: Conditio
   }
 }
 
-function themeFor(planIntent: PlanIntent): BoxingSkillSubFocus {
-  const subFocus = planIntent.subFocus;
-  const validThemes: readonly string[] = [
-    "jab_system",
-    "entries_exits",
-    "defense_after_punching",
-    "footwork_ringcraft",
-    "counter_timing",
-    "pressure_control",
-    "outside_movement",
-    "bag_skill",
-    "shadowboxing_mechanics"
-  ];
-  return validThemes.includes(subFocus) ? (subFocus as BoxingSkillSubFocus) : "jab_system";
+function themeFor(planIntent: PlanIntent, athlete: AthleteTrainingProfile): BoxingSkillSubFocus {
+  return selectCompilerBoxingCurriculum({
+    trainingLevel: athlete.trainingLevel,
+    goalMode: planIntent.goalMode,
+    requestedSubFocus: planIntent.subFocus
+  }).boxingTheme;
 }
 
 function applyFocusBudget(budget: MutableBudgetCore, input: { planIntent: PlanIntent; athlete: AthleteTrainingProfile }): void {
@@ -380,7 +444,7 @@ function applyFocusBudget(budget: MutableBudgetCore, input: { planIntent: PlanIn
       break;
     case "boxing_skill":
       budget.boxingSkill.technicalRounds += exposureByDose(planIntent.trainingDose, [4, 6, 9, 12]);
-      budget.boxingSkill.themeIds = [themeFor(planIntent)];
+      budget.boxingSkill.themeIds = [themeFor(planIntent, input.athlete)];
       budget.mobility.targetMinutes += 10;
       budget.totalGeneratedMinutes += exposureByDose(planIntent.trainingDose, [30, 45, 75, 105]);
       break;
@@ -393,7 +457,7 @@ function applyFocusBudget(budget: MutableBudgetCore, input: { planIntent: PlanIn
       );
       budget.conditioning.aerobicMinutes += exposureByDose(planIntent.trainingDose, [12, 35, 50, 70]);
       budget.boxingSkill.technicalRounds += exposureByDose(planIntent.trainingDose, [2, 4, 6, 9]);
-      budget.boxingSkill.themeIds = [themeFor(planIntent)];
+      budget.boxingSkill.themeIds = [themeFor(planIntent, input.athlete)];
       budget.power.exposures += exposureByDose(planIntent.trainingDose, [0, 0, 1, 1]);
       budget.power.explosiveRepetitions += exposureByDose(planIntent.trainingDose, [0, 0, 18, 30]);
       budget.mobility.exposures += exposureByDose(planIntent.trainingDose, [0, 1, 1, 2]);
@@ -555,22 +619,22 @@ export function totalPlannedStrengthSets(budget: WeeklyAdaptationBudget): number
 
 export function targetMovementPatternsForStrengthBudget(budget: WeeklyAdaptationBudget): readonly MovementPattern[] {
   const patterns: MovementPattern[] = [];
-  if (budget.strength.squatSets > 0) {
+  if (budget.strength.squatSets > budget.fixedTrainingContribution.strengthPatternSets.squat) {
     patterns.push("squat");
   }
-  if (budget.strength.hingeSets > 0) {
+  if (budget.strength.hingeSets > budget.fixedTrainingContribution.strengthPatternSets.hinge) {
     patterns.push("hinge");
   }
-  if (budget.strength.unilateralSets > 0) {
+  if (budget.strength.unilateralSets > budget.fixedTrainingContribution.strengthPatternSets.unilateral) {
     patterns.push("unilateral");
   }
-  if (budget.strength.pushSets > 0) {
+  if (budget.strength.pushSets > budget.fixedTrainingContribution.strengthPatternSets.push) {
     patterns.push("push");
   }
-  if (budget.strength.pullSets > 0) {
+  if (budget.strength.pullSets > budget.fixedTrainingContribution.strengthPatternSets.pull) {
     patterns.push("pull");
   }
-  if (budget.strength.trunkSets > 0) {
+  if (budget.strength.trunkSets > budget.fixedTrainingContribution.strengthPatternSets.trunk) {
     patterns.push("anti_rotation", "anti_extension");
   }
   return [...new Set(patterns)];

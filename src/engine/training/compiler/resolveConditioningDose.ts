@@ -35,12 +35,28 @@ function chooseModality(input: {
   return "run";
 }
 
+function progressedCount(base: number, intent: SessionIntent, minimum: number): number {
+  if (intent.progressionIntent === "progress") return base + 1;
+  if (intent.progressionIntent === "regress") return Math.max(minimum, base - 1);
+  return base;
+}
+
+function progressedSeconds(base: number, intent: SessionIntent, stepSeconds: number, minimum: number): number {
+  if (intent.progressionIntent === "progress") return base + stepSeconds;
+  if (intent.progressionIntent === "regress") return Math.max(minimum, base - stepSeconds);
+  return base;
+}
+
+function progressedRpe(base: number, intent: SessionIntent): number {
+  return intent.progressionIntent === "regress" ? Math.max(3, base - 1) : base;
+}
+
 export function resolveConditioningDose(input: { athlete: AthleteTrainingProfile; intent: SessionIntent }): ConditioningDose {
   const energySystem = input.intent.energySystemIntent ?? "aerobic_base";
   const modality = chooseModality({ athlete: input.athlete, energySystem });
   switch (energySystem) {
     case "intervals": {
-      const repetitions = Math.max(4, input.intent.doseAllocation.intervalRepetitions);
+      const repetitions = progressedCount(Math.max(4, input.intent.doseAllocation.intervalRepetitions), input.intent, 3);
       return {
         modality,
         energySystem,
@@ -49,14 +65,14 @@ export function resolveConditioningDose(input: { athlete: AthleteTrainingProfile
         restSeconds: 90,
         repetitions,
         cooldownSeconds: 480,
-        rpe: 8,
+        rpe: progressedRpe(8, input.intent),
         progressionTrigger: "Add one interval only when the final rep matches the first two and recovery stays predictable.",
         stopCondition: "Stop if mechanics, breathing control, or foot strike quality breaks.",
         substitution: modality === "run" ? "Use bike or rower intervals with the same work/rest if impact is not right today." : "Use run intervals only if impact is clearly tolerated."
       };
     }
     case "tempo": {
-      const totalTempoSeconds = Math.max(720, input.intent.doseAllocation.tempoMinutes * 60);
+      const totalTempoSeconds = progressedSeconds(Math.max(720, input.intent.doseAllocation.tempoMinutes * 60), input.intent, 180, 540);
       return {
         modality,
         energySystem,
@@ -65,14 +81,14 @@ export function resolveConditioningDose(input: { athlete: AthleteTrainingProfile
         restSeconds: 120,
         repetitions: 3,
         cooldownSeconds: 420,
-        rpe: 7,
+        rpe: progressedRpe(7, input.intent),
         progressionTrigger: "Add one minute per tempo rep only when breathing remains controlled.",
         stopCondition: "Stop if the pace turns into a sprint or shoulders tighten.",
         substitution: "Use bike, rower, or incline walk tempo with the same total work when running is not appropriate."
       };
     }
     case "alactic": {
-      const repetitions = Math.max(5, input.intent.doseAllocation.alacticEfforts);
+      const repetitions = progressedCount(Math.max(5, input.intent.doseAllocation.alacticEfforts), input.intent, 4);
       return {
         modality: modality === "run" ? "run" : modality,
         energySystem,
@@ -81,7 +97,7 @@ export function resolveConditioningDose(input: { athlete: AthleteTrainingProfile
         restSeconds: 110,
         repetitions,
         cooldownSeconds: 420,
-        rpe: 8,
+        rpe: progressedRpe(8, input.intent),
         progressionTrigger: "Add only one effort when every effort stays fast and relaxed.",
         stopCondition: "Stop when speed drops, ground contact gets noisy, or recovery is incomplete.",
         substitution: "Use bike spin-ups when impact is not appropriate."
@@ -94,9 +110,9 @@ export function resolveConditioningDose(input: { athlete: AthleteTrainingProfile
         warmupSeconds: 480,
         workSeconds: 180,
         restSeconds: 60,
-        repetitions: Math.max(4, input.intent.doseAllocation.boxingConditioningRounds),
+        repetitions: progressedCount(Math.max(4, input.intent.doseAllocation.boxingConditioningRounds), input.intent, 3),
         cooldownSeconds: 420,
-        rpe: 7,
+        rpe: progressedRpe(7, input.intent),
         progressionTrigger: "Add one round only when technical quality holds through the final round.",
         stopCondition: "Stop if punch mechanics, guard return, or breathing control drops.",
         substitution: "Use shadowboxing rounds only when bag work is unavailable or impact needs to be lower."
@@ -105,7 +121,7 @@ export function resolveConditioningDose(input: { athlete: AthleteTrainingProfile
     case "recovery_aerobic":
     case "aerobic_base":
     default: {
-      const workSeconds = Math.max(30 * 60, input.intent.doseAllocation.aerobicMinutes * 60);
+      const workSeconds = progressedSeconds(Math.max(30 * 60, input.intent.doseAllocation.aerobicMinutes * 60), input.intent, 5 * 60, 20 * 60);
       return {
         modality,
         energySystem,
@@ -114,7 +130,7 @@ export function resolveConditioningDose(input: { athlete: AthleteTrainingProfile
         restSeconds: 0,
         repetitions: 1,
         cooldownSeconds: 300,
-        rpe: energySystem === "recovery_aerobic" ? 3 : 5,
+        rpe: progressedRpe(energySystem === "recovery_aerobic" ? 3 : 5, input.intent),
         progressionTrigger: "Add five minutes only when the session finishes with calm breathing and normal legs.",
         stopCondition: "Stop if the session stops feeling conversational or pain changes mechanics.",
         substitution: "Use bike, rower, or incline walking to preserve the aerobic target."

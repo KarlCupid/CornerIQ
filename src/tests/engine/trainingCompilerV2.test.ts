@@ -7,7 +7,8 @@ import { buildWorkoutPlayerTimeline } from "../../engine/presentation/workoutPla
 import {
   GENERATED_SESSION_SCHEMA_VERSION_V2,
   PLAN_INTENT_VERSION_V2,
-  compileCurrentAndNextTrainingWeeks
+  compileCurrentAndNextTrainingWeeks,
+  projectCompiledWeekToGeneratedSessions
 } from "../../engine/training/compiledWeekProjection";
 import { persistentSafetyConstraintsFromRiskFlags } from "../../engine/training/compiledTrainingStateEngine";
 import { buildDetailedTrainingSession } from "../../engine/training/detailedSessionEngine";
@@ -116,9 +117,11 @@ function compileCase(input: {
   safety?: readonly PersistentSafetyConstraint[] | undefined;
   history?: readonly ExerciseResultRecord[] | undefined;
   weekStart?: string | undefined;
+  athleteOverrides?: Partial<AthleteProfile> | undefined;
 }): CompiledTrainingWeek {
   const fixed = input.fixed ?? [];
   const sourceAthlete = athlete({
+    ...input.athleteOverrides,
     equipmentAccess: input.equipment ?? ["bodyweight"],
     protectedBoxingSchedule: fixed
   });
@@ -233,6 +236,67 @@ describe("training compiler V2 architecture", () => {
     expect(high.materialFingerprint).not.toBe(minimal.materialFingerprint);
   });
 
+  it("uses onboarding-shaped fixed workout details without double-counting mixed session time", () => {
+    const week = compileCase({
+      focus: "balanced",
+      dose: "serious",
+      fixed: [
+        fixedAnchor({
+          id: "mixed_existing",
+          type: "mixed_training",
+          durationMinutes: 90,
+          components: ["boxing", "strength", "conditioning"],
+          primaryComponent: "boxing",
+          boxingFormat: "technical_work",
+          strengthArea: "lower_body",
+          conditioningFormat: "steady_cardio"
+        }),
+        fixedAnchor({
+          id: "short_bursts",
+          type: "conditioning",
+          date: "2026-06-05",
+          durationMinutes: 30,
+          intensity: "hard",
+          components: ["conditioning"],
+          primaryComponent: "conditioning",
+          conditioningFormat: "short_bursts"
+        })
+      ]
+    });
+    const contribution = week.adaptationBudget.fixedTrainingContribution;
+
+    expect(contribution.boxingTechnicalRounds).toBe(18);
+    expect(contribution.strengthSets).toBe(3);
+    expect(contribution.aerobicMinutes).toBe(18);
+    expect(contribution.alacticEfforts).toBe(15);
+    expect(contribution.strengthPatternSets.squat).toBeGreaterThan(0);
+    expect(contribution.strengthPatternSets.push).toBe(0);
+  });
+
+  it("uses the boxing curriculum to change round content by experience level", () => {
+    const novice = compileCase({
+      focus: "balanced",
+      dose: "standard",
+      supportDays: ["monday", "wednesday", "friday", "saturday"],
+      athleteOverrides: { boxingLevel: "amateur_novice", trainingAgeYears: 0.5 }
+    });
+    const advanced = compileCase({
+      focus: "balanced",
+      dose: "standard",
+      supportDays: ["monday", "wednesday", "friday", "saturday"],
+      athleteOverrides: { boxingLevel: "amateur_elite", trainingAgeYears: 6 }
+    });
+    const noviceBoxing = novice.compiledSessions.find((session) => session.primaryAdaptation === "boxing_skill");
+    const advancedBoxing = advanced.compiledSessions.find((session) => session.primaryAdaptation === "boxing_skill");
+    const noviceRound = noviceBoxing?.blocks.flatMap((block) => block.boxingRounds?.rounds ?? [])[0];
+    const advancedRound = advancedBoxing?.blocks.flatMap((block) => block.boxingRounds?.rounds ?? [])[0];
+
+    expect(novice.sessionIntents.find((intent) => intent.primaryAdaptation === "boxing_skill")?.boxingTheme).toBe("shadowboxing_mechanics");
+    expect(advanced.sessionIntents.find((intent) => intent.primaryAdaptation === "boxing_skill")?.boxingTheme).toBe("pressure_control");
+    expect(noviceRound?.title).toBe("Stance Audit");
+    expect(advancedRound?.title).toBe("Balanced Step In");
+  });
+
   it("keeps balanced dose changes visible in the first week and first strength workout", () => {
     const doses = ["minimal", "standard", "serious", "high"] as const;
     const weeks = doses.map((dose) =>
@@ -324,6 +388,49 @@ describe("training compiler V2 architecture", () => {
     expect(pushPainPush?.reps).toBeLessThan(baselinePush?.reps ?? 0);
   });
 
+  it("turns recent boxing and conditioning completion evidence into one-variable dose changes", () => {
+    const conditioningBaseline = compileCase({ focus: "conditioning", subFocus: "intervals", dose: "standard", equipment: ["bike"] });
+    const conditioningProgress = compileCase({
+      focus: "conditioning",
+      subFocus: "intervals",
+      dose: "standard",
+      equipment: ["bike"],
+      history: [exerciseResult({ id: "clean_intervals", exerciseId: "v2_bike_intervals", exerciseName: "Bike intervals", prescribed: { adaptation: "conditioning" } })]
+    });
+    const conditioningRegress = compileCase({
+      focus: "conditioning",
+      subFocus: "intervals",
+      dose: "standard",
+      equipment: ["bike"],
+      history: [exerciseResult({ id: "partial_intervals", exerciseId: "v2_bike_intervals", exerciseName: "Bike intervals", prescribed: { adaptation: "conditioning" }, resultStatus: "partial" })]
+    });
+    const conditioningRepetitions = (week: CompiledTrainingWeek) => week.compiledSessions.flatMap((session) => session.blocks).find((block) => block.conditioning)?.conditioning?.repetitions ?? 0;
+
+    expect(conditioningProgress.sessionIntents.find((intent) => intent.primaryAdaptation === "conditioning")?.progressionIntent).toBe("progress");
+    expect(conditioningRepetitions(conditioningProgress)).toBe(conditioningRepetitions(conditioningBaseline) + 1);
+    expect(conditioningRepetitions(conditioningRegress)).toBe(conditioningRepetitions(conditioningBaseline) - 1);
+    expect(conditioningRegress.validation.status).toBe("valid_with_adjustments");
+
+    const boxingBaseline = compileCase({ focus: "boxing_skill", subFocus: "jab_system", dose: "standard" });
+    const boxingProgress = compileCase({
+      focus: "boxing_skill",
+      subFocus: "jab_system",
+      dose: "standard",
+      history: [exerciseResult({ id: "clean_boxing", exerciseId: "v2_shadowboxing_technical_consolidation", exerciseName: "Shadowboxing technical consolidation", prescribed: { adaptation: "boxing_skill" } })]
+    });
+    const staleBoxing = compileCase({
+      focus: "boxing_skill",
+      subFocus: "jab_system",
+      dose: "standard",
+      history: [exerciseResult({ id: "stale_boxing", exerciseId: "v2_shadowboxing_technical_consolidation", exerciseName: "Shadowboxing technical consolidation", prescribed: { adaptation: "boxing_skill" }, recordedAt: "2026-03-01T18:00:00.000Z", completedAt: "2026-03-01T18:00:00.000Z" })]
+    });
+    const boxingRounds = (week: CompiledTrainingWeek) => week.compiledSessions.flatMap((session) => session.blocks).find((block) => block.boxingRounds)?.boxingRounds?.rounds.length ?? 0;
+
+    expect(boxingRounds(boxingProgress)).toBe(boxingRounds(boxingBaseline) + 1);
+    expect(staleBoxing.sessionIntents.find((intent) => intent.primaryAdaptation === "boxing_skill")?.progressionIntent).toBe("introduce");
+    expect(boxingRounds(staleBoxing)).toBe(boxingRounds(boxingBaseline));
+  });
+
   it("places intents around fixed boxing instead of using family order", () => {
     const fixed = [
       fixedAnchor({ id: "sparring_wed", type: "sparring", date: "2026-06-03", intensity: "hard", rounds: 6 }),
@@ -344,6 +451,37 @@ describe("training compiler V2 architecture", () => {
     expect(hardGeneratedDates).not.toContain("2026-06-06");
     expect(week.sessionIntents.find((intent) => intent.primaryAdaptation === "strength")?.date).toBe("2026-06-05");
     expect(recoveryAfterHard?.role).toBe("mobility_recovery");
+  });
+
+  it("preserves the primary workout when a hard fixed session leaves enough safe support days", () => {
+    const week = compileCase({
+      focus: "strength",
+      subFocus: "full_body_strength",
+      dose: "minimal",
+      equipment: ["dumbbells", "bands"],
+      supportDays: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"],
+      fixed: [fixedAnchor({ id: "sparring_wed", type: "sparring", date: "2026-06-03", intensity: "hard", rounds: 6 })]
+    });
+
+    expect(week.validation.status).not.toBe("invalid");
+    expect(week.sessionIntents).toHaveLength(1);
+    expect(week.sessionIntents[0]?.primaryAdaptation).toBe("strength");
+    expect(week.sessionIntents[0]?.date).not.toBe("2026-06-03");
+  });
+
+  it("fails closed when an invalid compiled week reaches projection", () => {
+    const validWeek = compileCase({ focus: "strength", subFocus: "full_body_strength", equipment: ["dumbbells", "bands"] });
+    const invalidWeek: CompiledTrainingWeek = {
+      ...validWeek,
+      validation: {
+        status: "invalid",
+        passed: false,
+        failures: ["Synthetic invalid plan for projection regression coverage."],
+        warnings: []
+      }
+    };
+
+    expect(projectCompiledWeekToGeneratedSessions({ week: invalidWeek, source: "active_plan_generation" })).toEqual([]);
   });
 
   it("composes structured strength, conditioning, boxing, power, and mobility prescriptions", () => {

@@ -188,6 +188,14 @@ export interface WeeklyAdaptationBudget {
   recoverySessionTarget: number;
   fixedTrainingContribution: {
     strengthSets: number;
+    strengthPatternSets: {
+      squat: number;
+      hinge: number;
+      unilateral: number;
+      push: number;
+      pull: number;
+      trunk: number;
+    };
     aerobicMinutes: number;
     tempoWorkMinutes: number;
     intervalRepetitions: number;
@@ -369,6 +377,7 @@ export interface PersistentSafetyConstraint {
 }
 
 export interface WeeklyValidationResult {
+  status: "valid" | "valid_with_adjustments" | "invalid";
   passed: boolean;
   failures: readonly string[];
   warnings: readonly string[];

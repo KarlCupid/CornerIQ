@@ -59,6 +59,13 @@ function hasHardBoxing(anchors: readonly ProtectedWorkout[], date: ISODateString
   return anchorsForDate(anchors, date).some(hardAnchor);
 }
 
+interface ScheduledRole {
+  roleIndex: number;
+  role: RolePlan;
+  date: ISODateString;
+  score: number;
+}
+
 function fixedBoxingSkillAnchor(anchor: ProtectedWorkout): boolean {
   return anchor.type === "boxing_class" || anchor.type === "technical_session" || anchor.type === "pads_mitts" || anchor.type === "bag_work" || anchor.type === "footwork_session" || anchor.type === "sparring";
 }
@@ -175,6 +182,53 @@ function scoreDate(input: { role: RolePlan; date: ISODateString; anchors: readon
   return score;
 }
 
+function pairScore(left: ScheduledRole, right: ScheduledRole): number {
+  const gap = Math.abs(daysBetween(left.date, right.date));
+  let score = 0;
+  if (hardRole(left.role) && hardRole(right.role) && gap <= 1) score -= 70;
+  if (gap <= 1 && ((left.role.primaryAdaptation === "strength" && hardRole(right.role)) || (right.role.primaryAdaptation === "strength" && hardRole(left.role)))) score -= 35;
+  if (left.role.role === "mobility_recovery" && daysBetween(right.date, left.date) === 1 && hardRole(right.role)) score += 25;
+  if (right.role.role === "mobility_recovery" && daysBetween(left.date, right.date) === 1 && hardRole(left.role)) score += 25;
+  return score;
+}
+
+function optimizedSchedule(input: {
+  roles: readonly RolePlan[];
+  candidates: readonly ISODateString[];
+  anchors: readonly ProtectedWorkout[];
+}): readonly ScheduledRole[] {
+  let best: readonly ScheduledRole[] = [];
+  let bestScore = Number.NEGATIVE_INFINITY;
+  let bestSignature = "";
+
+  const visit = (roleIndex: number, scheduled: readonly ScheduledRole[], usedDates: ReadonlySet<ISODateString>, score: number): void => {
+    if (roleIndex >= input.roles.length) {
+      const signature = scheduled.map((item) => `${item.roleIndex}:${item.date}`).join("|");
+      if (scheduled.length > best.length || (scheduled.length === best.length && (score > bestScore || (score === bestScore && (!bestSignature || signature < bestSignature))))) {
+        best = scheduled;
+        bestScore = score;
+        bestSignature = signature;
+      }
+      return;
+    }
+    const role = input.roles[roleIndex]!;
+    for (const [dateIndex, date] of input.candidates.entries()) {
+      if (usedDates.has(date)) continue;
+      const placedRole = roleForDate({ role, date, anchors: input.anchors });
+      const placementScore = scoreDate({ role, date, anchors: input.anchors, usedDates: new Set(), dateIndex });
+      if (!Number.isFinite(placementScore)) continue;
+      if ((role.primaryAdaptation === "strength" || role.primaryAdaptation === "power" || hardRole(role)) && placementScore < 50) continue;
+      const placement: ScheduledRole = { roleIndex, role: placedRole, date, score: placementScore };
+      const interactionScore = scheduled.reduce((sum, item) => sum + pairScore(item, placement), 0);
+      visit(roleIndex + 1, [...scheduled, placement], new Set([...usedDates, date]), score + placementScore + interactionScore);
+    }
+    visit(roleIndex + 1, scheduled, usedDates, score - 500);
+  };
+
+  visit(0, [], new Set(), 0);
+  return best;
+}
+
 function allocationFor(input: {
   role: RolePlan;
   budget: WeeklyAdaptationBudget;
@@ -247,7 +301,6 @@ export function allocateSessionIntents(input: {
   });
   const selectionRationaleByTemplate = new Map(templateSelections.map((selection) => [selection.template.id, selection.rationale]));
   const roles = templateSelections.map(rolePlanFromSelectedTemplate);
-  const usedDates = new Set<ISODateString>();
   const intents: SessionIntent[] = [];
   const roleCounts = roles.reduce<Map<SessionRole, number>>((counts, role) => {
     counts.set(role.role, (counts.get(role.role) ?? 0) + 1);
@@ -260,29 +313,13 @@ export function allocateSessionIntents(input: {
     return counts;
   }, new Map<TrainingAdaptation, number>());
 
-  for (const [roleIndex, role] of roles.entries()) {
-    const ranked = candidates
-      .map((date, dateIndex) => ({
-        date,
-        score: scoreDate({ role, date, anchors: input.athlete.fixedBoxingSchedule, usedDates, dateIndex })
-      }))
-      .filter((item) => Number.isFinite(item.score))
-      .sort((left, right) => right.score - left.score);
-    const best = ranked[0];
-    if (!best) {
-      continue;
-    }
-    if ((role.primaryAdaptation === "strength" || role.primaryAdaptation === "power" || hardRole(role)) && best.score < 50) {
-      continue;
-    }
-    const selected = best.date;
-    usedDates.add(selected);
+  const schedule = optimizedSchedule({ roles, candidates, anchors: input.athlete.fixedBoxingSchedule });
+  for (const scheduled of schedule) {
+    const roleIndex = scheduled.roleIndex;
+    const role = roles[roleIndex]!;
+    const selected = scheduled.date;
     const fixedBoxingContext = anchorsForDate(input.athlete.fixedBoxingSchedule, selected);
-    const placedRole = roleForDate({
-      role,
-      date: selected,
-      anchors: input.athlete.fixedBoxingSchedule
-    });
+    const placedRole = scheduled.role;
     const carryMobilityMinutes =
       hasDedicatedMobilityRole || mobilityCarryAssigned || placedRole.primaryAdaptation === "mobility" ? 0 : remainingTarget(input.budget, "mobility_minutes");
     if (carryMobilityMinutes > 0) {
@@ -290,6 +327,7 @@ export function allocateSessionIntents(input: {
     }
     const rationale = [
       ...(placedRole.templateId ? (selectionRationaleByTemplate.get(placedRole.templateId) ?? []) : []),
+      "The full set of available support days was evaluated before this placement was selected.",
       `${placedRole.role.replaceAll("_", " ")} placed on ${selected}.`,
       ...(placedRole.role !== role.role ? [`Hard fixed boxing on ${selected} changed ${role.role.replaceAll("_", " ")} into easy recovery support.`] : []),
       ...(dayAfterHardBoxing(input.athlete.fixedBoxingSchedule, selected) ? ["This date follows hard fixed boxing, so recovery-biased work receives priority."] : []),

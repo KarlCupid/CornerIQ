@@ -796,9 +796,15 @@ function progressionRule(input: { system: BoxingEnergySystem; modality: BoxingMo
   return "Progress by adding one constraint or one round only after guard, feet, and breathing finish clean.";
 }
 
+function progressedRoundCount(base: number, intent: SessionIntent): number {
+  if (intent.progressionIntent === "progress") return Math.min(10, base + 1);
+  if (intent.progressionIntent === "regress") return Math.max(2, base - 1);
+  return base;
+}
+
 export function resolveBoxingRoundDose(input: { athlete: AthleteTrainingProfile; intent: SessionIntent }): BoxingRoundPrescription {
   const conditioning = input.intent.role === "boxing_conditioning" || input.intent.energySystemIntent === "boxing_round_conditioning";
-  const rounds = Math.max(3, conditioning ? input.intent.doseAllocation.boxingConditioningRounds : input.intent.doseAllocation.boxingTechnicalRounds);
+  const rounds = progressedRoundCount(Math.max(3, conditioning ? input.intent.doseAllocation.boxingConditioningRounds : input.intent.doseAllocation.boxingTechnicalRounds), input.intent);
   const theme = input.intent.boxingTheme;
   const modality = modalityFor({ athlete: input.athlete, theme, conditioning });
   const system = energySystemFor({ theme, conditioning });
@@ -824,7 +830,7 @@ export function resolveBoxingRoundDose(input: { athlete: AthleteTrainingProfile;
         downshift: plan.downshift
       };
     }),
-    rpe: timing.rpe,
+    rpe: input.intent.progressionIntent === "regress" ? Math.max(3, timing.rpe - 1) : timing.rpe,
     technicalQualityCheckpoint: technicalQualityCheckpoint({ system, modality }),
     stopRule: "Stop or downshift if pain, dizziness, unusual symptoms, uncontrolled fatigue, or the round job breaks twice.",
     progressionRule: progressionRule({ system, modality })
