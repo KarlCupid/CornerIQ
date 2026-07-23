@@ -17,7 +17,7 @@ The full-codebase technical and scientific audit is tracked separately through `
 | Current open blocker count | 2 external: Apple/EAS signing credentials for an installable iOS preview, and a populated dedicated Supabase smoke account. RevenueCat/App Store purchase configuration is explicitly deferred by the release owner. |
 | Current open high count | 2 external-evidence items: live auth/persistence smoke needs a populated dedicated Supabase smoke account, and physical-iPhone acceptance requires a real device. |
 | Current required-medium count | 0. Exact-candidate GitHub Actions passes; remaining moderate Expo build-tool notices are accepted for a controlled framework upgrade. |
-| Next recommended action | Refresh the Apple/EAS signing session without sharing credentials, create the ad-hoc iOS preview, run the physical-iPhone checklist, and populate a dedicated Supabase smoke account to complete live auth/persistence/runtime-RLS checks. |
+| Next recommended action | Release owner will handle Apple/EAS signing, device registration, the iOS candidate, and physical-iPhone acceptance manually. Populate a dedicated Supabase smoke account to complete live auth/persistence/runtime-RLS checks. |
 | Launch readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
@@ -245,7 +245,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | EAS project initialized | automated_pass | `app.json` links EAS project `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`; `npx eas-cli project:info --non-interactive` verified `@karlcupid/corneriq` on 2026-06-03. |
-| preview build artifact exists | blocked | Exact candidate `94b8682` was submitted to the EAS preview flow, but EAS stopped before upload because no credentials suitable for internal distribution exist. Interactive recovery reached the saved Apple ID, found its local Apple session expired, and required the account password; the run was stopped without collecting or exposing credentials. |
+| preview build artifact exists | human_review_required | Exact candidate `94b8682` reached the EAS preview credential check, but no artifact was uploaded because no suitable internal-distribution credentials or registered iPhone exist. The saved Apple session is expired; the run was stopped without collecting or exposing credentials. The release owner will handle the iOS candidate and device pass manually. |
 | paid Apple build configuration | deferred | Explicitly excluded from this pass by the release owner; no RevenueCat/App Store Connect purchase configuration was touched. |
 | live purchase and restore | deferred | Explicitly excluded from this pass by the release owner because it is attached to live builds. |
 | private distribution list controlled | human_review_required | Managed outside git. |
