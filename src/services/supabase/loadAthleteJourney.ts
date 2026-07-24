@@ -306,8 +306,9 @@ export async function loadAthleteJourney(input: {
       input.repositories.trainingBlock.getActiveTrainingBlockForDate(userId, input.asOfDate, activePlanIntent?.id)
     );
 
-    const activeFightOpportunity = activeFightForDate(fights, input.asOfDate);
-    const activeTournament = activeTournamentForDate(tournaments, input.asOfDate);
+    const buildPlanOwnsPhase = activePlanIntent?.goalMode === "build";
+    const activeFightOpportunity = buildPlanOwnsPhase ? null : activeFightForDate(fights, input.asOfDate);
+    const activeTournament = buildPlanOwnsPhase ? null : activeTournamentForDate(tournaments, input.asOfDate);
     const journeyEvents = journeyEventsWithPersistedPlanIntent(persistedJourneyEvents, persistedActivePlanIntent);
     const activePhase = activeFightOpportunity || activeTournament ? null : activePhaseFromEvents(journeyEvents);
     const cycleHistory = [...cycleLogs, ...cycleSymptomLogs].sort((left, right) => left.date.localeCompare(right.date));

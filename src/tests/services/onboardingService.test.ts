@@ -404,6 +404,113 @@ describe("onboardingService", () => {
     expect(store.events.map((event) => event.type)).toContain("FightOpportunityCreated");
   });
 
+  it("switching from fight camp to a build plan retires the fight context before regeneration", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
+
+    await saveFightSetup({
+      userId: "user_1",
+      draft: {
+        ...createDefaultFightDraft(fixtureAsOfDate),
+        status: "confirmed",
+        boutDate: "2026-05-24",
+        weighInType: "unknown",
+        planAction: "start_new_plan",
+        planStartDate: fixtureAsOfDate,
+        scheduleAvailability: ["monday", "wednesday", "friday"]
+      },
+      repositories
+    });
+
+    const campResult = await resolveFromStore(repositories);
+    expect(campResult.status).toBe("ready");
+    if (campResult.status === "ready") {
+      expect(campResult.state.objective).toBe("camp");
+      expect(campResult.state.training.activeBlock.primaryGoal).toBe("speed_preservation");
+      expect(campResult.state.nutrition.acuteProtocolStatus).toBe("blocked");
+    }
+
+    await saveBuildGoal({
+      userId: "user_1",
+      draft: {
+        primaryFocus: "strength",
+        subFocus: "full_body_strength",
+        trainingDose: "standard",
+        planAction: "start_new_plan",
+        planStartDate: fixtureAsOfDate,
+        scheduleAvailability: ["monday", "wednesday", "friday"]
+      },
+      repositories
+    });
+
+    expect(store.fights).toEqual([expect.objectContaining({ status: "canceled" })]);
+    expect(store.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ retiredFightCount: 1, retiredTournamentCount: 0 }) })
+      ])
+    );
+
+    // Simulate an account saved by an older build where the new Build revision
+    // persisted but the previous fight row incorrectly remained active.
+    store.fights = store.fights.map((fight) => ({ ...fight, status: "confirmed" }));
+    const buildResult = await resolveFromStore(repositories);
+    expect(buildResult.status).toBe("ready");
+    if (buildResult.status === "ready") {
+      expect(buildResult.state.objective).toBe("build");
+      expect(buildResult.state.fightContext).toBeNull();
+      expect(buildResult.state.training.activeBlock.phase).toBe("build_strength");
+      expect(buildResult.state.training.activeBlock.primaryGoal).toBe("strength_base");
+      expect(buildResult.state.nutrition.acuteProtocolStatus).toBe("not_applicable");
+      expect(buildResult.state.safety.riskFlags.some((flag) => flag.code === "unknown_weigh_in_timing")).toBe(false);
+      expect(buildResult.state.viewModels.plan.cutRunway.visible).toBe(false);
+      expect(buildResult.state.viewModels.plan.warnings.some((warning) => warning.includes("weigh-in"))).toBe(false);
+    }
+  });
+
+  it("switching from a tournament to Build supersedes the tournament context without deleting history", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
+    await saveTournamentSetup({
+      userId: "user_1",
+      draft: {
+        ...createDefaultTournamentDraft(fixtureAsOfDate),
+        tournamentStartDate: "2026-05-23",
+        tournamentEndDate: "2026-05-24",
+        possibleBoutDates: ["2026-05-23"],
+        planAction: "start_new_plan",
+        planStartDate: fixtureAsOfDate,
+        scheduleAvailability: ["monday", "wednesday", "friday"]
+      },
+      repositories
+    });
+
+    await saveBuildGoal({
+      userId: "user_1",
+      draft: {
+        primaryFocus: "balanced",
+        planAction: "start_new_plan",
+        planStartDate: fixtureAsOfDate,
+        scheduleAvailability: ["monday", "wednesday", "friday"]
+      },
+      repositories
+    });
+
+    expect(await repositories.tournament.listTournamentPlans("user_1")).toEqual([]);
+    expect(await repositories.tournament.listTournamentPlans("user_1", { includeSuperseded: true })).toHaveLength(1);
+    expect(store.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ retiredFightCount: 0, retiredTournamentCount: 1 }) })
+      ])
+    );
+    const buildResult = await resolveFromStore(repositories);
+    expect(buildResult.status).toBe("ready");
+    if (buildResult.status === "ready") {
+      expect(buildResult.state.objective).toBe("build");
+      expect(buildResult.state.tournamentContext).toBeNull();
+      expect(buildResult.state.training.activeBlock.phase).not.toBe("tournament_week");
+    }
+  });
+
   it("editing a fight draft with an id updates the existing record", async () => {
     const { repositories, store } = createOnboardingRepositories();
 

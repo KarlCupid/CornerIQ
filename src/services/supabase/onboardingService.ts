@@ -928,6 +928,46 @@ async function supersedeOtherUpcomingTournaments(input: {
   return superseded;
 }
 
+async function retireCompetitionContextsForBuildPlan(input: {
+  userId: string;
+  repositories: AthleteJourneyRepositories;
+  planRevisionId?: string | undefined;
+}): Promise<{ retiredFightCount: number; retiredTournamentCount: number }> {
+  const supersededAt = nowIso();
+  const supersededBy = input.planRevisionId ?? "build_phase";
+  const [fights, tournaments] = await Promise.all([
+    input.repositories.fight.listFightOpportunities(input.userId),
+    input.repositories.tournament.listTournamentPlans(input.userId)
+  ]);
+  const activeFights = fights.filter(isActiveFight);
+
+  for (const fight of activeFights) {
+    await input.repositories.fight.updateFightOpportunity(
+      input.userId,
+      { ...fight, status: "canceled" },
+      {
+        supersededAt,
+        supersededBy,
+        supersededReason: "build_phase_started"
+      }
+    );
+  }
+
+  const activeTournaments = tournaments.filter((tournament) => Boolean(tournament.id));
+  for (const tournament of activeTournaments) {
+    await input.repositories.tournament.updateTournamentPlan(input.userId, tournament.id!, tournament, {
+      supersededAt,
+      supersededBy,
+      supersededReason: "build_phase_started"
+    });
+  }
+
+  return {
+    retiredFightCount: activeFights.length,
+    retiredTournamentCount: activeTournaments.length
+  };
+}
+
 export async function completeOnboarding(input: {
   userId: string;
   asOfDate: ISODateString;
@@ -1107,11 +1147,13 @@ export async function saveBuildGoal(input: {
   });
   const planRevisionId = await persistPlanGenerationIntent({ userId, payload: planPayload, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "build", protectedScheduleMode, scheduleAvailability });
+  const retiredCompetitionContexts = await retireCompetitionContextsForBuildPlan({ userId, repositories: input.repositories, planRevisionId });
   await input.repositories.journey.appendEvent(userId, "BuildPhaseStarted", {
     primaryFocus: draft.primaryFocus,
     supportPrescription: "engine_owned",
     generatedSupportAvailableDays: scheduleAvailability,
     scheduleAvailability,
+    ...retiredCompetitionContexts,
     ...planPayload,
     protectedScheduleMode,
     source: input.source ?? planLifecycleSource(draft.planAction)
