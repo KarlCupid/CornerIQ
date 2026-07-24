@@ -100,7 +100,7 @@ Current app config:
 - Owner: `karlcupid`.
 - EAS project ID: `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`.
 - Slug: `corneriq`.
-- Version: `0.1.0`.
+- Version: `0.1.1`.
 - Orientation: portrait.
 - User interface style: dark.
 - iOS bundle identifier: `com.corneriq.app`.
