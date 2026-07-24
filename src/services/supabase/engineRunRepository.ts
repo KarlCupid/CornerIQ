@@ -377,12 +377,17 @@ function generatedContentFingerprintChanged(record: TableInsert<"generated_train
 function supersededGeneratedSessionSlotMutation(record: TableInsert<"generated_training_sessions">, existing: GeneratedSessionSlotRow): TableUpdate<"generated_training_sessions"> {
   const existingPayload = payloadObject(existing.session_payload, "generated_training_sessions.supersedeStaleContent.existing");
   const nextPayload = payloadObject(record.session_payload ?? toJson({}), "generated_training_sessions.supersedeStaleContent.next");
+  const canonicalGeneratedSessionKey = trimmedStringValue(record.generated_session_key) ?? trimmedStringValue(existingPayload.generatedSessionKey) ?? existing.id;
+  const archivedGeneratedSessionKey = `${canonicalGeneratedSessionKey}:superseded:${existing.id}`;
   return {
+    generated_session_key: archivedGeneratedSessionKey,
     generated_session_lifecycle: "superseded",
     session_payload: toJson({
       ...existingPayload,
       generatedSessionLifecycle: "superseded",
       supersededReason: "canonical_content_replaced_for_active_slot",
+      canonicalGeneratedSessionKey,
+      archivedGeneratedSessionKey,
       supersededByGeneratedSessionKey: record.generated_session_key ?? null,
       supersededByContentFingerprint: trimmedStringValue(nextPayload.contentFingerprint),
       supersededByInputHash: trimmedStringValue(nextPayload.inputHash),

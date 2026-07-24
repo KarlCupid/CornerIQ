@@ -6,6 +6,21 @@ Purpose: stable runbook and historical status for CornerIQ Supabase release evid
 
 This document must not be treated as proof that the linked remote database is aligned for a future commit.
 
+## 2026-07-24 Generated Workout Regeneration Hotfix
+
+The release owner explicitly approved a production fix after TestFlight exposed a duplicate-key failure while replacing stale generated workout content. The existing history-wide idempotency index was preserved for compatibility with installed clients. Migration `20260724203621_archive_superseded_generated_session_keys.sql` instead adds a hardened trigger that archives the superseded row's key before uniqueness checks, allowing the canonical replacement to be inserted without deleting workout history.
+
+| Evidence | Production status |
+| --- | --- |
+| Pre-apply dry-run | Reported only `20260724203621_archive_superseded_generated_session_keys.sql` pending. |
+| Production apply | Migration `20260724203621` applied successfully to project `fohdypahnobcchfmcrrn`. |
+| Schema verification | Trigger exists; function is `SECURITY INVOKER` with an empty `search_path`; legacy compatibility index remains present. |
+| Behavior verification | A transaction-scoped temporary-table probe returned `trigger_behavior_verified = true` and rolled back. No user rows were created or modified by the probe. |
+| Security advisor | No new migration-specific security finding; the existing leaked-password-protection warning remains. |
+| Local verification | Typecheck, lint, production preflight, and 922 tests passed. |
+
+The app repository also archives the key explicitly for new clients, so the database trigger is a backward-compatible safeguard for already-installed TestFlight builds.
+
 ## 2026-07-23 Production Smoke And Pending Fix
 
 An explicit opt-in smoke used the dedicated review account against the production project (`fohdypahnobcchfmcrrn`). Authentication succeeded and the test reached authenticated reads, manual-log persistence, journey loading, and deterministic engine projection. It then failed before completing the full workflow for two concrete compatibility reasons:

@@ -1798,10 +1798,13 @@ describe("Supabase repositories", () => {
     expect(updated).toHaveLength(1);
     expect(inserted).toHaveLength(1);
     expect(updated[0]?.record).toMatchObject({
+      generated_session_key: `${record.generated_session_key}:superseded:db_generated_1`,
       generated_session_lifecycle: "superseded",
       session_payload: {
         generatedSessionLifecycle: "superseded",
         supersededReason: "canonical_content_replaced_for_active_slot",
+        canonicalGeneratedSessionKey: record.generated_session_key,
+        archivedGeneratedSessionKey: `${record.generated_session_key}:superseded:db_generated_1`,
         supersededByGeneratedSessionKey: record.generated_session_key,
         supersededByInputHash: "input_hash_next",
         supersededByOutputHash: "output_hash_next"
@@ -1886,6 +1889,17 @@ describe("Supabase repositories", () => {
     expect(source).toContain("generated_session_lifecycle in ('active', 'moved', 'completed', 'skipped', 'unresolved')");
     expect(source).toContain("current_scheduled_date, original_planned_date");
     expect(source).not.toContain("service_role");
+  });
+
+  it("20260724203621 migration archives superseded keys before uniqueness checks", () => {
+    const source = readFileSync("supabase/migrations/20260724203621_archive_superseded_generated_session_keys.sql", "utf8");
+
+    expect(source).toContain("archive_superseded_generated_session_key");
+    expect(source).toContain("before update of generated_session_lifecycle");
+    expect(source).toContain("archivedGeneratedSessionKey");
+    expect(source).toContain("set search_path = ''");
+    expect(source).toContain("revoke all on function");
+    expect(source).not.toContain("security definer");
   });
 
   it("database types include 005 training progression tables", () => {
