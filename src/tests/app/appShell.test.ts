@@ -6453,7 +6453,7 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(renderer.toJSON())).toContain("Possible bout dates");
   });
 
-  it("ProfileScreen renders the setup-first overview and health details", async () => {
+  it("ProfileScreen renders the setup-first overview with progressive profile details", async () => {
     const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
     const renderer = render(
       React.createElement(ProfileScreen, {
@@ -6484,9 +6484,9 @@ describe("minimal app screens", () => {
     expect(output).toContain("Hide Profile details");
     expect(output).not.toContain("App inputs");
     expect(output).not.toContain("Quick updates");
-    expect(output).toContain("Privacy Policy");
-    expect(output).toContain("Delete account");
-    expect(output).toContain("Delete app data only");
+    expect(output).toContain("Show Privacy & Data");
+    expect(output).not.toContain("Delete account");
+    expect(output).not.toContain("Delete app data only");
     expect(output).toContain("Sign out");
     expect(output).not.toContain("Signal constellation");
     expect(output).not.toContain("Corner intelligence layers");
@@ -6498,17 +6498,17 @@ describe("minimal app screens", () => {
     expect(output).toContain("App inputs");
     expect(output).toContain("Quick updates");
     expect(output).toContain("Optional and private. No cycle assumptions until you choose.");
-    await switchSection(renderer, "Show Health & Safety");
+    await switchSection(renderer, "Show History & Support");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Safety history");
     expect(output).toContain("Training history");
     expect(output).toContain("Current block week");
     expect(output).toContain("Fuel safety history");
-    expect(output).toContain("Health warnings need medical or nutrition support outside the app.");
+    expect(output).toContain("Nutrition review history and support guidance remain available in Fuel.");
     expect(output).not.toMatch(/beta|tester|preflight|release candidate|send feedback/i);
   });
 
-  it("ProfileScreen keeps active health warnings visible without duplicating full details by default", async () => {
+  it("ProfileScreen keeps active health warning copy out of Profile", async () => {
     const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
     const state = resolvePerformanceState({ journey: short_notice_unsafe_cut, asOfDate: fixtureAsOfDate });
     const renderer = render(
@@ -6527,17 +6527,12 @@ describe("minimal app screens", () => {
         wearableStatus: "manual only"
       })
     );
-    let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("profile-health-warning-card");
-    expect(output).toContain("Health warning active");
-    expect(output).not.toContain("profile-safety-section");
-    expect((output.match(/Use caution before pushing training or weight/g) ?? []).length).toBe(1);
-
-    await switchSection(renderer, "Show Health & Safety");
-    output = JSON.stringify(renderer.toJSON());
+    await switchSection(renderer, "Show History & Support");
+    const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("profile-safety-section");
-    expect(output).toContain("Active health warning is shown above.");
-    expect((output.match(/Use caution before pushing training or weight/g) ?? []).length).toBe(1);
+    expect(output).not.toContain("profile-health-warning-card");
+    expect(output).not.toContain("Health warning active");
+    expect(output).not.toContain("Use caution before pushing training or weight");
   });
 
   it("ProfileScreen disables sign-out while app or user-data mutations are busy", async () => {
@@ -6631,20 +6626,19 @@ describe("minimal app screens", () => {
           wearableStatus: "manual only"
         })
       );
-      expect(JSON.stringify(renderer.toJSON())).toContain("Privacy Policy");
-      expect(JSON.stringify(renderer.toJSON())).toContain("Open Privacy Policy");
+      expect(JSON.stringify(renderer.toJSON())).toContain("Privacy");
       expect(JSON.stringify(renderer.toJSON())).toContain("Support");
-      expect(JSON.stringify(renderer.toJSON())).toContain("Open Support");
-      expect(JSON.stringify(renderer.toJSON())).toContain("Open Terms of Use");
+      expect(JSON.stringify(renderer.toJSON())).toContain("Terms");
       expect(JSON.stringify(renderer.toJSON())).not.toContain("Privacy policy unavailable");
       await act(async () => {
-        await press(pressableWithText(renderer, "Open Privacy Policy"));
-        await press(pressableWithText(renderer, "Open Support"));
-        await press(pressableWithText(renderer, "Open Terms of Use"));
+        await press(pressableWithText(renderer, "Privacy"));
+        await press(pressableWithText(renderer, "Support"));
+        await press(pressableWithText(renderer, "Terms"));
       });
       expect(reactNative.Linking.openURL).toHaveBeenCalledWith(CORNERIQ_PRIVACY_POLICY_URL);
       expect(reactNative.Linking.openURL).toHaveBeenCalledWith(CORNERIQ_SUPPORT_URL);
       expect(reactNative.Linking.openURL).toHaveBeenCalledWith(CORNERIQ_TERMS_OF_USE_URL);
+      await switchSection(renderer, "Show Privacy & Data");
       await act(async () => {
         await press(pressableWithText(renderer, "Preview export"));
       });
@@ -6655,6 +6649,7 @@ describe("minimal app screens", () => {
       });
       expect(generateExportBundle).toHaveBeenCalled();
       expect(JSON.stringify(renderer.toJSON())).toContain("corneriq.app_data_export.v1");
+      await switchSection(renderer, "Show Delete controls");
       const deleteButton = pressableWithText(renderer, "Delete app data only");
       const deleteAccountButton = pressableWithText(renderer, "Delete account");
       expect(deleteButton?.props.disabled).toBe(true);
@@ -6704,23 +6699,28 @@ describe("minimal app screens", () => {
     }
 
     const renderer = render(React.createElement(ProfileDeleteProbe, { previewLoaded: true }));
-    expect(pressableWithAccessibilityLabel(renderer, "Shortcut identity removal")?.props.disabled).toBe(true);
-    expect(pressableWithAccessibilityLabel(renderer, "Shortcut app data removal")?.props.disabled).toBe(true);
+    await switchSection(renderer, "Show Privacy & Data");
+    await switchSection(renderer, "Show Delete controls");
+    expect(pressableWithAccessibilityLabel(renderer, "Delete account")?.props.disabled).toBe(true);
+    expect(pressableWithAccessibilityLabel(renderer, "Delete app data only")?.props.disabled).toBe(true);
 
     await act(async () => {
-      changeInputWithAccessibilityLabel(renderer, "Shortcut identity removal confirmation", " delete account ");
-      changeInputWithAccessibilityLabel(renderer, "Shortcut data removal confirmation", " delete ");
+      changeInputWithAccessibilityLabel(renderer, "Delete account confirmation", " delete account ");
+      changeInputWithAccessibilityLabel(renderer, "Delete confirmation", " delete ");
     });
 
-    expect(pressableWithAccessibilityLabel(renderer, "Shortcut identity removal")?.props.disabled).toBe(false);
-    expect(pressableWithAccessibilityLabel(renderer, "Shortcut app data removal")?.props.disabled).toBe(false);
+    expect(pressableWithAccessibilityLabel(renderer, "Delete account")?.props.disabled).toBe(false);
+    expect(pressableWithAccessibilityLabel(renderer, "Delete app data only")?.props.disabled).toBe(false);
+    expect(JSON.stringify(renderer.toJSON())).toContain("Deleting your CornerIQ account does not cancel an App Store subscription.");
 
     const noPreviewRenderer = render(React.createElement(ProfileDeleteProbe, { previewLoaded: false }));
+    await switchSection(noPreviewRenderer, "Show Privacy & Data");
+    await switchSection(noPreviewRenderer, "Show Delete controls");
     await act(async () => {
-      changeInputWithAccessibilityLabel(noPreviewRenderer, "Shortcut data removal confirmation", "DELETE");
+      changeInputWithAccessibilityLabel(noPreviewRenderer, "Delete confirmation", "DELETE");
     });
-    expect(pressableWithAccessibilityLabel(noPreviewRenderer, "Shortcut app data removal")?.props.disabled).toBe(true);
-    expect(JSON.stringify(noPreviewRenderer.toJSON())).toContain("Preview export first to enable app-data deletion.");
+    expect(pressableWithAccessibilityLabel(noPreviewRenderer, "Delete app data only")?.props.disabled).toBe(false);
+    expect(JSON.stringify(noPreviewRenderer.toJSON())).toContain("Exporting first is recommended, but not required.");
   });
 
   it("fatigue-first screens keep collapsed sections and primary actions short", async () => {
@@ -6822,9 +6822,9 @@ describe("minimal app screens", () => {
     );
     expect(JSON.stringify(profileRenderer.toJSON())).toContain("profile-setup-snapshot");
     expect(JSON.stringify(profileRenderer.toJSON())).toContain("Hide Profile details");
-    expect(JSON.stringify(profileRenderer.toJSON())).toContain("Preview export");
-    expect(pressableWithText(profileRenderer, "Delete app data only")?.props.disabled).toBe(true);
-    expect(JSON.stringify(profileRenderer.toJSON())).toContain("Preview export");
+    expect(JSON.stringify(profileRenderer.toJSON())).toContain("Show Privacy & Data");
+    expect(JSON.stringify(profileRenderer.toJSON())).not.toContain("Preview export");
+    expect(JSON.stringify(profileRenderer.toJSON())).not.toContain("Delete app data only");
   });
 
   it("useUserDataControls previews counts, blocks delete without DELETE, and signs out after delete", async () => {
@@ -6873,7 +6873,7 @@ describe("minimal app screens", () => {
     expect(appDataDeleteConfirmationMatches("delete account")).toBe(false);
   });
 
-  it("useUserDataControls blocks delete until a preview is loaded", async () => {
+  it("useUserDataControls allows exact-confirmation deletion without forcing an export preview", async () => {
     const { client, deleted } = createUserDataClient();
     const onAfterDelete = vi.fn();
     const snapshot: { current: UserDataControlsHook | null } = { current: null };
@@ -6889,9 +6889,9 @@ describe("minimal app screens", () => {
     await act(async () => {
       await snapshot.current?.deleteData();
     });
-    expect(deleted).toHaveLength(0);
-    expect(onAfterDelete).not.toHaveBeenCalled();
-    expect(snapshot.current?.message).toContain("Preview export");
+    expect(deleted.length).toBeGreaterThan(0);
+    expect(onAfterDelete).toHaveBeenCalled();
+    expect(snapshot.current?.message).toContain("User-owned data deleted");
   });
 
   it("OnboardingScreen renders the first setup step and gates the demo shortcut", async () => {
@@ -7514,6 +7514,67 @@ describe("minimal app screens", () => {
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(currentQuickLogs().message).toBeNull();
     expect(currentQuickLogs().busy).toBe(false);
+  });
+
+  it("ProfileScreen opens setup as a full-screen modal instead of expanding below the current scroll position", async () => {
+    const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
+    const renderer = render(
+      React.createElement(ProfileScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        cycleTrackingStatus: "undecided",
+        cycleContext: null,
+        equipmentAccess: ["jump_rope"],
+        onSignOut: vi.fn(),
+        onUpdateSettings: vi.fn(),
+        preferredUnits: "metric",
+        recentLogs: recentLogsViewModel,
+        viewModel: profileViewModel
+      })
+    );
+
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("profile-settings-modal");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Edit setup"));
+    });
+    const output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("profile-settings-modal");
+    expect(output).toContain("profile-settings-overview");
+    expect(output).toContain("Close profile settings");
+  });
+
+  it("ProfileSettingsScreen uses the onboarding equipment choices in a one-page wizard", async () => {
+    const { ProfileSettingsScreen } = await import("../../app/screens/profile/ProfileSettingsScreen");
+    const onClose = vi.fn();
+    const onUpdateSettings = vi.fn(async () => undefined);
+    const renderer = render(
+      React.createElement(ProfileSettingsScreen, {
+        busy: false,
+        cycleTrackingPreference: "disabled",
+        equipmentAccess: ["bodyweight"],
+        initialPage: "equipment",
+        onClose,
+        onUpdateSettings,
+        preferredUnits: "metric"
+      })
+    );
+
+    const output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("profile-equipment-wizard");
+    expect(output).toContain("Bodyweight only");
+    expect(output).toContain("Jump rope");
+    expect(output).toContain("Heavy bag");
+    expect(output).toContain("Full gym");
+    expect(output).not.toContain("comma-separated");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Dumbbells"));
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Save equipment"));
+    });
+    expect(onUpdateSettings).toHaveBeenCalledWith(expect.objectContaining({ equipmentAccess: ["dumbbells"] }));
+    expect(onClose).toHaveBeenCalled();
   });
 
   it("ProfileSettingsScreen updates cycle preferences without exposing wearables", async () => {

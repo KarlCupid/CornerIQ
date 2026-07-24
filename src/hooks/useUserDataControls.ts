@@ -73,12 +73,9 @@ export function useUserDataControls(input: {
     setBusy(true);
     setMessage(null);
     try {
-      if (!preview) {
-        setMessage("Preview export before deleting app data.");
-        return;
-      }
       await deleteUserOwnedData(input.userId, input.client, normalizeDestructiveConfirmation(deleteConfirmation));
       setPreview(null);
+      setBundleText(null);
       setDeleteConfirmation("");
       setMessage("User-owned data deleted.");
       await input.onAfterDelete();
@@ -87,7 +84,7 @@ export function useUserDataControls(input: {
     } finally {
       setBusy(false);
     }
-  }, [deleteConfirmation, input, preview]);
+  }, [deleteConfirmation, input]);
 
   const generateExportBundle = useCallback(async () => {
     setBusy(true);
