@@ -474,9 +474,12 @@ describeLive("live Supabase CRUD smoke", () => {
         await client.from("athlete_journey_events").update({ event_payload: smokePayload(row.event_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
       }
 
-      const detailedSession = resolved.state.viewModels.train.detailedTodaySessions.find((session) => session.detail)?.detail;
+      const detailedSession = [
+        ...resolved.state.viewModels.train.detailedTodaySessions,
+        ...resolved.state.viewModels.train.detailedWeeklySessions
+      ].find((session) => session.detail)?.detail;
       if (!detailedSession) {
-        throw new Error("Live smoke did not generate a detailed session to complete.");
+        throw new Error("Live smoke did not generate an available detailed session to complete.");
       }
       const workoutCompletion = await completeWorkoutService({
         userId,
