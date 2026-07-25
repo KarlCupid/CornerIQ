@@ -1902,6 +1902,19 @@ describe("Supabase repositories", () => {
     expect(source).not.toContain("security definer");
   });
 
+  it("20260725005909 migration repairs stranded superseded keys and keeps the guard idempotent", () => {
+    const source = readFileSync("supabase/migrations/20260725005909_repair_stranded_superseded_generated_session_keys.sql", "utf8");
+
+    expect(source).toContain("update public.generated_training_sessions");
+    expect(source).toContain("where generated_session_lifecycle = 'superseded'");
+    expect(source).toContain("generated_session_key || ':superseded:' || id::text");
+    expect(source).toContain("right(generated_session_key, length(':superseded:' || id::text))");
+    expect(source).toContain("before insert or update of generated_session_lifecycle, generated_session_key");
+    expect(source).toContain("right(new.generated_session_key, length(archive_suffix)) <> archive_suffix");
+    expect(source).toContain("set search_path = ''");
+    expect(source).toContain("revoke all on function public.archive_superseded_generated_session_key() from public, anon, authenticated");
+  });
+
   it("database types include 005 training progression tables", () => {
     const source = readFileSync("src/services/supabase/database.types.ts", "utf8");
 
