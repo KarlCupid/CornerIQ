@@ -39,7 +39,8 @@
     "dev:reset:supabase": "node scripts/dev-reset-supabase.mjs",
     "preflight:production": "node scripts/production-preflight.mjs",
     "preflight:beta": "npm run preflight:production",
-    "smoke:live-db": "vitest run src/tests/live/liveDbSmoke.test.ts"
+    "smoke:live-db": "vitest run src/tests/live/liveDbSmoke.test.ts",
+    "smoke:generated-session-concurrency": "vitest run src/tests/live/generatedSessionConcurrencySmoke.test.ts"
   },
   "dependencies": {
     "@expo-google-fonts/bebas-neue": "^0.4.1",

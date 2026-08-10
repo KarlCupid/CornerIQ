@@ -19,6 +19,7 @@ type GeneratedSessionSlotRow = Pick<TableRow<"generated_training_sessions">, "id
 
 const GENERATED_SESSION_SCHEMA_VERSION_V2 = "generated_training_session_v2";
 const V2_MUTABLE_GENERATED_SESSION_LIFECYCLES = new Set(["active", "moved", "unresolved"]);
+const GENERATED_SESSION_KEY_CONFLICT_TARGET = "user_id,planned_date,engine_version,generated_session_key";
 
 export interface ListActiveRiskFlagsOptions {
   asOfDate?: ISODateString | undefined;
@@ -676,8 +677,12 @@ export function createEngineRunRepository(client: CornerSupabaseClient) {
               .select("id")
               .single();
             readDataOrThrow(supersedeResponse, "generated_training_sessions.upsertGeneratedSessions.supersedeStaleSlotContent");
-            const replacementResponse = await client.from("generated_training_sessions").insert(generatedSessionReplacementRecord(record, existing)).select("id").single();
-            readDataOrThrow(replacementResponse, "generated_training_sessions.upsertGeneratedSessions.insertReplacementSlot");
+            const replacementResponse = await client
+              .from("generated_training_sessions")
+              .upsert(generatedSessionReplacementRecord(record, existing), { onConflict: GENERATED_SESSION_KEY_CONFLICT_TARGET })
+              .select("id")
+              .single();
+            readDataOrThrow(replacementResponse, "generated_training_sessions.upsertGeneratedSessions.upsertReplacementSlot");
             continue;
           }
           const update = generatedSessionScheduleAuditUpdate(record, existing);
@@ -691,13 +696,17 @@ export function createEngineRunRepository(client: CornerSupabaseClient) {
           readDataOrThrow(updateResponse, "generated_training_sessions.upsertGeneratedSessions.updateSlot");
           continue;
         }
-        const insertResponse = await client.from("generated_training_sessions").insert(record).select("id").single();
-        readDataOrThrow(insertResponse, "generated_training_sessions.upsertGeneratedSessions.insertSlot");
+        const insertResponse = await client
+          .from("generated_training_sessions")
+          .upsert(record, { onConflict: GENERATED_SESSION_KEY_CONFLICT_TARGET })
+          .select("id")
+          .single();
+        readDataOrThrow(insertResponse, "generated_training_sessions.upsertGeneratedSessions.upsertSlot");
       }
       if (legacyRecords.length > 0) {
         const response = await client
           .from("generated_training_sessions")
-          .upsert(legacyRecords, { onConflict: "user_id,planned_date,engine_version,generated_session_key" });
+          .upsert(legacyRecords, { onConflict: GENERATED_SESSION_KEY_CONFLICT_TARGET });
         readDataOrThrow({ data: response.data ?? [], error: response.error }, "generated_training_sessions.upsertGeneratedSessions.legacyUpsert");
       }
     }

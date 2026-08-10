@@ -514,12 +514,99 @@ function createGeneratedSessionSlotPersistenceClient(existing: {
         },
         upsert(record: unknown, options?: unknown) {
           upserted.push({ table, record, options });
-          return { data: [], error: null };
+          return mutationQuery(`${table}_upserted`);
         }
       };
     }
   };
   return { calls, client: client as unknown as CornerSupabaseClient, inserted, updated, upserted };
+}
+
+function createConcurrentGeneratedSessionPersistenceClient() {
+  const persistedKeys = new Set<string>();
+  let selectCount = 0;
+  let releaseSelects: (() => void) | undefined;
+  const bothSelectsStarted = new Promise<void>((resolve) => {
+    releaseSelects = resolve;
+  });
+  const persistenceKey = (record: unknown) => {
+    const row = record as {
+      engine_version?: unknown;
+      generated_session_key?: unknown;
+      planned_date?: unknown;
+      user_id?: unknown;
+    };
+    return JSON.stringify([row.user_id, row.planned_date, row.engine_version, row.generated_session_key]);
+  };
+  const mutationQuery = (data: { id: string } | null, error: { code: string; message: string } | null = null) => ({
+    select() {
+      return {
+        single: async () => ({ data, error })
+      };
+    }
+  });
+  const selectQuery = {
+    eq() {
+      return selectQuery;
+    },
+    in() {
+      return selectQuery;
+    },
+    order() {
+      return selectQuery;
+    },
+    limit() {
+      return selectQuery;
+    },
+    async maybeSingle() {
+      selectCount += 1;
+      if (selectCount === 2) {
+        releaseSelects?.();
+      }
+      await bothSelectsStarted;
+      return { data: null, error: null };
+    }
+  };
+  let insertCount = 0;
+  let upsertCount = 0;
+  const client = {
+    from() {
+      return {
+        select() {
+          return selectQuery;
+        },
+        insert(record: unknown) {
+          insertCount += 1;
+          const key = persistenceKey(record);
+          if (persistedKeys.has(key)) {
+            return mutationQuery(null, {
+              code: "23505",
+              message: 'duplicate key value violates unique constraint "generated_sessions_user_date_version_key_uidx"'
+            });
+          }
+          persistedKeys.add(key);
+          return mutationQuery({ id: `inserted_${insertCount}` });
+        },
+        upsert(record: unknown) {
+          upsertCount += 1;
+          persistedKeys.add(persistenceKey(record));
+          return mutationQuery({ id: `upserted_${upsertCount}` });
+        }
+      };
+    }
+  };
+  return {
+    client: client as unknown as CornerSupabaseClient,
+    get insertCount() {
+      return insertCount;
+    },
+    get persistedCount() {
+      return persistedKeys.size;
+    },
+    get upsertCount() {
+      return upsertCount;
+    }
+  };
 }
 
 function trainingBlockRow(input: { id: string; planRevisionId: string; startDate?: string; endDate?: string; updatedAt?: string }) {
@@ -1771,7 +1858,7 @@ describe("Supabase repositories", () => {
     });
   });
 
-  it("engineRunRepository supersedes stale active slot content and inserts a moved-date-preserving replacement", async () => {
+  it("engineRunRepository supersedes stale active slot content and idempotently upserts a moved-date-preserving replacement", async () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const generated = state.training.generatedSessions[0]!;
     const record = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash_next", "output_hash_next", { trainingBlockId: "training_block_1" });
@@ -1794,9 +1881,9 @@ describe("Supabase repositories", () => {
 
     await createEngineRunRepository(client).upsertGeneratedSessions([record]);
 
-    expect(upserted).toEqual([]);
+    expect(upserted).toHaveLength(1);
     expect(updated).toHaveLength(1);
-    expect(inserted).toHaveLength(1);
+    expect(inserted).toEqual([]);
     expect(updated[0]?.record).toMatchObject({
       generated_session_key: `${record.generated_session_key}:superseded:db_generated_1`,
       generated_session_lifecycle: "superseded",
@@ -1810,18 +1897,54 @@ describe("Supabase repositories", () => {
         supersededByOutputHash: "output_hash_next"
       }
     });
-    expect(inserted[0]?.record).toMatchObject({
-      current_scheduled_date: "2026-05-26",
-      generated_session_lifecycle: "moved",
-      session_payload: {
-        contentFingerprint: recordPayload.contentFingerprint,
-        currentScheduledDate: "2026-05-26",
-        date: "2026-05-26",
-        generatedSessionLifecycle: "moved",
-        movedDatePreservedBySlotReconciliation: true,
-        replacesSupersededGeneratedSessionRowId: "db_generated_1"
+    expect(upserted[0]).toMatchObject({
+      options: { onConflict: "user_id,planned_date,engine_version,generated_session_key" },
+      record: {
+        current_scheduled_date: "2026-05-26",
+        generated_session_lifecycle: "moved",
+        session_payload: {
+          contentFingerprint: recordPayload.contentFingerprint,
+          currentScheduledDate: "2026-05-26",
+          date: "2026-05-26",
+          generatedSessionLifecycle: "moved",
+          movedDatePreservedBySlotReconciliation: true,
+          replacesSupersededGeneratedSessionRowId: "db_generated_1"
+        }
       }
     });
+  });
+
+  it("engineRunRepository uses an idempotent upsert when a V2 slot has no visible current row", async () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const generated = state.training.generatedSessions[0]!;
+    const record = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash", "output_hash", { trainingBlockId: "training_block_1" });
+    const { client, inserted, upserted } = createGeneratedSessionSlotPersistenceClient(null);
+
+    await createEngineRunRepository(client).upsertGeneratedSessions([record]);
+
+    expect(inserted).toEqual([]);
+    expect(upserted).toEqual([
+      {
+        table: "generated_training_sessions",
+        record,
+        options: { onConflict: "user_id,planned_date,engine_version,generated_session_key" }
+      }
+    ]);
+  });
+
+  it("engineRunRepository survives two concurrent V2 saves that both observe an empty slot", async () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const generated = state.training.generatedSessions[0]!;
+    const record = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash", "output_hash", { trainingBlockId: "training_block_1" });
+    const persistence = createConcurrentGeneratedSessionPersistenceClient();
+    const firstRepository = createEngineRunRepository(persistence.client);
+    const secondRepository = createEngineRunRepository(persistence.client);
+
+    await Promise.all([firstRepository.upsertGeneratedSessions([record]), secondRepository.upsertGeneratedSessions([record])]);
+
+    expect(persistence.insertCount).toBe(0);
+    expect(persistence.upsertCount).toBe(2);
+    expect(persistence.persistedCount).toBe(1);
   });
 
   it("engineRunRepository does not resurrect completed or skipped generated slots", async () => {
