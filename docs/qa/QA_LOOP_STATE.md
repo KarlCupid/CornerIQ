@@ -9,20 +9,28 @@ The full-codebase technical and scientific audit is tracked separately through `
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_fix |
-| Last commit tested | 2026-07-23 Supabase smoke-fix candidate `89d3eca86ad9d40e3be80f801b18b4f3155c8286` (`89d3eca`) on `codex/development`. |
-| Last QA run result | Production auth succeeded with the dedicated smoke account, but the live persistence smoke exposed non-ISO database timestamp mapping and a missing `conservative_start` preview constraint. Both fixes are implemented locally; typecheck, lint, beta preflight, and quality pass with 917 tests plus one opt-in live test skipped. The production migration is intentionally not applied without release-owner approval. App Store Connect/TestFlight is healthy with processed builds and the existing internal Expo group. |
+| Last commit tested | 2026-10-08 baseline `5dbe9fd732ff3be3734de83c7152085d7d0f6f25` (`5dbe9fd`) on `codex/development`; subsequent edits are documentation only. |
+| Last QA run result | October 8 local QA CI passes static checks, typecheck, 925 tests with 2 opt-in live tests skipped, lint, and normal preflight. Quality and beta preflight also pass after documentation edits. Browser audit has 2 passes, 1 obsolete Profile-section assertion failure, and 8 skipped journeys; incomplete evidence analysis fails downstream. Bundle generated with failures recorded. No product fix or live smoke performed. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last generated release evidence path | qa-artifacts/release-evidence/current-release-evidence.md (generated artifact; not stored in this committed state file) |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
-| Current open blocker count | 1 production release blocker: apply the reviewed preview-strategy migration with explicit approval, then rerun the production smoke to completion. Physical-iPhone acceptance remains release-owner work; RevenueCat/App Store purchase configuration remains explicitly deferred. |
-| Current open high count | 1 release blocker: production persistence smoke does not yet pass. Physical-iPhone acceptance remains human-only. |
-| Current required-medium count | 0. Exact-candidate GitHub Actions passes; remaining moderate Expo build-tool notices are accepted for a controlled framework upgrade. |
-| Next recommended action | Review and explicitly approve production application of `20260723233725_align_next_week_volume_strategy.sql`, then rerun the dedicated-account production smoke. After it passes, create the EAS production/TestFlight candidate; the release owner will handle physical-iPhone acceptance. |
+| Current open blocker count | 2 evidence/development blockers: CornerIQ Development is INACTIVE, and browser evidence is incomplete after the Profile harness failure. These do not establish production outages. |
+| Current open high count | 1 dependency remediation area: August 10 exact-candidate Quality run 31422337072 fails at Dependency audit. October 8 production-tree audit reports 13 moderate, 31 high, and 3 critical propagated package findings; reachability needs review. |
+| Current required-medium count | 2 scoped areas: update the Profile browser harness and reconcile release/source documentation. Missing downstream artifacts are a cascade from the interrupted audit. |
+| Next recommended action | Scope a development-baseline fix pass: restore Development, resolve compatible dependency advisories, repair the Profile harness, rerun local gates, and reconcile the public release with branch/build history. Follow with separately scoped development smoke and owner iPhone/boxer review. |
 | Launch readiness decision | needs_fix |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
 
 Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `needs_fix`, `fixed_needs_verification`, `verified`, `human_review_required`, `blocked`, `deferred`, `accepted_launch_limitation`.
+
+## October 8 Restart Evidence
+
+The observational review is recorded in `docs/qa/RESTART_REVIEW_2026-10-08.md`. Version 0.1.1 is public, released August 11 according to the Canadian App Store listing. The prior chat records build 15 submission on August 10. Production project metadata reports `ACTIVE_HEALTHY`; Development reports `INACTIVE`. A read-only production migration listing includes all 28 local versions, including the previously pending preview-strategy migration and the July regeneration hotfixes. Version-history alignment does not prove current auth, persistence, RLS, migration-content equality, or purchase behavior.
+
+After fetching, development matches `5dbe9fd`, with 34 commits unique to development and one unique to `main` (`2fe8c3a`). Release/source history needs deliberate reconciliation. The public release does not certify a future candidate.
+
+The surface rows below preserve the older July evidence unless explicitly updated. Their historical pass labels are not fresh October verification. Current local evidence is in the summary and `qa-artifacts/reports/agent-gate-results.md`; physical iPhone behavior, fresh live account flows, purchases, and real boxer comprehension remain `human_review_required` until current evidence exists. No production or development mutation, build, submission, or product code change occurred during this restart audit.
 
 ## Surface Status
 
