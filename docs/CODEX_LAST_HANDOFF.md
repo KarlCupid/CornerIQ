@@ -4,6 +4,8 @@ Current handoff: 2026-10-08. See [Restart Maintenance](qa/RESTART_MAINTENANCE_20
 
 The May 25 handoff below is historical context.
 
+The follow-up implementation is committed as `5ceda1fbf65dbe2105ef9f4a86a375c0a971366b` in [draft PR #1](https://github.com/KarlCupid/CornerIQ/pull/1). [CodeQL](https://github.com/KarlCupid/CornerIQ/actions/runs/37850785037) passes on that code commit. [Quality](https://github.com/KarlCupid/CornerIQ/actions/runs/37850785086) passes install/typecheck/lint/preflight and fails only at the documented dependency audit. This final CI-status note is documentation only.
+
 Date: 2026-05-25 America/Vancouver
 
 Pass: Expose engine value and reduce card density.

@@ -55,7 +55,7 @@ The verified changes are proposed in [draft PR #1](https://github.com/KarlCupid/
 | quality | automated_pass | Passed on 2026-10-08. |
 | coverage | automated_pass | Passed on 2026-10-08: statements 85.39, functions 89.99, lines 84.97, branches 77.09. Vitest 4 uses different coverage remapping, so historical percentages are not directly comparable. |
 | production preflight | automated_pass | Normal and beta preflight pass. Apple paid-build/RevenueCat checks are outside this owner-approved candidate scope and remain deferred rather than represented as completed. |
-| GitHub Actions quality | needs_fix | First maintenance code commit `8665dd9` fails Quality at the dependency audit (run `37822606495`); CodeQL passes (run `37822606325`). Final follow-up workflow results require their own SHA-specific evidence. |
+| GitHub Actions quality | needs_fix | Follow-up code commit `5ceda1fbf65dbe2105ef9f4a86a375c0a971366b` passes GitHub install/typecheck/lint/preflight, then fails Dependency audit in Quality run `37850785086`; later test/coverage/migration steps are skipped. CodeQL run `37850785037` passes. Subsequent CI-status edits are documentation only. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
 | agent QA CI | automated_pass | Final 2026-10-08 run passes all eight gates: 64 static checks, typecheck, 930 tests (two live app tests skipped), lint, preflight, 11 Playwright journeys, engine-output review/analysis, and bundle generation. Evidence identifies the pre-commit working tree. |
 | Expo Doctor | automated_pass | 18/18 checks pass on 2026-10-08 with the final dependency adapter and overrides. |
