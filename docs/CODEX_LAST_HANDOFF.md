@@ -1,5 +1,9 @@
 # Codex Last Handoff
 
+Current handoff: 2026-10-08. See [Restart Maintenance](qa/RESTART_MAINTENANCE_2026-10-08.md) and [QA Loop State](qa/QA_LOOP_STATE.md) for the current development baseline. Development is restored and migration-aligned, local tests and browser QA pass, and critical dependency findings are resolved. The remaining high dependency findings block the GitHub dependency gate. Version 0.1.1 is already public; no new release was submitted in this pass.
+
+The May 25 handoff below is historical context.
+
 Date: 2026-05-25 America/Vancouver
 
 Pass: Expose engine value and reduce card density.

@@ -1,5 +1,7 @@
 # CornerIQ Restart Review
 
+Follow-up: the authorized maintenance pass is recorded in [Restart Maintenance](RESTART_MAINTENANCE_2026-10-08.md). The observations below preserve the pre-fix baseline.
+
 CornerIQ should restart with a bounded maintenance milestone, followed by a focused improvement to the daily training experience. Version 0.1.1 is already public. The immediate work is to restore a usable development backend, repair the failing dependency gate, and reconcile the release records before adding functionality.
 
 - Audit date: 2026-10-08 America/Vancouver

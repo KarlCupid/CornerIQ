@@ -9,15 +9,15 @@ The full-codebase technical and scientific audit is tracked separately through `
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_fix |
-| Last commit tested | 2026-10-08 baseline `5dbe9fd732ff3be3734de83c7152085d7d0f6f25` (`5dbe9fd`) on `codex/development`; subsequent edits are documentation only. |
-| Last QA run result | October 8 local QA CI passes static checks, typecheck, 925 tests with 2 opt-in live tests skipped, lint, and normal preflight. Quality and beta preflight also pass after documentation edits. Browser audit has 2 passes, 1 obsolete Profile-section assertion failure, and 8 skipped journeys; incomplete evidence analysis fails downstream. Bundle generated with failures recorded. No product fix or live smoke performed. |
+| Last commit tested | 2026-10-08 maintenance working tree based on `d34c64a45132115f94e062fcef3b99ad934c2f9a` (`d34c64a`); verification reports contain that pre-commit HEAD. Review branch: `codex/restart-maintenance`, targeting `codex/development`. |
+| Last QA run result | All eight local gate records pass after targeted browser/evidence repair verification. 925 tests pass, 2 opt-in live tests remain skipped; 11/11 browser scenarios pass with 44 paired screenshot/text artifacts. Quality, lint, beta preflight, coverage, and Expo dependency compatibility pass. Dependency audit remains a separate failure. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last generated release evidence path | qa-artifacts/release-evidence/current-release-evidence.md (generated artifact; not stored in this committed state file) |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
-| Current open blocker count | 2 evidence/development blockers: CornerIQ Development is INACTIVE, and browser evidence is incomplete after the Profile harness failure. These do not establish production outages. |
-| Current open high count | 1 dependency remediation area: August 10 exact-candidate Quality run 31422337072 fails at Dependency audit. October 8 production-tree audit reports 13 moderate, 31 high, and 3 critical propagated package findings; reachability needs review. |
-| Current required-medium count | 2 scoped areas: update the Profile browser harness and reconcile release/source documentation. Missing downstream artifacts are a cascade from the interrupted audit. |
-| Next recommended action | Scope a development-baseline fix pass: restore Development, resolve compatible dependency advisories, repair the Profile harness, rerun local gates, and reconcile the public release with branch/build history. Follow with separately scoped development smoke and owner iPhone/boxer review. |
+| Current open blocker count | 0 local browser/development-availability blockers. Development is ACTIVE_HEALTHY with all 28 migrations present, and its final migration dry run is clean. This does not clear future release gates. |
+| Current open high count | 1 dependency remediation area remains: 22 high and 12 moderate propagated package findings, zero critical, in both full and production-tree audits. Unpatched braces/node-forge and incompatible Metro image-size/xcode/Istanbul dependency ranges require a controlled follow-up. The audit threshold was not weakened. |
+| Current required-medium count | 3 review areas: independent qualitative review, physical iPhone/boxer comprehension, and live account/purchase/release-owner evidence. Dedicated Development smoke credentials are absent; email confirmation is enabled. |
+| Next recommended action | Close the remaining dependency gate through a separately scoped tooling upgrade/mitigation, run Development smoke with a dedicated account, and review one complete workout journey on a real iPhone. Then scope the daily-training usability milestone from the prior product-direction chat. |
 | Launch readiness decision | needs_fix |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
@@ -32,18 +32,26 @@ After fetching, development matches `5dbe9fd`, with 34 commits unique to develop
 
 The surface rows below preserve the older July evidence unless explicitly updated. Their historical pass labels are not fresh October verification. Current local evidence is in the summary and `qa-artifacts/reports/agent-gate-results.md`; physical iPhone behavior, fresh live account flows, purchases, and real boxer comprehension remain `human_review_required` until current evidence exists. No production or development mutation, build, submission, or product code change occurred during this restart audit.
 
+## October 8 Maintenance Follow-up
+
+The fix and verification pass is recorded in `docs/qa/RESTART_MAINTENANCE_2026-10-08.md`. Development was restored, the CLI link was corrected from production to Development, and three existing pending migrations were applied to Development only. Current development history aligns with all 28 local versions. Production was not modified. Anonymous profile access is denied, but authenticated persistence and cross-user isolation are still unverified in this pass.
+
+Compatible dependency fixes removed every critical finding. Expo remains on SDK 54 and the Supabase client remains pinned. The Profile harness now covers the current disclosure sections, exact deletion confirmations, and sign-out shortcut. Metro excludes generated coverage and QA folders from its watcher. All 11 browser scenarios pass; the deterministic analysis reports zero blockers/highs and three review areas. Forty-four screenshots have paired text snapshots. The agent inspected Today, Train, Fuel, Plan, and player mobile screenshots; this is limited local evidence, not independent review or a physical-device test.
+
+The older surface rows below retain their bounded historical evidence unless explicitly updated. Fresh summary results do not clear email confirmation, native phone behavior, purchases, or real boxer comprehension.
+
 ## Surface Status
 
 ### A. Code and build health
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| npm install | automated_pass | `cmd /c npm install` passed on 2026-07-23; npm reported 1 low development notice and 10 moderate production-tree notices. |
-| typecheck | automated_pass | Passed directly, inside `quality`, and inside `qa:agent:ci` on 2026-07-23. |
-| tests | automated_pass | 917 tests passed and one opt-in live DB smoke test was skipped on 2026-07-23. |
-| lint | automated_pass | Passed inside `qa:agent:ci` on 2026-07-23. |
-| quality | automated_pass | Passed on 2026-07-23. |
-| coverage | automated_pass | Passed on 2026-07-23: statements 87.79, functions 89.70, lines 87.79, branches 83.49. |
+| npm install | automated_pass | Passed on 2026-10-08; compatible dependency updates installed successfully. Remaining audit findings are tracked separately. |
+| typecheck | automated_pass | Passed in QA CI and final `quality` on 2026-10-08. |
+| tests | automated_pass | 925 tests passed and 2 opt-in live tests skipped on 2026-10-08. |
+| lint | automated_pass | Passed on 2026-10-08, including the final Metro configuration. |
+| quality | automated_pass | Passed on 2026-10-08. |
+| coverage | automated_pass | Passed on 2026-10-08: statements 85.39, functions 89.99, lines 84.97, branches 77.09. Vitest 4 uses different coverage remapping, so historical percentages are not directly comparable. |
 | production preflight | automated_pass | Normal and beta preflight pass. Apple paid-build/RevenueCat checks are outside this owner-approved candidate scope and remain deferred rather than represented as completed. |
 | GitHub Actions quality | verified | Exact smoke-fix candidate `89d3eca86ad9d40e3be80f801b18b4f3155c8286` passed push-triggered Quality run `30054264378` and CodeQL run `30054264373` on 2026-07-23. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |

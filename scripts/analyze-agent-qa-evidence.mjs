@@ -67,7 +67,7 @@ const expectedScenarios = [
   "Profile Safety exposes launch safety history after local onboarding",
   "Train screen exposes safe support workouts and completion affordances",
   "Plan screen exposes week, next week, history, and engine-owned adjustments",
-  "Profile Data controls require preview and DELETE confirmation",
+  "Profile Data controls preserve export preview and exact deletion confirmations",
   "Error and recovery safeguards are documented and sanitized",
   "first launch reaches auth, local demo onboarding, Today, and quick logs",
   "mobile-size browser layout smoke reaches Today"

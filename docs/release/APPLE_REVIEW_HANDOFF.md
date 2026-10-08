@@ -1,5 +1,7 @@
 # Apple Review Handoff
 
+Current release context, 2026-10-08: version 0.1.1 is public, released August 11. Prior chat records associate the August 10 build 15 submission with `5dbe9fd`. See [Restart Maintenance](../qa/RESTART_MAINTENANCE_2026-10-08.md) for current evidence and limits. The historical preparation statuses below must not be read as fresh blockers for the already released app or as certification for a future build.
+
 Date: 2026-06-19
 
 Status: APPLE_SUBMISSION_BLOCKED until the release owner completes the blockers marked below. This file is a handoff checklist, not final App Store metadata.

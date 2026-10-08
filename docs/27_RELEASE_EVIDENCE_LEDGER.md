@@ -4,6 +4,8 @@ Date: 2026-06-19
 
 Purpose: committed template, release-owner checklist, and historical context for CornerIQ release evidence. This file is not authoritative exact-SHA proof for a future release commit.
 
+Current context, 2026-10-08: version 0.1.1 is public (August 11 release); the prior chat associates build 15 with `5dbe9fd`. Production migration versions contain all 28 local versions, and Development was restored and brought to the same version set during the restart maintenance. See [Restart Maintenance](qa/RESTART_MAINTENANCE_2026-10-08.md) for verification, remaining dependency blockers, and live/phone evidence limits. This context does not replace generated exact-SHA evidence for a future candidate.
+
 Authoritative exact-SHA evidence is generated at release time under `qa-artifacts/release-evidence/current-release-evidence.md` by `npm run release:evidence`. `npm run release:quality` validates that generated artifact against `GITHUB_SHA` or `git rev-parse HEAD`.
 
 Do not paste credentials, personal emails, smoke passwords, service-role values, tokens, or screenshots with private data into committed docs or generated evidence.
