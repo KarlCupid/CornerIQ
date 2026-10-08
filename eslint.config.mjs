@@ -7,7 +7,7 @@ export default tseslint.config(
   },
   js.configs.recommended,
   {
-    files: ["*.js", "*.mjs", "scripts/**/*.mjs"],
+    files: ["*.js", "*.mjs", "scripts/**/*.mjs", "tools/**/*.cjs"],
     languageOptions: {
       globals: {
         console: "readonly",
@@ -26,7 +26,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ["metro.config.js"],
+    files: ["metro.config.js", "tools/**/*.cjs"],
     languageOptions: {
       globals: {
         __dirname: "readonly"

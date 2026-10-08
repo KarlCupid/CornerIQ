@@ -9,15 +9,15 @@ The full-codebase technical and scientific audit is tracked separately through `
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_fix |
-| Last commit tested | `8665dd9d01b0ca1dda0cd0d0a21cef927e231539` (`8665dd9`) passed the full clean-checkout QA loop on 2026-10-08. Subsequent handoff/status edits are documentation only. Review branch: `codex/restart-maintenance`, targeting `codex/development`, in draft PR #1. |
-| Last QA run result | All eight local gates pass in one complete post-commit QA run. 925 tests pass, 2 opt-in live tests remain skipped; 11/11 browser scenarios pass with 44 paired screenshot/text artifacts. Quality, lint, beta preflight, coverage, iOS Hermes export, and Expo dependency compatibility pass. GitHub CodeQL passes; Quality fails at the remaining dependency audit. |
+| Last commit tested | The final follow-up QA reports record pre-commit HEAD `dde48e6517bf136a9e137f5353c60da4dbd40feb`; the tested working tree adds the adapter/UUID override/tooling tests/SQL smoke described in Restart Maintenance. This is bounded working-tree evidence, not exact-SHA release certification of a later commit. The first maintenance code commit `8665dd9` also passed a clean post-commit loop. Review branch: `codex/restart-maintenance`, targeting `codex/development`, in draft PR #1. |
+| Last QA run result | All eight local gates pass in the final adapter run. 930 tests pass, 2 opt-in live app tests remain skipped; 11/11 browser scenarios pass with 44 paired screenshot/text artifacts. Quality, lint, beta preflight, clean iOS Hermes export, Expo dependency compatibility, 18/18 Doctor checks, and npm 10 clean installation pass. Separate Development policy smoke passes 78 assertions with cleanup verified. Coverage passed in the first maintenance pass; engine/service source is unchanged. Dependency audit still fails. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last generated release evidence path | qa-artifacts/release-evidence/current-release-evidence.md (generated artifact; not stored in this committed state file) |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 local browser/development-availability blockers. Development is ACTIVE_HEALTHY with all 28 migrations present, and its final migration dry run is clean. This does not clear future release gates. |
-| Current open high count | 1 dependency remediation area remains: 22 high and 12 moderate propagated package findings, zero critical, in both full and production-tree audits. Unpatched braces/node-forge and incompatible Metro image-size/xcode/Istanbul dependency ranges require a controlled follow-up. The audit threshold was not weakened. |
+| Current open high count | 1 dependency remediation area remains: 21 high and 5 moderate propagated package findings, zero critical, in both full and production-tree audits. The three unpatched roots are braces, node-forge, and sprintf-js. Image-size and UUID findings are resolved; the audit threshold was not weakened. |
 | Current required-medium count | 3 review areas: independent qualitative review, physical iPhone/boxer comprehension, and live account/purchase/release-owner evidence. Dedicated Development smoke credentials are absent; email confirmation is enabled. |
-| Next recommended action | Close the remaining dependency gate through a separately scoped tooling upgrade/mitigation, run Development smoke with a dedicated account, and review one complete workout journey on a real iPhone. Then scope the daily-training usability milestone from the prior product-direction chat. |
+| Next recommended action | Adopt maintained fixes for the three remaining advisory roots or a fully reviewed mitigation. Complete the pending Supabase sign-in handoff for a dedicated Development smoke account, and review one complete workout journey on a real iPhone. Then scope the daily-training usability milestone from the prior product-direction chat. |
 | Launch readiness decision | needs_fix |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
@@ -34,13 +34,13 @@ The surface rows below preserve the older July evidence unless explicitly update
 
 ## October 8 Maintenance Follow-up
 
-The fix and verification pass is recorded in `docs/qa/RESTART_MAINTENANCE_2026-10-08.md`. Development was restored, the CLI link was corrected from production to Development, and three existing pending migrations were applied to Development only. Current development history aligns with all 28 local versions. Production was not modified. Anonymous profile access is denied, but authenticated persistence and cross-user isolation are still unverified in this pass.
+The fix and verification pass is recorded in `docs/qa/RESTART_MAINTENANCE_2026-10-08.md`. Development was restored, the CLI link was corrected from production to Development, and three existing pending migrations were applied to Development only. Current development history aligns with all 28 local versions. Production was not modified. A rolled-back SQL-role smoke passed 74 authenticated checks and four anonymous denial checks across profiles, cycle logs, symptom logs, and water logs. Cross-user reads/writes and ownership transfers were rejected, and a separate cleanup query found zero fixtures. GoTrue signup/email confirmation, Data API behavior, other tables, and full app persistence/concurrency remain unverified in this follow-up.
 
-Compatible dependency fixes removed every critical finding. Expo remains on SDK 54 and the Supabase client remains pinned. The Profile harness now covers the current disclosure sections, exact deletion confirmations, and sign-out shortcut. Metro excludes generated coverage and QA folders from its watcher. All 11 browser scenarios pass; the deterministic analysis reports zero blockers/highs and three review areas. Forty-four screenshots have paired text snapshots. The agent inspected Today, Train, Fuel, Plan, and player mobile screenshots; this is limited local evidence, not independent review or a physical-device test.
+Compatible dependency fixes removed every critical finding. Expo remains on SDK 54 and the Supabase client remains pinned. Image-size parsing now uses official `2.0.4` behind a narrow filename adapter, and Xcode uses UUID `11.1.1`. A global Metro `0.83.8` attempt broke Expo's watcher and was reverted; the final adapter passes both browser and native export. The Profile harness covers current disclosure sections, exact deletion confirmations, and sign-out. Metro excludes generated coverage and QA folders from its watcher. All 11 browser scenarios pass; deterministic analysis reports zero blockers/highs and three review areas. Forty-four screenshots have paired text snapshots. The agent inspected Today, Train, Fuel, Plan, and player mobile screenshots; this is limited local evidence, not independent review or a physical-device test.
 
 The older surface rows below retain their bounded historical evidence unless explicitly updated. Fresh summary results do not clear email confirmation, native phone behavior, purchases, or real boxer comprehension.
 
-The verified code is proposed in [draft PR #1](https://github.com/KarlCupid/CornerIQ/pull/1). The remaining dependency blocker is tracked in [issue #2](https://github.com/KarlCupid/CornerIQ/issues/2). The post-commit local reports and bundle identify `8665dd9` exactly; the final status-documentation update does not change the verified product/tooling implementation.
+The verified changes are proposed in [draft PR #1](https://github.com/KarlCupid/CornerIQ/pull/1). The remaining dependency blocker is tracked in [issue #2](https://github.com/KarlCupid/CornerIQ/issues/2). Final local reports identify the pre-commit follow-up baseline `dde48e6` plus its working tree; they must not be relabeled as exact-SHA release evidence. Read-only EAS metadata independently verifies version `0.1.1`, build `15`, iOS production/STORE, source `5dbe9fd`, FINISHED on August 10. App Store Connect live-build mapping is still outside this evidence.
 
 ## Surface Status
 
@@ -48,18 +48,18 @@ The verified code is proposed in [draft PR #1](https://github.com/KarlCupid/Corn
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| npm install | automated_pass | Passed on 2026-10-08; compatible dependency updates installed successfully. Remaining audit findings are tracked separately. |
+| npm install | automated_pass | Passed on 2026-10-08; final adapter also passes clean npm 10 installation from the lockfile. Remaining audit findings are tracked separately. |
 | typecheck | automated_pass | Passed in QA CI and final `quality` on 2026-10-08. |
-| tests | automated_pass | 925 tests passed and 2 opt-in live tests skipped on 2026-10-08. |
+| tests | automated_pass | 930 tests passed and 2 opt-in live app tests skipped on 2026-10-08; five tooling integration tests are included. Separate SQL policy smoke passes 78 assertions. |
 | lint | automated_pass | Passed on 2026-10-08, including the final Metro configuration. |
 | quality | automated_pass | Passed on 2026-10-08. |
 | coverage | automated_pass | Passed on 2026-10-08: statements 85.39, functions 89.99, lines 84.97, branches 77.09. Vitest 4 uses different coverage remapping, so historical percentages are not directly comparable. |
 | production preflight | automated_pass | Normal and beta preflight pass. Apple paid-build/RevenueCat checks are outside this owner-approved candidate scope and remain deferred rather than represented as completed. |
-| GitHub Actions quality | verified | Exact smoke-fix candidate `89d3eca86ad9d40e3be80f801b18b4f3155c8286` passed push-triggered Quality run `30054264378` and CodeQL run `30054264373` on 2026-07-23. |
+| GitHub Actions quality | needs_fix | First maintenance code commit `8665dd9` fails Quality at the dependency audit (run `37822606495`); CodeQL passes (run `37822606325`). Final follow-up workflow results require their own SHA-specific evidence. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
-| agent QA CI | verified | The final corrected bundle passes static checks, typecheck, 915 tests (1 opt-in live smoke skipped), lint, production preflight, 11 Playwright journeys, engine-output review, deterministic analysis, and bundle generation. The browser audit covers eight mobile Plan-wizard states. |
-| Expo Doctor | verified | 18/18 checks pass after declaring `expo-asset` directly and adding its Expo config plugin. |
-| dependency audit | accepted_launch_limitation | The high PostCSS advisory is fixed by resolving `postcss@8.5.12`; `npm audit --audit-level=high --omit=dev` exits 0. Ten moderate notices remain in Expo's build-time `xcode@3.0.1 -> uuid@7.0.3` chain; forcing npm's suggested breaking Expo change is deferred to a controlled SDK upgrade. |
+| agent QA CI | automated_pass | Final 2026-10-08 run passes all eight gates: 64 static checks, typecheck, 930 tests (two live app tests skipped), lint, preflight, 11 Playwright journeys, engine-output review/analysis, and bundle generation. Evidence identifies the pre-commit working tree. |
+| Expo Doctor | automated_pass | 18/18 checks pass on 2026-10-08 with the final dependency adapter and overrides. |
+| dependency audit | needs_fix | Full and production-tree audits fail: zero critical, 21 high, 5 moderate propagated findings from unpatched braces/node-forge/sprintf-js. Image-size and Xcode UUID findings are resolved. No audit bypass was added. |
 
 ### B. Auth and account
 
@@ -242,7 +242,7 @@ The verified code is proposed in [draft PR #1](https://github.com/KarlCupid/Corn
 | live smoke passes | fixed_needs_verification | Dedicated-account production authentication succeeded. The smoke then exposed timestamp normalization and preview-constraint compatibility failures. Local fixes and focused tests pass; the production migration and a complete rerun remain required. Guarded cleanup ran. |
 | support intake removed from live app | automated_pass | In-app feedback persistence was removed from launch runtime; migration `012` is now applied in production. |
 | data export/delete scope works | human_review_required | Full account deletion live smoke passed on 2026-06-18; portable export and app-data-only deletion still need final live data check if the release owner wants those separately evidenced. |
-| RLS/user-owned behavior remains safe | fixed_needs_verification | Linked schema lint passes. Read-only metadata checks find no public tables with RLS disabled, no exposed RLS tables without policies, no public `SECURITY DEFINER` functions, and no user-owned policies lacking `auth.uid()`. Runtime cross-user RLS still needs the dedicated smoke account. |
+| RLS/user-owned behavior remains safe | human_review_required | October 8 Development SQL-role smoke passes 78 assertions across profiles, cycle logs, symptoms, and water logs, with cross-user operations rejected and rollback cleanup verified. This does not verify GoTrue/Data API behavior or other tables. Current metadata reports all 40 public tables have RLS enabled. Full authenticated app smoke still needs a dedicated account. |
 | real auth/email confirmation reviewed | human_review_required | Live auth check only. |
 
 ### M. Physical mobile / iPhone

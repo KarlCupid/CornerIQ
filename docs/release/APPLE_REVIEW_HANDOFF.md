@@ -1,6 +1,6 @@
 # Apple Review Handoff
 
-Current release context, 2026-10-08: version 0.1.1 is public, released August 11. Prior chat records associate the August 10 build 15 submission with `5dbe9fd`. See [Restart Maintenance](../qa/RESTART_MAINTENANCE_2026-10-08.md) for current evidence and limits. The historical preparation statuses below must not be read as fresh blockers for the already released app or as certification for a future build.
+Current release context, 2026-10-08: version 0.1.1 is public, released August 11. Read-only EAS metadata verifies the August 10 iOS production/STORE build 15 at source `5dbe9fd732ff3be3734de83c7152085d7d0f6f25`, FINISHED. App Store Connect submission-to-live-binary mapping was not independently checked. See [Restart Maintenance](../qa/RESTART_MAINTENANCE_2026-10-08.md) for current evidence and limits. The historical preparation statuses below must not be read as fresh blockers for the already released app or as certification for a future build.
 
 Date: 2026-06-19
 
