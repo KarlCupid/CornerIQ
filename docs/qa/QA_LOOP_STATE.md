@@ -9,8 +9,8 @@ The full-codebase technical and scientific audit is tracked separately through `
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_fix |
-| Last commit tested | 2026-10-08 maintenance working tree based on `d34c64a45132115f94e062fcef3b99ad934c2f9a` (`d34c64a`); verification reports contain that pre-commit HEAD. Review branch: `codex/restart-maintenance`, targeting `codex/development`. |
-| Last QA run result | All eight local gate records pass after targeted browser/evidence repair verification. 925 tests pass, 2 opt-in live tests remain skipped; 11/11 browser scenarios pass with 44 paired screenshot/text artifacts. Quality, lint, beta preflight, coverage, and Expo dependency compatibility pass. Dependency audit remains a separate failure. |
+| Last commit tested | `8665dd9d01b0ca1dda0cd0d0a21cef927e231539` (`8665dd9`) passed the full clean-checkout QA loop on 2026-10-08. Subsequent handoff/status edits are documentation only. Review branch: `codex/restart-maintenance`, targeting `codex/development`, in draft PR #1. |
+| Last QA run result | All eight local gates pass in one complete post-commit QA run. 925 tests pass, 2 opt-in live tests remain skipped; 11/11 browser scenarios pass with 44 paired screenshot/text artifacts. Quality, lint, beta preflight, coverage, iOS Hermes export, and Expo dependency compatibility pass. GitHub CodeQL passes; Quality fails at the remaining dependency audit. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last generated release evidence path | qa-artifacts/release-evidence/current-release-evidence.md (generated artifact; not stored in this committed state file) |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
@@ -39,6 +39,8 @@ The fix and verification pass is recorded in `docs/qa/RESTART_MAINTENANCE_2026-1
 Compatible dependency fixes removed every critical finding. Expo remains on SDK 54 and the Supabase client remains pinned. The Profile harness now covers the current disclosure sections, exact deletion confirmations, and sign-out shortcut. Metro excludes generated coverage and QA folders from its watcher. All 11 browser scenarios pass; the deterministic analysis reports zero blockers/highs and three review areas. Forty-four screenshots have paired text snapshots. The agent inspected Today, Train, Fuel, Plan, and player mobile screenshots; this is limited local evidence, not independent review or a physical-device test.
 
 The older surface rows below retain their bounded historical evidence unless explicitly updated. Fresh summary results do not clear email confirmation, native phone behavior, purchases, or real boxer comprehension.
+
+The verified code is proposed in [draft PR #1](https://github.com/KarlCupid/CornerIQ/pull/1). The remaining dependency blocker is tracked in [issue #2](https://github.com/KarlCupid/CornerIQ/issues/2). The post-commit local reports and bundle identify `8665dd9` exactly; the final status-documentation update does not change the verified product/tooling implementation.
 
 ## Surface Status
 

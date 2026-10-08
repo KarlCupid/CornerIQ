@@ -4,13 +4,14 @@
 - Agent: Codex
 - Scope: compatible dependency remediation, development backend recovery, browser harness repair, verification, and release-record reconciliation.
 - Baseline: `d34c64a45132115f94e062fcef3b99ad934c2f9a` plus the maintenance working-tree changes. Local reports identify this pre-commit HEAD; they do not certify a later commit by SHA alone.
+- Verified code commit: `8665dd9d01b0ca1dda0cd0d0a21cef927e231539` passed a second, complete post-commit `qa:agent:ci` run with a clean working tree. The latest generated reports identify that commit exactly. The final handoff/status update is documentation only.
 - Review branch: `codex/restart-maintenance`, targeting `codex/development`.
 - Browser/viewports: local Chromium, desktop 1280x900 and mobile 390x844.
 - Evidence: ignored `qa-artifacts/reports/`, `qa-artifacts/browser-audit/current/`, and `qa-artifacts/corneriq-agent-qa-bundle.zip`.
 
 ## Result
 
-The local development baseline is usable again. All eight local QA gates pass, with 925 unit tests passing and two credential-dependent live tests skipped. All 11 browser scenarios pass, and all 44 screenshots have matching page-text evidence. The deterministic analysis reports zero blockers and zero highs in its evidence/safety scans, with three review areas remaining.
+The local development baseline is usable again. All eight local QA gates pass in the full post-commit run, with 925 unit tests passing and two credential-dependent live tests skipped. All 11 browser scenarios pass, and all 44 screenshots have matching page-text evidence. The deterministic analysis reports zero blockers and zero highs in its evidence/safety scans, with three review areas remaining.
 
 The dependency audit remains a separate blocker for GitHub Quality and a future release: 22 high and 12 moderate propagated package findings remain. There are zero critical findings in either the complete or production-tree audit. These counts are package findings, not 34 distinct vulnerabilities, and the passing local QA loop does not clear the dependency gate.
 
@@ -51,7 +52,7 @@ Production was not modified. No service-role key was used in the app, tests, bro
 | `cmd /c npm run lint` | Pass, including the final Metro configuration. |
 | `cmd /c npm run quality` | Pass. |
 | `cmd /c npm run preflight:beta` | Pass for the normal gate. Local paid-build environment warnings do not establish a defect in the released build. |
-| `cmd /c npm run qa:agent:ci` and targeted repair verification | All eight gate records pass after browser, engine-evidence, and bundle reruns. |
+| `cmd /c npm run qa:agent:ci` | All eight gates pass in the complete post-commit run on `8665dd9`; targeted repair verification also passed. |
 | Browser audit | 11/11 pass; 44 screenshot/text pairs; runtime guards pass. |
 | Coverage | Pass: statements 85.39%, branches 77.09%, functions 89.99%, lines 84.97%. |
 | `npx expo install --check` | Pass: dependencies are up to date for the selected Expo SDK. |
@@ -59,6 +60,8 @@ Production was not modified. No service-role key was used in the app, tests, bro
 | Development migration dry run | Pass after applying the three existing pending migrations. |
 | `git diff --check` | Pass. |
 | Dependency audit | **Fail at high threshold**; zero critical, 22 high, 12 moderate findings remain. |
+
+The changes are pushed in [draft PR #1](https://github.com/KarlCupid/CornerIQ/pull/1), targeting Development. GitHub's [Quality run](https://github.com/KarlCupid/CornerIQ/actions/runs/37822606495) passes installation, typecheck, lint, and preflight before failing at the documented dependency audit. [CodeQL](https://github.com/KarlCupid/CornerIQ/actions/runs/37822606325) passes on the verified code commit. The remaining dependency work is tracked in [issue #2](https://github.com/KarlCupid/CornerIQ/issues/2).
 
 The initial browser run exposed obsolete Profile copy and selectors. A later run was interrupted by Metro watching replaced coverage directories. The corrected rerun passed all scenarios; incomplete intermediate analysis counts were missing-evidence cascades, not demonstrated product defects. Two initial test-runner attempts were interrupted during diagnosis; the final complete unit, quality, and coverage runs passed.
 
