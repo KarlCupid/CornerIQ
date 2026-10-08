@@ -1,5 +1,11 @@
 # Codex Last Handoff
 
+Current handoff: 2026-10-08. See [Restart Maintenance](qa/RESTART_MAINTENANCE_2026-10-08.md) and [QA Loop State](qa/QA_LOOP_STATE.md) for the current development baseline. Development is restored and migration-aligned, critical dependency findings are resolved, and a transactional database-policy smoke passed all 78 assertions with cleanup verified. The dependency follow-up uses a private filename adapter around patched image-size `2.0.4` and scoped UUID `11.1.1`; three unpatched advisory roots still block the dependency gate (21 high/5 moderate propagated findings, zero critical). Final verification passes all eight local gates, 930 tests, 11 browser scenarios, 18 Expo Doctor checks, npm 10 clean install, and a clean iOS Hermes export. EAS directly confirms build 15/version 0.1.1/source `5dbe9fd`; version 0.1.1 is already public. Live app smoke awaits the Supabase sign-in handoff, and physical phone/purchase/boxer evidence remains required. No new release was submitted.
+
+The May 25 handoff below is historical context.
+
+The follow-up implementation is committed as `5ceda1fbf65dbe2105ef9f4a86a375c0a971366b` in [draft PR #1](https://github.com/KarlCupid/CornerIQ/pull/1). [CodeQL](https://github.com/KarlCupid/CornerIQ/actions/runs/37850785037) passes on that code commit. [Quality](https://github.com/KarlCupid/CornerIQ/actions/runs/37850785086) passes install/typecheck/lint/preflight and fails only at the documented dependency audit. This final CI-status note is documentation only.
+
 Date: 2026-05-25 America/Vancouver
 
 Pass: Expose engine value and reduce card density.

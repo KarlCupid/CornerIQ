@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/tests/**/*.test.ts"],
+    pool: "threads",
     fileParallelism: false,
     globals: true,
     coverage: {

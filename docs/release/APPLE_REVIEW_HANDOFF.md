@@ -1,5 +1,7 @@
 # Apple Review Handoff
 
+Current release context, 2026-10-08: version 0.1.1 is public, released August 11. Read-only EAS metadata verifies the August 10 iOS production/STORE build 15 at source `5dbe9fd732ff3be3734de83c7152085d7d0f6f25`, FINISHED. App Store Connect submission-to-live-binary mapping was not independently checked. See [Restart Maintenance](../qa/RESTART_MAINTENANCE_2026-10-08.md) for current evidence and limits. The historical preparation statuses below must not be read as fresh blockers for the already released app or as certification for a future build.
+
 Date: 2026-06-19
 
 Status: APPLE_SUBMISSION_BLOCKED until the release owner completes the blockers marked below. This file is a handoff checklist, not final App Store metadata.

@@ -277,7 +277,7 @@ describe("agent browser QA static checks", () => {
     for (const implemented of [
       "Train screen exposes safe support workouts",
       "Plan screen exposes week, next week",
-      "Profile Data controls require preview",
+      "Profile Data controls preserve export preview and exact deletion confirmations",
       "Error and recovery safeguards"
     ]) {
       expect(scenario).toContain(implemented);

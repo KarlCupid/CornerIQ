@@ -718,15 +718,15 @@ async function auditProfileSafety(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("profile-app-inputs-card")).toContainText(/Manual logs adjust daily training; wearables are optional/i);
   await expect(page.getByTestId("profile-quick-updates-card")).toContainText("Quick updates");
   await capture(page, testInfo, "Profile setup details", "13a-profile-setup-details.png", { scopeTestId: "profile-setup-details-section" });
-  await openSection(page, "Safety");
+  await openProfileSection(page, "History & Support");
   await expectVisibleText(page, "Training history");
   await expectVisibleText(page, "Fuel safety history");
   await expectVisibleText(page, /Nutrition review history appears in Fuel when active or recently saved/i);
-  await expectVisibleText(page, /Health warnings need medical or nutrition support outside the app/i);
+  await expectVisibleText(page, /For urgent symptoms or immediate safety concerns, stop and get local medical support now/i);
   await expect(page.getByRole("button", { name: "Show saved history detail" })).toBeVisible();
   await page.getByRole("button", { name: "Show saved history detail" }).click();
   await expectVisibleText(page, "Saved history detail");
-  await expectVisibleText(page, /History explains app state; app controls do not clear health warnings/i);
+  await expectVisibleText(page, /History explains app state; support and review actions stay in their relevant training or fuel screens/i);
   const output = await visiblePageText(page, "profile-safety-section");
   expect(output).not.toMatch(/beta|tester|preflight|release candidate|send feedback|report this issue/i);
   expect(output).not.toMatch(/reviewer-clear|clear as reviewer|coach-only/i);
@@ -933,12 +933,13 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await openTab(page, "Profile");
   await openProfileSection(page, "Data");
   await expectVisibleText(page, "Data controls");
-  await expectVisibleText(page, "Preview your app data before export or delete. Delete requires DELETE.");
+  await expectVisibleText(page, "Preview or generate a portable copy of your CornerIQ data.");
   await expectVisibleText(page, /Delete app data removes user-owned app rows only/);
   await expectVisibleText(page, /Delete account uses the trusted server-side account deletion function/);
   await expectVisibleText(page, "Privacy Policy");
   await expectVisibleText(page, "Open Privacy Policy");
-  const deleteButton = page.getByRole("button", { name: "Delete app data" });
+  await openSection(page, "Delete controls");
+  const deleteButton = page.getByRole("button", { name: "Delete app data only", exact: true });
   const deleteAccountButton = page.getByRole("button", { name: "Delete account" });
   await expect(deleteButton).toBeDisabled();
   await expect(deleteAccountButton).toBeDisabled();
@@ -947,18 +948,27 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "profile: 2");
   await expectVisibleText(page, "training: 4");
   await expect(deleteButton).toBeDisabled();
+  await page.getByLabel("Delete confirmation", { exact: true }).fill("DELETE ACCOUNT");
+  await expect(deleteButton).toBeDisabled();
   await page.getByLabel("Delete confirmation").fill("DELETE");
   await expect(deleteButton).toBeEnabled();
-  await expectVisibleText(page, "This is irreversible and signs you out. Export first. Requires DELETE ACCOUNT.");
+  await expectVisibleText(page, "This is irreversible and signs you out. Type DELETE ACCOUNT exactly.");
+  await page.getByLabel("Delete account confirmation").fill("DELETE");
+  await expect(deleteAccountButton).toBeDisabled();
+  await page.getByLabel("Delete account confirmation").fill("DELETE ACCOUNT");
+  await expect(deleteAccountButton).toBeEnabled();
+  await page.getByLabel("Delete account confirmation").fill("");
+  await expect(deleteAccountButton).toBeDisabled();
   await deleteButton.click();
   await expectVisibleText(page, "Local E2E data deletion is disabled. No Supabase call was made.");
   expectNoDisplayedSecretValues(await visiblePageText(page, "profile-data-section"));
   await capture(page, testInfo, "Profile Data controls", "24-profile-data-controls.png", { scopeTestId: "profile-data-section" });
   await capture(page, testInfo, "Profile Data delete submit", "24-profile-data-delete-submit.png", { fullPage: false, scopeTestId: "profile-data-section" });
 
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
-  await capture(page, testInfo, "Profile Account sign out", "25-profile-settings-signout.png", { scopeTestId: "profile-account-section" });
-  await page.getByRole("button", { name: "Sign out" }).click();
+  const signOutButton = page.getByRole("button", { name: "Shortcut account exit", exact: true });
+  await expect(signOutButton).toBeVisible();
+  await capture(page, testInfo, "Profile Account sign out", "25-profile-settings-signout.png", { scopeTestId: "profile-athlete-section" });
+  await signOutButton.click();
   await expect(page.getByTestId("auth-screen")).toBeVisible();
   await expectVisibleText(page, "Local E2E sign-in accepts any non-empty email and password.");
 }
@@ -1185,7 +1195,7 @@ test("Plan screen exposes week, next week, history, and engine-owned adjustments
   await auditPlan(page, testInfo);
 });
 
-test("Profile Data controls require preview and DELETE confirmation", async ({ page }, testInfo) => {
+test("Profile Data controls preserve export preview and exact deletion confirmations", async ({ page }, testInfo) => {
   testInfo.setTimeout(90_000);
   await openLocalToday(page);
   await auditProfileDataControls(page, testInfo);
